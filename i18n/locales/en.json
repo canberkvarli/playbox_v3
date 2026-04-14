@@ -39,7 +39,9 @@
       "title": "your phone?",
       "sub": "we'll send you a verification code via sms.",
       "placeholder": "5xx xxx xx xx",
-      "cta": "send code"
+      "cta": "send code",
+      "invalid": "enter a valid turkish number",
+      "send_failed": "couldn't send the code, try again"
     },
     "otp": {
       "title": "enter the code",

@@ -39,7 +39,9 @@
       "title": "telefonun?",
       "sub": "sms ile doğrulama kodu göndereceğiz.",
       "placeholder": "5xx xxx xx xx",
-      "cta": "kod gönder"
+      "cta": "kod gönder",
+      "invalid": "geçerli bir türk numarası gir",
+      "send_failed": "kod gönderilemedi, tekrar dene"
     },
     "otp": {
       "title": "kodu gir",
