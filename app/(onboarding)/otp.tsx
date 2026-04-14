@@ -8,6 +8,7 @@ import { useSignUp } from '@clerk/clerk-expo';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 
 const RESEND_SECONDS = 60;
 
@@ -110,19 +111,7 @@ export default function Otp() {
         >
           <Feather name="arrow-left" size={24} color={palette.ink} />
         </Pressable>
-        <View className="flex-row gap-2">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <View
-              key={i}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: i === 4 ? palette.coral : palette.ink + '33',
-              }}
-            />
-          ))}
-        </View>
+        <OnboardingProgress total={5} active={4} />
       </View>
 
       <View className="mt-12">

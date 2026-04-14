@@ -7,6 +7,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -80,19 +81,7 @@ export default function Handle() {
         >
           <Text className="font-semibold text-paper text-base">{initial}</Text>
         </View>
-        <View className="flex-row gap-2">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <View
-              key={i}
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: 4,
-                backgroundColor: i === 5 ? palette.coral : palette.ink + '33',
-              }}
-            />
-          ))}
-        </View>
+        <OnboardingProgress total={6} active={5} />
       </View>
 
       <View className="mt-12">
