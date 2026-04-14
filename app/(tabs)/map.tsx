@@ -17,6 +17,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
+import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
 import { haversineKm, walkingMinutes } from '@/lib/geo';
 
@@ -25,14 +26,6 @@ const FALLBACK_REGION: Region = {
   longitude: 28.9850,
   latitudeDelta: 0.04,
   longitudeDelta: 0.04,
-};
-
-const SPORT_EMOJI: Record<Sport, string> = {
-  football: '⚽',
-  basketball: '🏀',
-  volleyball: '🏐',
-  paddle: '🛶',
-  tennis: '🎾',
 };
 
 const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyball', 'paddle', 'tennis'];

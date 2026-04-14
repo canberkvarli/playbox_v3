@@ -110,5 +110,32 @@
       "open": "open"
     },
     "no_location": "no location"
+  },
+  "play": {
+    "title": "play",
+    "live": {
+      "eyebrow": "active session",
+      "planned_suffix": "min planned"
+    },
+    "return": {
+      "title": "return it",
+      "confirm_title": "sure?",
+      "confirm_sub": "close only if you've actually returned it — photo verification in v2",
+      "confirm_cta": "i returned it"
+    },
+    "tips": {
+      "check_station": "make sure the station is open",
+      "photo_return": "point camera at QR when returning",
+      "time_limit": "overtime: fees apply"
+    },
+    "empty": {
+      "title": "no active session",
+      "sub": "borrow something from a station nearby",
+      "cta": "open map"
+    },
+    "history": {
+      "label": "history",
+      "count_suffix": "sessions"
+    }
   }
 }

@@ -110,5 +110,32 @@
       "open": "aç"
     },
     "no_location": "konum yok"
+  },
+  "play": {
+    "title": "oyna",
+    "live": {
+      "eyebrow": "aktif seans",
+      "planned_suffix": "dk planlandı"
+    },
+    "return": {
+      "title": "iade et",
+      "confirm_title": "emin misin?",
+      "confirm_sub": "iade ettiğinden emin olduğunda kapat — fotoğraf ister (v2)",
+      "confirm_cta": "iade ettim"
+    },
+    "tips": {
+      "check_station": "istasyonun açık olduğundan emin ol",
+      "photo_return": "iade sırasında qr'ı kameraya tut",
+      "time_limit": "süre aşımı: ek ücret uygulanır"
+    },
+    "empty": {
+      "title": "şu an seansın yok",
+      "sub": "yakındaki istasyondan bir şeyler ödünç al",
+      "cta": "haritayı aç"
+    },
+    "history": {
+      "label": "geçmiş",
+      "count_suffix": "seans"
+    }
   }
 }

@@ -15,6 +15,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
 import { SPORT_LABELS, type Sport } from '@/data/stations.seed';
+import { SPORT_EMOJI } from '@/data/sports';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -38,14 +39,6 @@ const FRIENDS = [
   { name: 'Burak', handle: '@brk', following: false, minutes: 198 },
   { name: 'Ayşe', handle: '@ays', following: true, minutes: 180 },
 ];
-
-const SPORT_EMOJI: Record<Sport, string> = {
-  football: '⚽',
-  basketball: '🏀',
-  volleyball: '🏐',
-  paddle: '🛶',
-  tennis: '🎾',
-};
 
 function nextMilestone(streak: number) {
   if (streak < 7) return 7;
