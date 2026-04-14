@@ -11,6 +11,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { useDevStore } from '@/stores/devStore';
 
 function digitsOnly(s: string) {
   return s.replace(/\D/g, '');
@@ -37,6 +38,7 @@ export default function Phone() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signUp, isLoaded } = useSignUp();
+  const setBypass = useDevStore((s) => s.setBypass);
 
   const [raw, setRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -171,6 +173,22 @@ export default function Phone() {
           </Text>
         </Pressable>
       </RiseIn>
+
+      {__DEV__ ? (
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            setBypass(true);
+            router.replace('/(tabs)/map');
+          }}
+          className="mt-4"
+          hitSlop={8}
+        >
+          <Text className="font-mono text-xs text-ink/40 underline text-center">
+            dev: admin ol
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
