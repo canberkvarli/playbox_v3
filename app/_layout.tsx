@@ -8,13 +8,9 @@ import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 
-SplashScreen.preventAutoHideAsync();
-
 export { ErrorBoundary } from 'expo-router';
 
-export const unstable_settings = {
-  initialRouteName: '(tabs)',
-};
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -36,8 +32,10 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(onboarding)" />
+        <Stack.Screen name="(tabs)" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
