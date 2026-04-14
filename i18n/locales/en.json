@@ -55,7 +55,10 @@
       "title": "what should we call you?",
       "name_label": "name",
       "handle_label": "username",
-      "cta": "finish"
+      "cta": "finish",
+      "hint": "3-20 chars — letters, numbers, underscore",
+      "invalid": "invalid — must be 3-20 chars (letters/numbers/_)",
+      "save_failed": "save failed, try again"
     }
   },
   "common": {

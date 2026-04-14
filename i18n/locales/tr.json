@@ -55,7 +55,10 @@
       "title": "seni nasıl çağıralım?",
       "name_label": "isim",
       "handle_label": "kullanıcı adı",
-      "cta": "bitir"
+      "cta": "bitir",
+      "hint": "3-20 karakter — harf, sayı, alt tire",
+      "invalid": "geçersiz — 3-20 karakter, harf/sayı/_ olmalı",
+      "save_failed": "kaydedilemedi, tekrar dene"
     }
   },
   "common": {
