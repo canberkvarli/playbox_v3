@@ -67,5 +67,23 @@
     "done": "tamam",
     "loading": "yükleniyor",
     "error_generic": "bir şeyler ters gitti"
+  },
+  "map": {
+    "city_count": "{{city}} · {{count}} istasyon aktif",
+    "filters": {
+      "all": "tümü",
+      "football": "futbol",
+      "basketball": "basket",
+      "volleyball": "voleybol",
+      "paddle": "paddle",
+      "tennis": "tenis"
+    },
+    "preview": {
+      "walking_time": "~{{min}} dk yürüme",
+      "stock_chip": "{{sport}} · {{count}}",
+      "out_of_stock": "şu an boş",
+      "open": "aç"
+    },
+    "no_location": "konum yok"
   }
 }

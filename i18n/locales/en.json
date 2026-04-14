@@ -67,5 +67,23 @@
     "done": "done",
     "loading": "loading",
     "error_generic": "something went wrong"
+  },
+  "map": {
+    "city_count": "{{city}} · {{count}} stations active",
+    "filters": {
+      "all": "all",
+      "football": "football",
+      "basketball": "basketball",
+      "volleyball": "volleyball",
+      "paddle": "paddle",
+      "tennis": "tennis"
+    },
+    "preview": {
+      "walking_time": "~{{min}} min walk",
+      "stock_chip": "{{sport}} · {{count}}",
+      "out_of_stock": "out of stock",
+      "open": "open"
+    },
+    "no_location": "no location"
   }
 }
