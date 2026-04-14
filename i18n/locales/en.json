@@ -31,6 +31,8 @@
       "location": { "title": "location", "why": "to find the nearest station" },
       "notif":    { "title": "notifications", "why": "to remind you before your time's up" },
       "camera":   { "title": "camera", "why": "to scan the QR at the station" },
+      "denied": "permission denied",
+      "retry": "try again",
       "cta": "ok, continue"
     },
     "phone": {

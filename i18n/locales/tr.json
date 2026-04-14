@@ -31,6 +31,8 @@
       "location": { "title": "konum", "why": "en yakın istasyonu bulmak için" },
       "notif":    { "title": "bildirim", "why": "iade süresi dolmadan hatırlatmak için" },
       "camera":   { "title": "kamera", "why": "istasyondaki qr'ı okumak için" },
+      "denied": "izin verilmedi",
+      "retry": "tekrar dene",
       "cta": "tamam, devam"
     },
     "phone": {

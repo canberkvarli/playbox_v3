@@ -32,7 +32,26 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Playbox yakındaki istasyonları göstermek için konumunu kullanır."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#572c57"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Playbox istasyonlardaki QR kodları okumak için kamera kullanır."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
