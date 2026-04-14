@@ -15,6 +15,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { RiseIn } from '@/components/RiseIn';
 
 type RowProps = {
   index: number;
@@ -115,21 +116,25 @@ export default function IntroSocial() {
         <OnboardingProgress total={3} active={2} />
       </View>
 
-      <View className="mt-12">
-        {titleLines.map((line, i) => (
-          <Text
-            key={i}
-            className="font-display-x text-ink text-5xl"
-            style={{ lineHeight: 48 }}
-          >
-            {line}
-          </Text>
-        ))}
-      </View>
+      <RiseIn delay={0}>
+        <View className="mt-12">
+          {titleLines.map((line, i) => (
+            <Text
+              key={i}
+              className="font-display-x text-ink text-5xl"
+              style={{ lineHeight: 48 }}
+            >
+              {line}
+            </Text>
+          ))}
+        </View>
+      </RiseIn>
 
-      <Text className="font-sans text-ink/70 text-base leading-6 mt-4">
-        {t('onb.intro_social.sub')}
-      </Text>
+      <RiseIn delay={80}>
+        <Text className="font-sans text-ink/70 text-base leading-6 mt-4">
+          {t('onb.intro_social.sub')}
+        </Text>
+      </RiseIn>
 
       <View className="flex-1 mt-8 mb-8 justify-center gap-3">
         {ROWS.map((r, i) => (
@@ -137,17 +142,19 @@ export default function IntroSocial() {
         ))}
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('onb.intro_social.cta')}
-        onPress={onContinue}
-        className="bg-coral rounded-2xl py-5 active:opacity-90"
-        style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
-      >
-        <Text className="text-paper font-semibold text-lg text-center">
-          {t('onb.intro_social.cta')}
-        </Text>
-      </Pressable>
+      <RiseIn delay={280}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('onb.intro_social.cta')}
+          onPress={onContinue}
+          className="bg-coral rounded-2xl py-5 active:opacity-90"
+          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
+        >
+          <Text className="text-paper font-semibold text-lg text-center">
+            {t('onb.intro_social.cta')}
+          </Text>
+        </Pressable>
+      </RiseIn>
     </View>
   );
 }

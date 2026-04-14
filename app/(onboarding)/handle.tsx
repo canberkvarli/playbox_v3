@@ -8,6 +8,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { RiseIn } from '@/components/RiseIn';
 
 const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -84,35 +85,40 @@ export default function Handle() {
         <OnboardingProgress total={6} active={5} />
       </View>
 
-      <View className="mt-12">
-        <Text
-          className="font-display-x text-ink text-5xl"
-          style={{ lineHeight: 48 }}
-        >
-          {t('onb.handle.title')}
-        </Text>
-      </View>
+      <RiseIn delay={0}>
+        <View className="mt-12">
+          <Text
+            className="font-display-x text-ink text-5xl"
+            style={{ lineHeight: 48 }}
+          >
+            {t('onb.handle.title')}
+          </Text>
+        </View>
+      </RiseIn>
 
-      <View className="mt-8">
-        <Text className="font-medium text-ink/70 text-sm uppercase tracking-wider mb-2">
-          {t('onb.handle.name_label')}
-        </Text>
-        <TextInput
-          value={name}
-          onChangeText={onChangeName}
-          placeholder="..."
-          placeholderTextColor={palette.ink + '4d'}
-          autoFocus
-          autoCapitalize="words"
-          autoCorrect={false}
-          textContentType="givenName"
-          maxLength={30}
-          className="bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-sans text-ink text-lg"
-          style={{ minHeight: 56 }}
-        />
-      </View>
+      <RiseIn delay={120}>
+        <View className="mt-8">
+          <Text className="font-medium text-ink/70 text-sm uppercase tracking-wider mb-2">
+            {t('onb.handle.name_label')}
+          </Text>
+          <TextInput
+            value={name}
+            onChangeText={onChangeName}
+            placeholder="..."
+            placeholderTextColor={palette.ink + '4d'}
+            autoFocus
+            autoCapitalize="words"
+            autoCorrect={false}
+            textContentType="givenName"
+            maxLength={30}
+            className="bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-sans text-ink text-lg"
+            style={{ minHeight: 56 }}
+          />
+        </View>
+      </RiseIn>
 
-      <View className="mt-6">
+      <RiseIn delay={200}>
+       <View className="mt-6">
         <Text className="font-medium text-ink/70 text-sm uppercase tracking-wider mb-2">
           {t('onb.handle.handle_label')}
         </Text>
@@ -152,27 +158,30 @@ export default function Handle() {
             {t('onb.handle.hint')}
           </Text>
         )}
-      </View>
+       </View>
+      </RiseIn>
 
       <View className="flex-1" />
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('onb.handle.cta')}
-        accessibilityState={{ disabled: !ctaEnabled }}
-        onPress={onSubmit}
-        disabled={!ctaEnabled}
-        className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
-        style={({ pressed }) => ({
-          transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
-        })}
-      >
-        <Text
-          className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+      <RiseIn delay={300}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('onb.handle.cta')}
+          accessibilityState={{ disabled: !ctaEnabled }}
+          onPress={onSubmit}
+          disabled={!ctaEnabled}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          style={({ pressed }) => ({
+            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+          })}
         >
-          {busy ? '...' : t('onb.handle.cta')}
-        </Text>
-      </Pressable>
+          <Text
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+          >
+            {busy ? '...' : t('onb.handle.cta')}
+          </Text>
+        </Pressable>
+      </RiseIn>
     </View>
   );
 }

@@ -11,6 +11,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { RiseIn } from '@/components/RiseIn';
 
 type PermStatus = 'idle' | 'granted' | 'denied';
 type PermKey = 'location' | 'notif' | 'camera';
@@ -156,40 +157,46 @@ export default function Permissions() {
         <OnboardingProgress total={4} active={3} />
       </View>
 
-      <View className="mt-12">
-        <Text
-          className="font-display-x text-ink text-5xl"
-          style={{ lineHeight: 48 }}
-        >
-          {t('onb.perms.title')}
-        </Text>
-      </View>
+      <RiseIn delay={0}>
+        <View className="mt-12">
+          <Text
+            className="font-display-x text-ink text-5xl"
+            style={{ lineHeight: 48 }}
+          >
+            {t('onb.perms.title')}
+          </Text>
+        </View>
+      </RiseIn>
 
-      <View className="mt-8 gap-3">
-        <PermissionCard k="location" status={perms.location} onPress={handle('location')} t={t} />
-        <PermissionCard k="notif"    status={perms.notif}    onPress={handle('notif')}    t={t} />
-        <PermissionCard k="camera"   status={perms.camera}   onPress={handle('camera')}   t={t} />
-      </View>
+      <RiseIn delay={120}>
+        <View className="mt-8 gap-3">
+          <PermissionCard k="location" status={perms.location} onPress={handle('location')} t={t} />
+          <PermissionCard k="notif"    status={perms.notif}    onPress={handle('notif')}    t={t} />
+          <PermissionCard k="camera"   status={perms.camera}   onPress={handle('camera')}   t={t} />
+        </View>
+      </RiseIn>
 
       <View className="flex-1" />
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('onb.perms.cta')}
-        accessibilityState={{ disabled: !ctaEnabled }}
-        onPress={onContinue}
-        disabled={!ctaEnabled}
-        className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
-        style={({ pressed }) => ({
-          transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
-        })}
-      >
-        <Text
-          className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+      <RiseIn delay={220}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('onb.perms.cta')}
+          accessibilityState={{ disabled: !ctaEnabled }}
+          onPress={onContinue}
+          disabled={!ctaEnabled}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          style={({ pressed }) => ({
+            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+          })}
         >
-          {t('onb.perms.cta')}
-        </Text>
-      </Pressable>
+          <Text
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+          >
+            {t('onb.perms.cta')}
+          </Text>
+        </Pressable>
+      </RiseIn>
     </View>
   );
 }

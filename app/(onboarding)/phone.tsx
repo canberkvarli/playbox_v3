@@ -10,6 +10,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { RiseIn } from '@/components/RiseIn';
 
 function digitsOnly(s: string) {
   return s.replace(/\D/g, '');
@@ -96,42 +97,46 @@ export default function Phone() {
         <OnboardingProgress total={5} active={4} />
       </View>
 
-      <View className="mt-12">
-        <Text
-          className="font-display-x text-ink text-5xl"
-          style={{ lineHeight: 48 }}
-        >
-          {t('onb.phone.title')}
-        </Text>
-        <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
-          {t('onb.phone.sub')}
-        </Text>
-      </View>
-
-      <View className="mt-8 flex-row gap-3 items-center">
-        <View
-          style={{
-            backgroundColor: palette.ink,
-            borderRadius: 16,
-            paddingHorizontal: 16,
-            paddingVertical: 16,
-          }}
-        >
-          <Text className="font-mono text-paper text-lg">+90</Text>
+      <RiseIn delay={0}>
+        <View className="mt-12">
+          <Text
+            className="font-display-x text-ink text-5xl"
+            style={{ lineHeight: 48 }}
+          >
+            {t('onb.phone.title')}
+          </Text>
+          <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
+            {t('onb.phone.sub')}
+          </Text>
         </View>
-        <TextInput
-          value={formatted}
-          onChangeText={onChange}
-          placeholder={t('onb.phone.placeholder')}
-          placeholderTextColor={palette.ink + '4d'}
-          keyboardType="phone-pad"
-          autoFocus
-          textContentType="telephoneNumber"
-          maxLength={14}
-          className="flex-1 bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-mono text-ink text-lg"
-          style={{ minHeight: 56 }}
-        />
-      </View>
+      </RiseIn>
+
+      <RiseIn delay={120}>
+        <View className="mt-8 flex-row gap-3 items-center">
+          <View
+            style={{
+              backgroundColor: palette.ink,
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              paddingVertical: 16,
+            }}
+          >
+            <Text className="font-mono text-paper text-lg">+90</Text>
+          </View>
+          <TextInput
+            value={formatted}
+            onChangeText={onChange}
+            placeholder={t('onb.phone.placeholder')}
+            placeholderTextColor={palette.ink + '4d'}
+            keyboardType="phone-pad"
+            autoFocus
+            textContentType="telephoneNumber"
+            maxLength={14}
+            className="flex-1 bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-mono text-ink text-lg"
+            style={{ minHeight: 56 }}
+          />
+        </View>
+      </RiseIn>
 
       {error ? (
         <Text className="font-sans text-coral text-xs mt-2 ml-1">{error}</Text>
@@ -147,23 +152,25 @@ export default function Phone() {
 
       <View className="flex-1" />
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('onb.phone.cta')}
-        accessibilityState={{ disabled: !ctaEnabled }}
-        onPress={onContinue}
-        disabled={!ctaEnabled}
-        className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
-        style={({ pressed }) => ({
-          transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
-        })}
-      >
-        <Text
-          className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+      <RiseIn delay={220}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('onb.phone.cta')}
+          accessibilityState={{ disabled: !ctaEnabled }}
+          onPress={onContinue}
+          disabled={!ctaEnabled}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          style={({ pressed }) => ({
+            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+          })}
         >
-          {busy ? '...' : t('onb.phone.cta')}
-        </Text>
-      </Pressable>
+          <Text
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+          >
+            {busy ? '...' : t('onb.phone.cta')}
+          </Text>
+        </Pressable>
+      </RiseIn>
     </View>
   );
 }

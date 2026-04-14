@@ -9,6 +9,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { RiseIn } from '@/components/RiseIn';
 
 const RESEND_SECONDS = 60;
 
@@ -114,19 +115,22 @@ export default function Otp() {
         <OnboardingProgress total={5} active={4} />
       </View>
 
-      <View className="mt-12">
-        <Text
-          className="font-display-x text-ink text-5xl"
-          style={{ lineHeight: 48 }}
-        >
-          {t('onb.otp.title')}
-        </Text>
-        <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
-          {t('onb.otp.sub', { phone: phone ?? '' })}
-        </Text>
-      </View>
+      <RiseIn delay={0}>
+        <View className="mt-12">
+          <Text
+            className="font-display-x text-ink text-5xl"
+            style={{ lineHeight: 48 }}
+          >
+            {t('onb.otp.title')}
+          </Text>
+          <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
+            {t('onb.otp.sub', { phone: phone ?? '' })}
+          </Text>
+        </View>
+      </RiseIn>
 
-      <Pressable className="mt-10" onPress={focusInput}>
+      <RiseIn delay={140}>
+       <Pressable className="mt-10" onPress={focusInput}>
         <View className="flex-row gap-2 justify-center">
           {cells.map((digit, i) => {
             const filled = digit !== '';
@@ -178,21 +182,24 @@ export default function Otp() {
             color: 'transparent',
           }}
         />
-      </Pressable>
+       </Pressable>
+      </RiseIn>
 
-      <View className="mt-6 items-center">
-        {secondsLeft > 0 ? (
-          <Text className="font-mono text-ink/50 text-sm">
-            {t('onb.otp.resend_in', { s: secondsLeft })}
-          </Text>
-        ) : (
-          <Pressable onPress={onResend} hitSlop={8}>
-            <Text className="font-mono text-coral text-sm font-medium underline">
-              {t('onb.otp.resend')}
+      <RiseIn delay={220}>
+        <View className="mt-6 items-center">
+          {secondsLeft > 0 ? (
+            <Text className="font-mono text-ink/50 text-sm">
+              {t('onb.otp.resend_in', { s: secondsLeft })}
             </Text>
-          </Pressable>
-        )}
-      </View>
+          ) : (
+            <Pressable onPress={onResend} hitSlop={8}>
+              <Text className="font-mono text-coral text-sm font-medium underline">
+                {t('onb.otp.resend')}
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      </RiseIn>
 
       {error ? (
         <Text className="font-sans text-coral text-xs text-center mt-4">{error}</Text>
