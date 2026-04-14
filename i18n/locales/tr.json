@@ -47,7 +47,9 @@
       "title": "kodu gir",
       "sub": "{{phone}} numarasına gönderdiğimiz 6 haneli kod.",
       "resend": "tekrar gönder",
-      "resend_in": "{{s}}s sonra tekrar"
+      "resend_in": "{{s}}s sonra tekrar",
+      "invalid": "kod hatalı, tekrar gir",
+      "resend_failed": "tekrar gönderilemedi"
     },
     "handle": {
       "title": "seni nasıl çağıralım?",

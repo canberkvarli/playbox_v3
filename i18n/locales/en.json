@@ -47,7 +47,9 @@
       "title": "enter the code",
       "sub": "6-digit code sent to {{phone}}.",
       "resend": "resend",
-      "resend_in": "resend in {{s}}s"
+      "resend_in": "resend in {{s}}s",
+      "invalid": "wrong code, try again",
+      "resend_failed": "couldn't resend"
     },
     "handle": {
       "title": "what should we call you?",
