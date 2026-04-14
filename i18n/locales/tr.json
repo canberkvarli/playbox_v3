@@ -1,0 +1,62 @@
+{
+  "tabs": {
+    "map": "harita",
+    "play": "oyna",
+    "profile": "profil"
+  },
+  "tabs_sub": {
+    "map": "yakındaki istasyonlar",
+    "play": "aktif seans ve geçmiş",
+    "profile": "seri, istatistik, arkadaşlar"
+  },
+  "onb": {
+    "welcome": {
+      "eyebrow": "merhaba",
+      "title": "oyna.\niade et.\ntekrar oyna.",
+      "sub": "şehrin her yerinde spor ekipmanı. anında, ücretsiz, cebinde.",
+      "cta": "başla"
+    },
+    "intro_map": {
+      "title": "yakınındaki\nistasyonlar",
+      "sub": "top, raket, paddle — hepsi cepten görünür mesafede.",
+      "cta": "devam"
+    },
+    "intro_social": {
+      "title": "arkadaşlarınla\nseri yap",
+      "sub": "haftalık şehir sıralaması. takip et, geç, övün.",
+      "cta": "hadi başlayalım"
+    },
+    "perms": {
+      "title": "birkaç izin",
+      "location": { "title": "konum", "why": "en yakın istasyonu bulmak için" },
+      "notif":    { "title": "bildirim", "why": "iade süresi dolmadan hatırlatmak için" },
+      "camera":   { "title": "kamera", "why": "istasyondaki qr'ı okumak için" },
+      "cta": "tamam, devam"
+    },
+    "phone": {
+      "title": "telefonun?",
+      "sub": "sms ile doğrulama kodu göndereceğiz.",
+      "placeholder": "5xx xxx xx xx",
+      "cta": "kod gönder"
+    },
+    "otp": {
+      "title": "kodu gir",
+      "sub": "{{phone}} numarasına gönderdiğimiz 6 haneli kod.",
+      "resend": "tekrar gönder",
+      "resend_in": "{{s}}s sonra tekrar"
+    },
+    "handle": {
+      "title": "seni nasıl çağıralım?",
+      "name_label": "isim",
+      "handle_label": "kullanıcı adı",
+      "cta": "bitir"
+    }
+  },
+  "common": {
+    "back": "geri",
+    "cancel": "iptal",
+    "done": "tamam",
+    "loading": "yükleniyor",
+    "error_generic": "bir şeyler ters gitti"
+  }
+}

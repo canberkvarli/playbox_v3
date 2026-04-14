@@ -1,0 +1,62 @@
+{
+  "tabs": {
+    "map": "map",
+    "play": "play",
+    "profile": "profile"
+  },
+  "tabs_sub": {
+    "map": "nearby stations",
+    "play": "active session & history",
+    "profile": "streak, stats, friends"
+  },
+  "onb": {
+    "welcome": {
+      "eyebrow": "hey",
+      "title": "play.\nreturn it.\nplay again.",
+      "sub": "sports gear everywhere in your city. instant, free, in your pocket.",
+      "cta": "start"
+    },
+    "intro_map": {
+      "title": "stations\nnear you",
+      "sub": "ball, racket, paddle — all within walking distance.",
+      "cta": "continue"
+    },
+    "intro_social": {
+      "title": "keep a streak\nwith friends",
+      "sub": "weekly city leaderboards. follow, beat, flex.",
+      "cta": "let's go"
+    },
+    "perms": {
+      "title": "a few permissions",
+      "location": { "title": "location", "why": "to find the nearest station" },
+      "notif":    { "title": "notifications", "why": "to remind you before your time's up" },
+      "camera":   { "title": "camera", "why": "to scan the QR at the station" },
+      "cta": "ok, continue"
+    },
+    "phone": {
+      "title": "your phone?",
+      "sub": "we'll send you a verification code via sms.",
+      "placeholder": "5xx xxx xx xx",
+      "cta": "send code"
+    },
+    "otp": {
+      "title": "enter the code",
+      "sub": "6-digit code sent to {{phone}}.",
+      "resend": "resend",
+      "resend_in": "resend in {{s}}s"
+    },
+    "handle": {
+      "title": "what should we call you?",
+      "name_label": "name",
+      "handle_label": "username",
+      "cta": "finish"
+    }
+  },
+  "common": {
+    "back": "back",
+    "cancel": "cancel",
+    "done": "done",
+    "loading": "loading",
+    "error_generic": "something went wrong"
+  }
+}

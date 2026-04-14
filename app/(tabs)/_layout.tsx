@@ -3,8 +3,10 @@ import { Feather } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 
 import { palette } from '@/constants/theme';
+import { useT } from '@/hooks/useT';
 
 export default function TabLayout() {
+  const { t } = useT();
   return (
     <Tabs
       screenOptions={{
@@ -29,21 +31,21 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-          title: 'harita',
+          title: t('tabs.map'),
           tabBarIcon: ({ color, size }) => <Feather name="map" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="play"
         options={{
-          title: 'oyna',
+          title: t('tabs.play'),
           tabBarIcon: ({ color, size }) => <Feather name="play-circle" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'profil',
+          title: t('tabs.profile'),
           tabBarIcon: ({ color, size }) => <Feather name="user" size={size} color={color} />,
         }}
       />
