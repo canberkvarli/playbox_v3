@@ -15,9 +15,13 @@ export { ErrorBoundary } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
-if (!publishableKey) {
-  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY. Add it to .env.local (see .env.example).');
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
+if (!publishableKey && __DEV__) {
+  console.warn(
+    '[playbox] EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. ' +
+    'Auth calls will fail until you add it to .env.local (see .env.example). ' +
+    'UI work (onboarding visuals, map, tabs) will still render.'
+  );
 }
 
 export default function RootLayout() {
