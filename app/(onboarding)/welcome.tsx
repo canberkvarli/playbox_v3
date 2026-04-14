@@ -1,16 +1,6 @@
-import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -23,25 +13,6 @@ export default function Welcome() {
 
   const titleLines = t('onb.welcome.title').split('\n');
 
-  const eyebrowOpacity = useSharedValue(0);
-  useEffect(() => {
-    eyebrowOpacity.value = withSequence(
-      withTiming(1, { duration: 380, easing: Easing.out(Easing.cubic) }),
-      withDelay(
-        400,
-        withRepeat(
-          withSequence(
-            withTiming(0.55, { duration: 1200, easing: Easing.inOut(Easing.quad) }),
-            withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.quad) })
-          ),
-          -1,
-          false
-        )
-      )
-    );
-  }, []);
-  const eyebrowStyle = useAnimatedStyle(() => ({ opacity: eyebrowOpacity.value }));
-
   const onStart = async () => {
     await hx.press();
     router.push('/(onboarding)/intro-map');
@@ -52,13 +23,7 @@ export default function Welcome() {
       className="flex-1 bg-paper px-6"
       style={{ paddingTop: insets.top + 32, paddingBottom: insets.bottom + 16 }}
     >
-      <Animated.View style={eyebrowStyle}>
-        <Text className="font-medium text-mauve uppercase tracking-widest text-sm">
-          {t('onb.welcome.eyebrow')}
-        </Text>
-      </Animated.View>
-
-      <RiseIn delay={140}>
+      <RiseIn delay={0}>
         <View className="mt-3">
           {titleLines.map((line, i) => (
             <Text
@@ -72,7 +37,7 @@ export default function Welcome() {
         </View>
       </RiseIn>
 
-      <RiseIn delay={220}>
+      <RiseIn delay={120}>
         <Text className="font-sans text-lg text-ink/70 mt-6 leading-6">
           {t('onb.welcome.sub')}
         </Text>
@@ -80,7 +45,7 @@ export default function Welcome() {
 
       <View className="flex-1" />
 
-      <RiseIn delay={320}>
+      <RiseIn delay={220}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('onb.welcome.cta')}
