@@ -68,6 +68,31 @@
     "loading": "yükleniyor",
     "error_generic": "bir şeyler ters gitti"
   },
+  "profile": {
+    "title": "profil",
+    "joined_since": "{{city}} · {{month}}'dan beri",
+    "streak": {
+      "label": "seri",
+      "days_suffix": "gün üst üste"
+    },
+    "stats": {
+      "total_minutes_label": "toplam dakika",
+      "this_week_label": "bu hafta",
+      "sessions_unit": "seans",
+      "fav_label": "favori",
+      "city_rank_label": "şehir sıran"
+    },
+    "flex": {
+      "header": "bu hafta · {{city}}",
+      "played_suffix": "seans oynadın",
+      "summary": "#{{rank}} · {{minutes}}dk · seri {{streak}}"
+    },
+    "friends": {
+      "label": "arkadaşlar",
+      "follow": "takip et",
+      "following": "takip ediyor"
+    }
+  },
   "map": {
     "city_count": "{{city}} · {{count}} istasyon aktif",
     "filters": {

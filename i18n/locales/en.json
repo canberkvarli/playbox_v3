@@ -68,6 +68,31 @@
     "loading": "loading",
     "error_generic": "something went wrong"
   },
+  "profile": {
+    "title": "profile",
+    "joined_since": "{{city}} · since {{month}}",
+    "streak": {
+      "label": "streak",
+      "days_suffix": "days in a row"
+    },
+    "stats": {
+      "total_minutes_label": "total minutes",
+      "this_week_label": "this week",
+      "sessions_unit": "sessions",
+      "fav_label": "favorite",
+      "city_rank_label": "city rank"
+    },
+    "flex": {
+      "header": "this week · {{city}}",
+      "played_suffix": "sessions played",
+      "summary": "#{{rank}} · {{minutes}}min · streak {{streak}}"
+    },
+    "friends": {
+      "label": "friends",
+      "follow": "follow",
+      "following": "following"
+    }
+  },
   "map": {
     "city_count": "{{city}} · {{count}} stations active",
     "filters": {
