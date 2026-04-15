@@ -7,6 +7,7 @@ import { useUser } from '@clerk/clerk-expo';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -20,6 +21,7 @@ export default function Handle() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { user, isLoaded } = useUser();
 
   const [name, setName] = useState('');
@@ -66,7 +68,7 @@ export default function Handle() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
       <View className="flex-row items-center justify-between">
@@ -88,7 +90,7 @@ export default function Handle() {
       <RiseIn delay={0}>
         <View className="mt-12">
           <Text
-            className="font-display-x text-ink text-5xl"
+            className="font-display-x text-ink dark:text-paper text-5xl"
             style={{ lineHeight: 48 }}
           >
             {t('onb.handle.title')}
@@ -98,20 +100,20 @@ export default function Handle() {
 
       <RiseIn delay={120}>
         <View className="mt-8">
-          <Text className="font-medium text-ink/70 text-sm uppercase tracking-wider mb-2">
+          <Text className="font-medium text-ink/70 dark:text-paper/70 text-sm uppercase tracking-wider mb-2">
             {t('onb.handle.name_label')}
           </Text>
           <TextInput
             value={name}
             onChangeText={onChangeName}
             placeholder="..."
-            placeholderTextColor={palette.ink + '4d'}
+            placeholderTextColor={theme.fg + '4d'}
             autoFocus
             autoCapitalize="words"
             autoCorrect={false}
             textContentType="givenName"
             maxLength={30}
-            className="bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-sans text-ink text-lg"
+            className="bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-sans text-ink dark:text-paper text-lg"
             style={{ minHeight: 56 }}
           />
         </View>
@@ -119,31 +121,31 @@ export default function Handle() {
 
       <RiseIn delay={200}>
        <View className="mt-6">
-        <Text className="font-medium text-ink/70 text-sm uppercase tracking-wider mb-2">
+        <Text className="font-medium text-ink/70 dark:text-paper/70 text-sm uppercase tracking-wider mb-2">
           {t('onb.handle.handle_label')}
         </Text>
         <View className="flex-row gap-3 items-center">
           <View
             style={{
-              backgroundColor: palette.ink,
+              backgroundColor: theme.fg,
               borderRadius: 16,
               paddingHorizontal: 14,
               paddingVertical: 16,
             }}
           >
-            <Text className="font-mono text-paper text-lg">@</Text>
+            <Text className="font-mono text-paper dark:text-ink text-lg">@</Text>
           </View>
           <TextInput
             value={handle}
             onChangeText={onChangeHandle}
             placeholder="kullanici_adi"
-            placeholderTextColor={palette.ink + '4d'}
+            placeholderTextColor={theme.fg + '4d'}
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="username"
             textContentType="username"
             maxLength={20}
-            className="flex-1 bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-mono text-ink text-lg"
+            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-mono text-ink dark:text-paper text-lg"
             style={{ minHeight: 56 }}
           />
         </View>
@@ -154,7 +156,7 @@ export default function Handle() {
             {t('onb.handle.invalid')}
           </Text>
         ) : (
-          <Text className="font-sans text-ink/50 text-xs mt-2 ml-1">
+          <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-2 ml-1">
             {t('onb.handle.hint')}
           </Text>
         )}
@@ -170,13 +172,13 @@ export default function Handle() {
           accessibilityState={{ disabled: !ctaEnabled }}
           onPress={onSubmit}
           disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
             transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
           })}
         >
           <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
           >
             {busy ? '...' : t('onb.handle.cta')}
           </Text>

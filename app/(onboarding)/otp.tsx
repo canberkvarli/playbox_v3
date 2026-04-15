@@ -8,6 +8,7 @@ import { useSignUp } from '@clerk/clerk-expo';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -17,6 +18,7 @@ export default function Otp() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { phone } = useLocalSearchParams<{ phone?: string }>();
   const { signUp, setActive, isLoaded } = useSignUp();
 
@@ -100,7 +102,7 @@ export default function Otp() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
       <View className="flex-row items-center justify-between">
@@ -110,7 +112,7 @@ export default function Otp() {
           onPress={onBack}
           hitSlop={12}
         >
-          <Feather name="arrow-left" size={24} color={palette.ink} />
+          <Feather name="arrow-left" size={24} color={theme.fg} />
         </Pressable>
         <OnboardingProgress total={5} active={4} />
       </View>
@@ -118,12 +120,12 @@ export default function Otp() {
       <RiseIn delay={0}>
         <View className="mt-12">
           <Text
-            className="font-display-x text-ink text-5xl"
+            className="font-display-x text-ink dark:text-paper text-5xl"
             style={{ lineHeight: 48 }}
           >
             {t('onb.otp.title')}
           </Text>
-          <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
+          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
             {t('onb.otp.sub', { phone: phone ?? '' })}
           </Text>
         </View>
@@ -138,8 +140,8 @@ export default function Otp() {
             const borderColor = errored
               ? palette.coral
               : filled
-                ? palette.ink
-                : palette.ink + '26';
+                ? theme.fg
+                : theme.fg + '26';
             const borderWidth = errored || filled ? 2 : 1;
             return (
               <View
@@ -150,12 +152,12 @@ export default function Otp() {
                   borderRadius: 12,
                   borderWidth,
                   borderColor,
-                  backgroundColor: palette.paper,
+                  backgroundColor: theme.bg,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Text className="font-mono text-ink text-2xl">{digit}</Text>
+                <Text className="font-mono text-ink dark:text-paper text-2xl">{digit}</Text>
               </View>
             );
           })}
@@ -188,7 +190,7 @@ export default function Otp() {
       <RiseIn delay={220}>
         <View className="mt-6 items-center">
           {secondsLeft > 0 ? (
-            <Text className="font-mono text-ink/50 text-sm">
+            <Text className="font-mono text-ink/50 dark:text-paper/50 text-sm">
               {t('onb.otp.resend_in', { s: secondsLeft })}
             </Text>
           ) : (

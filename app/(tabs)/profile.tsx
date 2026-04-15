@@ -13,6 +13,7 @@ import ViewShot, { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 
 import { useT } from '@/hooks/useT';
+import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
@@ -54,6 +55,7 @@ function nextMilestone(streak: number) {
 // --- Streak ring ------------------------------------------------------------
 
 function StreakRing({ streak, milestone }: { streak: number; milestone: number }) {
+  // Streak card is always butter (light accent), so ink track still works in both modes.
   const size = 100;
   const strokeWidth = 10;
   const r = (size - strokeWidth) / 2;
@@ -126,14 +128,14 @@ function StatCard({
   unit?: string;
 }) {
   return (
-    <View className="bg-paper border border-ink/10 rounded-2xl p-4 flex-1">
-      <Text className="font-medium text-ink/50 uppercase tracking-wider text-xs mb-2">
+    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl p-4 flex-1">
+      <Text className="font-medium text-ink/50 dark:text-paper/50 uppercase tracking-wider text-xs mb-2">
         {label}
       </Text>
       <View className="flex-row items-baseline">
-        <Text className="font-display-x text-ink text-3xl">{value}</Text>
+        <Text className="font-display-x text-ink dark:text-paper text-3xl">{value}</Text>
         {unit ? (
-          <Text className="font-sans text-ink/50 text-sm ml-1">{unit}</Text>
+          <Text className="font-sans text-ink/50 dark:text-paper/50 text-sm ml-1">{unit}</Text>
         ) : null}
       </View>
     </View>
@@ -155,7 +157,7 @@ function FriendRow({
   const initial = name.charAt(0).toUpperCase();
 
   return (
-    <View className="bg-paper border border-ink/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
+    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
       <View
         style={{
           width: 40,
@@ -169,8 +171,8 @@ function FriendRow({
         <Text className="font-semibold text-paper text-base">{initial}</Text>
       </View>
       <View className="flex-1">
-        <Text className="font-medium text-ink text-base">{name}</Text>
-        <Text className="font-sans text-ink/50 text-xs">{handle}</Text>
+        <Text className="font-medium text-ink dark:text-paper text-base">{name}</Text>
+        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs">{handle}</Text>
       </View>
       <Pressable
         accessibilityRole="button"
@@ -178,14 +180,14 @@ function FriendRow({
         hitSlop={8}
         className={
           following
-            ? 'border border-ink/20 rounded-full px-3 py-1.5'
+            ? 'border border-ink/20 dark:border-paper/20 rounded-full px-3 py-1.5'
             : 'bg-coral rounded-full px-3 py-1.5'
         }
       >
         <Text
           className={
             following
-              ? 'font-medium text-ink text-xs'
+              ? 'font-medium text-ink dark:text-paper text-xs'
               : 'font-medium text-paper text-xs'
           }
         >
@@ -201,6 +203,7 @@ function FriendRow({
 export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const [follows, setFollows] = useState(() => FRIENDS.map((f) => f.following));
   const [capturing, setCapturing] = useState(false);
   const flexCardRef = useRef<ViewShot>(null);
@@ -247,21 +250,21 @@ export default function Profile() {
   };
 
   return (
-    <View className="flex-1 bg-paper">
+    <View className="flex-1 bg-paper dark:bg-ink">
       {/* Sticky header */}
       <View
         style={{ paddingTop: insets.top + 8 }}
-        className="px-6 pb-3 border-b border-ink/10 bg-paper"
+        className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink"
       >
         <View className="flex-row items-center justify-between">
-          <Text className="font-display text-ink text-lg">{t('profile.title')}</Text>
+          <Text className="font-display text-ink dark:text-paper text-lg">{t('profile.title')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="settings"
             onPress={onSettings}
             hitSlop={12}
           >
-            <Feather name="settings" size={22} color={palette.ink} />
+            <Feather name="settings" size={22} color={theme.fg} />
           </Pressable>
         </View>
       </View>
@@ -291,9 +294,9 @@ export default function Profile() {
               </Text>
             </View>
             <View className="flex-1 pl-4">
-              <Text className="font-display-x text-ink text-3xl">{ME.name}</Text>
-              <Text className="font-mono text-ink/60 text-base">{ME.handle}</Text>
-              <Text className="font-sans text-ink/50 text-xs mt-1">
+              <Text className="font-display-x text-ink dark:text-paper text-3xl">{ME.name}</Text>
+              <Text className="font-mono text-ink/60 dark:text-paper/60 text-base">{ME.handle}</Text>
+              <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-1">
                 {t('profile.joined_since', {
                   city: ME.city,
                   month: ME.joinedMonth,
@@ -355,7 +358,7 @@ export default function Profile() {
             ref={flexCardRef}
             options={{ format: 'png', quality: 1, result: 'tmpfile' }}
           >
-            <View className="bg-ink rounded-3xl p-6 mt-6">
+            <View className="bg-ink dark:bg-paper rounded-3xl p-6 mt-6">
               {!capturing ? (
                 <Pressable
                   accessibilityRole="button"
@@ -363,22 +366,22 @@ export default function Profile() {
                   onPress={onShareFlex}
                   hitSlop={8}
                   style={{ position: 'absolute', top: 16, right: 16 }}
-                  className="bg-paper/10 rounded-full p-2"
+                  className="bg-paper/10 dark:bg-ink/10 rounded-full p-2"
                 >
                   <Feather name="share-2" size={20} color={palette.butter} />
                 </Pressable>
               ) : null}
-              <Text className="font-mono text-paper/60 text-xs uppercase tracking-wider">
+              <Text className="font-mono text-paper/60 dark:text-ink/60 text-xs uppercase tracking-wider">
                 {t('profile.flex.header', { city: ME.city })}
               </Text>
               <Text className="font-display-x text-butter text-6xl mt-2">
                 {ME.sessionsThisWeek}
               </Text>
-              <Text className="font-sans text-paper/80 text-base">
+              <Text className="font-sans text-paper/80 dark:text-ink/80 text-base">
                 {t('profile.flex.played_suffix')}
               </Text>
-              <View className="h-px bg-paper/15 my-4" />
-              <Text className="font-mono text-paper/70 text-sm">
+              <View className="h-px bg-paper/15 dark:bg-ink/15 my-4" />
+              <Text className="font-mono text-paper/70 dark:text-ink/70 text-sm">
                 {t('profile.flex.summary', {
                   rank: ME.cityRank,
                   minutes: ME.totalMinutes,
@@ -398,7 +401,7 @@ export default function Profile() {
         <RiseIn delay={320}>
           <View className="mt-6">
             <View className="flex-row items-center justify-between mb-3">
-              <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs">
+              <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
                 {t('profile.friends.label')}
               </Text>
               <Pressable
@@ -409,9 +412,9 @@ export default function Profile() {
                   console.log('add friend');
                 }}
                 hitSlop={8}
-                className="bg-paper border border-ink/10 rounded-full p-2"
+                className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-full p-2"
               >
-                <Feather name="user-plus" size={18} color={palette.ink} />
+                <Feather name="user-plus" size={18} color={theme.fg} />
               </Pressable>
             </View>
             <View className="gap-3">

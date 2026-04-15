@@ -15,6 +15,7 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -71,6 +72,7 @@ export default function IntroMap() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   const titleLines = t('onb.intro_map.title').split('\n');
 
@@ -85,7 +87,7 @@ export default function IntroMap() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
       <View className="flex-row items-center justify-between">
@@ -95,7 +97,7 @@ export default function IntroMap() {
           onPress={onBack}
           hitSlop={12}
         >
-          <Feather name="arrow-left" size={24} color={palette.ink} />
+          <Feather name="arrow-left" size={24} color={theme.fg} />
         </Pressable>
         <OnboardingProgress total={3} active={1} />
       </View>
@@ -105,7 +107,7 @@ export default function IntroMap() {
           {titleLines.map((line, i) => (
             <Text
               key={i}
-              className="font-display-x text-ink text-5xl"
+              className="font-display-x text-ink dark:text-paper text-5xl"
               style={{ lineHeight: 48 }}
             >
               {line}
@@ -115,7 +117,7 @@ export default function IntroMap() {
       </RiseIn>
 
       <RiseIn delay={80}>
-        <Text className="font-sans text-ink/70 text-base leading-6 mt-4">
+        <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-4">
           {t('onb.intro_map.sub')}
         </Text>
       </RiseIn>

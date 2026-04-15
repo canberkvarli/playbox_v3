@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
+import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, SPORT_LABELS, type Station, type Sport } from '@/data/stations.seed';
@@ -17,6 +18,7 @@ export default function StationDetail() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
@@ -29,16 +31,16 @@ export default function StationDetail() {
 
   if (!station) {
     return (
-      <View className="flex-1 bg-paper items-center justify-center px-6" style={{ paddingTop: insets.top }}>
+      <View className="flex-1 bg-paper dark:bg-ink items-center justify-center px-6" style={{ paddingTop: insets.top }}>
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
           style={{ position: 'absolute', top: insets.top + 16, left: 16 }}
         >
-          <Feather name="x" size={24} color={palette.ink} />
+          <Feather name="x" size={24} color={theme.fg} />
         </Pressable>
-        <Text className="font-display-x text-ink text-3xl text-center">{t('station.not_found')}</Text>
-        <Text className="font-sans text-ink/60 text-center mt-3">{t('station.not_found_sub')}</Text>
+        <Text className="font-display-x text-ink dark:text-paper text-3xl text-center">{t('station.not_found')}</Text>
+        <Text className="font-sans text-ink/60 dark:text-paper/60 text-center mt-3">{t('station.not_found_sub')}</Text>
       </View>
     );
   }
@@ -64,7 +66,7 @@ export default function StationDetail() {
   };
 
   return (
-    <View className="flex-1 bg-paper">
+    <View className="flex-1 bg-paper dark:bg-ink">
       {/* Header with back button overlaying the hero area */}
       <View
         style={{
@@ -83,14 +85,14 @@ export default function StationDetail() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: palette.paper,
+            backgroundColor: theme.bg,
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1,
-            borderColor: palette.ink + '1a',
+            borderColor: theme.fg + '1a',
           }}
         >
-          <Feather name="arrow-left" size={20} color={palette.ink} />
+          <Feather name="arrow-left" size={20} color={theme.fg} />
         </Pressable>
       </View>
 
@@ -160,20 +162,20 @@ export default function StationDetail() {
         {/* Title block */}
         <RiseIn delay={80}>
           <View className="mt-6">
-            <Text className="font-display-x text-ink text-5xl" style={{ lineHeight: 48 }}>
+            <Text className="font-display-x text-ink dark:text-paper text-5xl" style={{ lineHeight: 48 }}>
               {station.name}
             </Text>
             <View className="flex-row items-center gap-4 mt-3">
               <View className="flex-row items-center gap-1.5">
-                <Feather name="map-pin" size={14} color={palette.ink + '88'} />
-                <Text className="font-sans text-ink/60 text-sm">{station.city}</Text>
+                <Feather name="map-pin" size={14} color={theme.fg + '88'} />
+                <Text className="font-sans text-ink/60 dark:text-paper/60 text-sm">{station.city}</Text>
               </View>
               <View
-                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: palette.ink + '44' }}
+                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: theme.fg + '44' }}
               />
               <View className="flex-row items-center gap-1.5">
-                <Feather name="clock" size={14} color={palette.ink + '88'} />
-                <Text className="font-mono text-ink/60 text-sm">24/7</Text>
+                <Feather name="clock" size={14} color={theme.fg + '88'} />
+                <Text className="font-mono text-ink/60 dark:text-paper/60 text-sm">24/7</Text>
               </View>
             </View>
           </View>
@@ -182,7 +184,7 @@ export default function StationDetail() {
         {/* Stock grid — tappable sport cards */}
         <RiseIn delay={160}>
           <View className="mt-8">
-            <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs mb-3">
+            <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
               {t('station.available_equipment')}
             </Text>
             <View className="flex-row flex-wrap gap-3">
@@ -197,9 +199,9 @@ export default function StationDetail() {
                     style={({ pressed }) => ({
                       flexBasis: '47%',
                       flexGrow: 1,
-                      backgroundColor: out ? palette.ink + '0d' : palette.paper,
+                      backgroundColor: out ? theme.fg + '0d' : theme.bg,
                       borderWidth: 1,
-                      borderColor: palette.ink + '1a',
+                      borderColor: theme.fg + '1a',
                       borderRadius: 20,
                       padding: 16,
                       transform: [{ scale: pressed && !out ? 0.98 : 1 }],
@@ -219,10 +221,10 @@ export default function StationDetail() {
                         />
                       )}
                     </View>
-                    <Text className="font-medium text-ink text-base mt-3">
+                    <Text className="font-medium text-ink dark:text-paper text-base mt-3">
                       {SPORT_LABELS[sport]}
                     </Text>
-                    <Text className="font-mono text-ink/60 text-xs mt-0.5">
+                    <Text className="font-mono text-ink/60 dark:text-paper/60 text-xs mt-0.5">
                       {out ? t('station.out_of_stock') : `${stock} ${t('station.units_available')}`}
                     </Text>
                   </Pressable>
@@ -234,8 +236,8 @@ export default function StationDetail() {
 
         {/* How it works row */}
         <RiseIn delay={240}>
-          <View className="mt-8 bg-paper rounded-2xl border border-ink/10 p-5">
-            <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs mb-3">
+          <View className="mt-8 bg-paper dark:bg-ink rounded-2xl border border-ink/10 dark:border-paper/10 p-5">
+            <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
               {t('station.how_it_works')}
             </Text>
             <View className="gap-3">
@@ -250,9 +252,9 @@ export default function StationDetail() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text className="font-display text-ink text-sm">1</Text>
+                  <Text className="font-display text-ink dark:text-paper text-sm">1</Text>
                 </View>
-                <Text className="font-sans text-ink text-sm flex-1">
+                <Text className="font-sans text-ink dark:text-paper text-sm flex-1">
                   {t('station.steps.tap_sport')}
                 </Text>
               </View>
@@ -267,9 +269,9 @@ export default function StationDetail() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text className="font-display text-ink text-sm">2</Text>
+                  <Text className="font-display text-ink dark:text-paper text-sm">2</Text>
                 </View>
-                <Text className="font-sans text-ink text-sm flex-1">
+                <Text className="font-sans text-ink dark:text-paper text-sm flex-1">
                   {t('station.steps.scan_qr')}
                 </Text>
               </View>
@@ -284,9 +286,9 @@ export default function StationDetail() {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text className="font-display text-ink text-sm">3</Text>
+                  <Text className="font-display text-ink dark:text-paper text-sm">3</Text>
                 </View>
-                <Text className="font-sans text-ink text-sm flex-1">
+                <Text className="font-sans text-ink dark:text-paper text-sm flex-1">
                   {t('station.steps.return')}
                 </Text>
               </View>
@@ -305,9 +307,9 @@ export default function StationDetail() {
           paddingHorizontal: 24,
           paddingTop: 16,
           paddingBottom: insets.bottom + 16,
-          backgroundColor: palette.paper,
+          backgroundColor: theme.bg,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '0d',
+          borderTopColor: theme.fg + '0d',
         }}
       >
         <Pressable
@@ -318,13 +320,13 @@ export default function StationDetail() {
             if (firstSport) onUnlock(firstSport);
           }}
           disabled={outOfStock}
-          className={`${outOfStock ? 'bg-ink/20' : 'bg-coral active:opacity-90'} rounded-2xl py-5`}
+          className={`${outOfStock ? 'bg-ink/20 dark:bg-paper/20' : 'bg-coral active:opacity-90'} rounded-2xl py-5`}
           style={({ pressed }) => ({
             transform: [{ scale: pressed && !outOfStock ? 0.98 : 1 }],
           })}
         >
           <Text
-            className={`${outOfStock ? 'text-ink/50' : 'text-paper'} font-semibold text-lg text-center`}
+            className={`${outOfStock ? 'text-ink/50 dark:text-paper/50' : 'text-paper'} font-semibold text-lg text-center`}
           >
             {outOfStock ? t('station.cta_out_of_stock') : t('station.cta_unlock')}
           </Text>

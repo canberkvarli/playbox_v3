@@ -10,6 +10,7 @@ import { Camera } from 'expo-camera';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -55,18 +56,22 @@ function PermissionCard({
   onPress: () => void;
   t: (key: string) => string;
 }) {
+  const theme = useTheme();
   const granted = status === 'granted';
   const denied  = status === 'denied';
 
   const cardCls =
     granted ? 'bg-butter border-ink/10' :
-    denied  ? 'bg-paper border-coral/30' :
-              'bg-paper border-ink/15';
+    denied  ? 'bg-paper dark:bg-ink border-coral/30' :
+              'bg-paper dark:bg-ink border-ink/15 dark:border-paper/15';
 
   const iconBg =
     granted ? palette.ink + '1a' :
     denied  ? palette.coral + '26' :
               palette.mauve + '26';
+
+  // On butter (granted) the ink icon stays ink. Otherwise invert with theme.
+  const iconColor = granted ? palette.ink : theme.fg;
 
   return (
     <Pressable
@@ -86,11 +91,11 @@ function PermissionCard({
           justifyContent: 'center',
         }}
       >
-        <Feather name={ICONS[k]} size={24} color={palette.ink} />
+        <Feather name={ICONS[k]} size={24} color={granted ? palette.ink : theme.fg} />
       </View>
       <View className="flex-1">
-        <Text className="font-medium text-ink text-base">{t(`onb.perms.${k}.title`)}</Text>
-        <Text className="font-sans text-ink/60 text-sm mt-0.5">{t(`onb.perms.${k}.why`)}</Text>
+        <Text className={`font-medium text-base ${granted ? 'text-ink' : 'text-ink dark:text-paper'}`}>{t(`onb.perms.${k}.title`)}</Text>
+        <Text className={`font-sans text-sm mt-0.5 ${granted ? 'text-ink/60' : 'text-ink/60 dark:text-paper/60'}`}>{t(`onb.perms.${k}.why`)}</Text>
         {denied && (
           <Text className="text-coral/80 text-xs mt-1 font-sans">{t('onb.perms.denied')}</Text>
         )}
@@ -100,7 +105,7 @@ function PermissionCard({
       ) : denied ? (
         <Text className="text-coral text-sm font-medium">{t('onb.perms.retry')}</Text>
       ) : (
-        <Feather name="chevron-right" size={20} color={palette.ink + '66'} />
+        <Feather name="chevron-right" size={20} color={theme.fg + '66'} />
       )}
     </Pressable>
   );
@@ -110,6 +115,7 @@ export default function Permissions() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   const [perms, setPerms] = useState<PermsState>({
     location: 'idle',
@@ -142,7 +148,7 @@ export default function Permissions() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
       <View className="flex-row items-center justify-between">
@@ -152,7 +158,7 @@ export default function Permissions() {
           onPress={onBack}
           hitSlop={12}
         >
-          <Feather name="arrow-left" size={24} color={palette.ink} />
+          <Feather name="arrow-left" size={24} color={theme.fg} />
         </Pressable>
         <OnboardingProgress total={4} active={3} />
       </View>
@@ -160,7 +166,7 @@ export default function Permissions() {
       <RiseIn delay={0}>
         <View className="mt-12">
           <Text
-            className="font-display-x text-ink text-5xl"
+            className="font-display-x text-ink dark:text-paper text-5xl"
             style={{ lineHeight: 48 }}
           >
             {t('onb.perms.title')}
@@ -185,13 +191,13 @@ export default function Permissions() {
           accessibilityState={{ disabled: !ctaEnabled }}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
             transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
           })}
         >
           <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
           >
             {t('onb.perms.cta')}
           </Text>

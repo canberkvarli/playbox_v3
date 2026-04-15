@@ -20,7 +20,7 @@ export default function Welcome() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 32, paddingBottom: insets.bottom + 16 }}
     >
       <RiseIn delay={0}>
@@ -28,7 +28,7 @@ export default function Welcome() {
           {titleLines.map((line, i) => (
             <Text
               key={i}
-              className="font-display-x text-ink text-6xl"
+              className="font-display-x text-ink dark:text-paper text-6xl"
               style={{ lineHeight: 56 }}
             >
               {line}
@@ -38,7 +38,7 @@ export default function Welcome() {
       </RiseIn>
 
       <RiseIn delay={120}>
-        <Text className="font-sans text-lg text-ink/70 mt-6 leading-6">
+        <Text className="font-sans text-lg text-ink/70 dark:text-paper/70 mt-6 leading-6">
           {t('onb.welcome.sub')}
         </Text>
       </RiseIn>

@@ -1,5 +1,7 @@
 import { View } from 'react-native';
+
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 
 type Props = {
   total: number;
@@ -7,6 +9,7 @@ type Props = {
 };
 
 export function OnboardingProgress({ total, active }: Props) {
+  const theme = useTheme();
   return (
     <View className="flex-row gap-2">
       {Array.from({ length: total }, (_, i) => (
@@ -16,7 +19,7 @@ export function OnboardingProgress({ total, active }: Props) {
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: i === active ? palette.coral : palette.ink + '33',
+            backgroundColor: i === active ? palette.coral : theme.fg + '33',
           }}
         />
       ))}

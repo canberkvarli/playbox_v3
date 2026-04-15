@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
 import { useT } from '@/hooks/useT';
+import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
@@ -76,20 +77,20 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   const overtime = elapsed > total;
 
   return (
-    <View className="bg-ink rounded-3xl p-6 mt-4">
-      <Text className="font-mono text-butter/80 text-xs uppercase tracking-wider">
+    <View className="bg-ink dark:bg-paper rounded-3xl p-6 mt-4">
+      <Text className="font-mono text-butter/80 dark:text-ink/60 text-xs uppercase tracking-wider">
         {t('play.live.eyebrow')}
       </Text>
 
       <Text
-        className="font-mono text-paper text-7xl text-center mt-3"
+        className="font-mono text-paper dark:text-ink text-7xl text-center mt-3"
         style={{ letterSpacing: 2 }}
       >
         {formatMMSS(elapsed)}
       </Text>
 
       {/* Progress bar */}
-      <View className="bg-paper/15 h-1 rounded-full mt-4 overflow-hidden">
+      <View className="bg-paper/15 dark:bg-ink/15 h-1 rounded-full mt-4 overflow-hidden">
         <View
           style={{
             width: `${clampedProgress * 100}%`,
@@ -103,10 +104,10 @@ function LiveTimer({ session }: { session: ActiveSession }) {
       {/* Meta row */}
       <View className="flex-row items-center gap-2 mt-3">
         <Text style={{ fontSize: 18 }}>{SPORT_EMOJI[session.sport]}</Text>
-        <Text className="font-medium text-paper text-base flex-1">
+        <Text className="font-medium text-paper dark:text-ink text-base flex-1">
           {session.stationName}
         </Text>
-        <Text className="font-mono text-paper/60 text-sm">
+        <Text className="font-mono text-paper/60 dark:text-ink/60 text-sm">
           {session.durationMinutes}
           {t('play.live.planned_suffix')}
         </Text>
@@ -129,7 +130,7 @@ function HistoryRow({
   timeLabel: string;
 }) {
   return (
-    <View className="bg-paper border border-ink/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
+    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
       <View
         style={{
           width: 48,
@@ -143,10 +144,10 @@ function HistoryRow({
         <Text style={{ fontSize: 24 }}>{SPORT_EMOJI[sport]}</Text>
       </View>
       <View className="flex-1">
-        <Text className="font-medium text-ink text-base">{stationName}</Text>
-        <Text className="font-sans text-ink/50 text-xs mt-0.5">{timeLabel}</Text>
+        <Text className="font-medium text-ink dark:text-paper text-base">{stationName}</Text>
+        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-0.5">{timeLabel}</Text>
       </View>
-      <Text className="font-mono text-ink text-sm">{minutes}dk</Text>
+      <Text className="font-mono text-ink dark:text-paper text-sm">{minutes}dk</Text>
     </View>
   );
 }
@@ -163,7 +164,7 @@ function TipRow({
   return (
     <View className="flex-row items-center gap-3">
       <Feather name={icon} size={20} color={palette.mauve} />
-      <Text className="font-sans text-ink/70 text-sm flex-1">{text}</Text>
+      <Text className="font-sans text-ink/70 dark:text-paper/70 text-sm flex-1">{text}</Text>
     </View>
   );
 }
@@ -173,6 +174,7 @@ function TipRow({
 export default function Play() {
   const { t, lang } = useT();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const sheetRef = useRef<BottomSheet>(null);
 
   const active = useSessionStore((s) => s.active);
@@ -238,21 +240,21 @@ export default function Play() {
   );
 
   return (
-    <View className="flex-1 bg-paper">
+    <View className="flex-1 bg-paper dark:bg-ink">
       {/* Sticky header */}
       <View
         style={{ paddingTop: insets.top + 8 }}
-        className="px-6 pb-3 border-b border-ink/10 bg-paper"
+        className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink"
       >
         <View className="flex-row items-center justify-between">
-          <Text className="font-display text-ink text-lg">{t('play.title')}</Text>
+          <Text className="font-display text-ink dark:text-paper text-lg">{t('play.title')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="history"
             onPress={onHeaderHistoryTap}
             hitSlop={12}
           >
-            <Feather name="clock" size={22} color={palette.ink} />
+            <Feather name="clock" size={22} color={theme.fg} />
           </Pressable>
         </View>
       </View>
@@ -306,10 +308,10 @@ export default function Play() {
             {/* Section F: history */}
             <RiseIn delay={280}>
               <View className="mt-8 mb-3 flex-row items-center justify-between">
-                <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs">
+                <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
                   {t('play.history.label')}
                 </Text>
-                <Text className="font-mono text-ink/40 text-xs">
+                <Text className="font-mono text-ink/40 dark:text-paper/40 text-xs">
                   {historyCountLabel}
                 </Text>
               </View>
@@ -357,10 +359,10 @@ export default function Play() {
             {/* Section F: history */}
             <RiseIn delay={120}>
               <View className="mt-8 mb-3 flex-row items-center justify-between">
-                <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs">
+                <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
                   {t('play.history.label')}
                 </Text>
-                <Text className="font-mono text-ink/40 text-xs">
+                <Text className="font-mono text-ink/40 dark:text-paper/40 text-xs">
                   {historyCountLabel}
                 </Text>
               </View>
@@ -385,7 +387,7 @@ export default function Play() {
             className="mt-8"
             hitSlop={8}
           >
-            <Text className="font-mono text-xs text-ink/40 underline text-center">
+            <Text className="font-mono text-xs text-ink/40 dark:text-paper/40 underline text-center">
               dev: {fakeActiveSession ? 'aktif seansı kapat' : 'aktif seans simüle et'}
             </Text>
           </Pressable>
@@ -398,34 +400,34 @@ export default function Play() {
         index={-1}
         snapPoints={['50%']}
         enablePanDownToClose
-        backgroundStyle={{ backgroundColor: palette.paper }}
-        handleIndicatorStyle={{ backgroundColor: palette.ink + '44' }}
+        backgroundStyle={{ backgroundColor: theme.bg }}
+        handleIndicatorStyle={{ backgroundColor: theme.fg + '44' }}
       >
         <BottomSheetView
           style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
         >
-          <Text className="font-display-x text-ink text-3xl">
+          <Text className="font-display-x text-ink dark:text-paper text-3xl">
             {t('play.return.confirm_title')}
           </Text>
-          <Text className="font-sans text-ink/70 text-base mt-3">
+          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base mt-3">
             {t('play.return.confirm_sub')}
           </Text>
           <View className="flex-row gap-3 mt-6">
             <Pressable
               accessibilityRole="button"
               onPress={onCancelReturn}
-              className="flex-1 border border-ink/20 rounded-2xl py-4"
+              className="flex-1 border border-ink/20 dark:border-paper/20 rounded-2xl py-4"
             >
-              <Text className="font-medium text-ink text-base text-center">
+              <Text className="font-medium text-ink dark:text-paper text-base text-center">
                 {t('common.cancel')}
               </Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={onConfirmReturn}
-              className="flex-1 bg-ink rounded-2xl py-4"
+              className="flex-1 bg-ink dark:bg-paper rounded-2xl py-4"
             >
-              <Text className="font-semibold text-paper text-base text-center">
+              <Text className="font-semibold text-paper dark:text-ink text-base text-center">
                 {t('play.return.confirm_cta')}
               </Text>
             </Pressable>

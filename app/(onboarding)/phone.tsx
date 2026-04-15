@@ -9,6 +9,7 @@ import { parsePhoneNumberFromString, AsYouType } from 'libphonenumber-js';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { useDevStore } from '@/stores/devStore';
@@ -37,6 +38,7 @@ export default function Phone() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { signUp, isLoaded } = useSignUp();
   const setBypass = useDevStore((s) => s.setBypass);
 
@@ -84,7 +86,7 @@ export default function Phone() {
 
   return (
     <View
-      className="flex-1 bg-paper px-6"
+      className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
       <View className="flex-row items-center justify-between">
@@ -94,7 +96,7 @@ export default function Phone() {
           onPress={onBack}
           hitSlop={12}
         >
-          <Feather name="arrow-left" size={24} color={palette.ink} />
+          <Feather name="arrow-left" size={24} color={theme.fg} />
         </Pressable>
         <OnboardingProgress total={5} active={4} />
       </View>
@@ -102,12 +104,12 @@ export default function Phone() {
       <RiseIn delay={0}>
         <View className="mt-12">
           <Text
-            className="font-display-x text-ink text-5xl"
+            className="font-display-x text-ink dark:text-paper text-5xl"
             style={{ lineHeight: 48 }}
           >
             {t('onb.phone.title')}
           </Text>
-          <Text className="font-sans text-ink/70 text-base leading-6 mt-3">
+          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
             {t('onb.phone.sub')}
           </Text>
         </View>
@@ -117,24 +119,24 @@ export default function Phone() {
         <View className="mt-8 flex-row gap-3 items-center">
           <View
             style={{
-              backgroundColor: palette.ink,
+              backgroundColor: theme.fg,
               borderRadius: 16,
               paddingHorizontal: 16,
               paddingVertical: 16,
             }}
           >
-            <Text className="font-mono text-paper text-lg">+90</Text>
+            <Text className="font-mono text-paper dark:text-ink text-lg">+90</Text>
           </View>
           <TextInput
             value={formatted}
             onChangeText={onChange}
             placeholder={t('onb.phone.placeholder')}
-            placeholderTextColor={palette.ink + '4d'}
+            placeholderTextColor={theme.fg + '4d'}
             keyboardType="phone-pad"
             autoFocus
             textContentType="telephoneNumber"
             maxLength={14}
-            className="flex-1 bg-paper border border-ink/15 rounded-2xl px-4 py-4 font-mono text-ink text-lg"
+            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-mono text-ink dark:text-paper text-lg"
             style={{ minHeight: 56 }}
           />
         </View>
@@ -147,7 +149,7 @@ export default function Phone() {
           {t('onb.phone.invalid')}
         </Text>
       ) : (
-        <Text className="font-sans text-ink/50 text-xs mt-2 ml-1">
+        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-2 ml-1">
           türkiye mobil numarası
         </Text>
       )}
@@ -161,13 +163,13 @@ export default function Phone() {
           accessibilityState={{ disabled: !ctaEnabled }}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20'} rounded-2xl py-5`}
+          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
             transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
           })}
         >
           <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50'} font-semibold text-lg text-center`}
+            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
           >
             {busy ? '...' : t('onb.phone.cta')}
           </Text>
@@ -184,7 +186,7 @@ export default function Phone() {
           className="mt-4"
           hitSlop={8}
         >
-          <Text className="font-mono text-xs text-ink/40 underline text-center">
+          <Text className="font-mono text-xs text-ink/40 dark:text-paper/40 underline text-center">
             dev: admin ol
           </Text>
         </Pressable>

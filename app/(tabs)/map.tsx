@@ -16,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
+import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
@@ -183,23 +184,28 @@ function FilterChip({
   label: string;
   onPress: () => void;
 }) {
+  const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: active ? palette.ink : palette.paper,
+        backgroundColor: active ? theme.fg : theme.bg,
         borderRadius: 999,
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderWidth: 1,
-        borderColor: active ? palette.ink : palette.ink + '33',
+        borderColor: active ? theme.fg : theme.fg + '33',
         transform: [{ scale: pressed ? 0.97 : 1 }],
       })}
     >
       <Text
-        className={active ? 'text-paper font-medium' : 'text-ink font-medium'}
+        className={
+          active
+            ? 'text-paper dark:text-ink font-medium'
+            : 'text-ink dark:text-paper font-medium'
+        }
         style={{ fontSize: 14 }}
       >
         {label}
@@ -210,6 +216,7 @@ function FilterChip({
 
 function ViewToggle() {
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const { viewMode, setViewMode } = useMapStore();
 
   const onToggle = async (mode: 'map' | 'list') => {
@@ -232,13 +239,13 @@ function ViewToggle() {
     >
       <BlurView
         intensity={40}
-        tint="light"
+        tint={theme.isDark ? 'dark' : 'light'}
         style={{
           borderRadius: 999,
           overflow: 'hidden',
-          backgroundColor: palette.paper + 'cc',
+          backgroundColor: theme.bg + 'cc',
           borderWidth: 1,
-          borderColor: palette.ink + '14',
+          borderColor: theme.fg + '14',
           flexDirection: 'row',
           padding: 4,
           gap: 4,
@@ -247,7 +254,7 @@ function ViewToggle() {
         <Pressable
           onPress={() => onToggle('map')}
           style={{
-            backgroundColor: viewMode === 'map' ? palette.ink : 'transparent',
+            backgroundColor: viewMode === 'map' ? theme.fg : 'transparent',
             paddingHorizontal: 16,
             paddingVertical: 8,
             borderRadius: 999,
@@ -256,9 +263,17 @@ function ViewToggle() {
             gap: 6,
           }}
         >
-          <Feather name="map" size={14} color={viewMode === 'map' ? palette.paper : palette.ink} />
+          <Feather
+            name="map"
+            size={14}
+            color={viewMode === 'map' ? theme.bg : theme.fg}
+          />
           <Text
-            className={viewMode === 'map' ? 'text-paper font-medium' : 'text-ink font-medium'}
+            className={
+              viewMode === 'map'
+                ? 'text-paper dark:text-ink font-medium'
+                : 'text-ink dark:text-paper font-medium'
+            }
             style={{ fontSize: 13 }}
           >
             harita
@@ -267,7 +282,7 @@ function ViewToggle() {
         <Pressable
           onPress={() => onToggle('list')}
           style={{
-            backgroundColor: viewMode === 'list' ? palette.ink : 'transparent',
+            backgroundColor: viewMode === 'list' ? theme.fg : 'transparent',
             paddingHorizontal: 16,
             paddingVertical: 8,
             borderRadius: 999,
@@ -276,9 +291,17 @@ function ViewToggle() {
             gap: 6,
           }}
         >
-          <Feather name="list" size={14} color={viewMode === 'list' ? palette.paper : palette.ink} />
+          <Feather
+            name="list"
+            size={14}
+            color={viewMode === 'list' ? theme.bg : theme.fg}
+          />
           <Text
-            className={viewMode === 'list' ? 'text-paper font-medium' : 'text-ink font-medium'}
+            className={
+              viewMode === 'list'
+                ? 'text-paper dark:text-ink font-medium'
+                : 'text-ink dark:text-paper font-medium'
+            }
             style={{ fontSize: 13 }}
           >
             liste
@@ -300,6 +323,7 @@ function StationListView({
 }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
 
   const sorted = useMemo(() => {
     if (!userLoc) return stations;
@@ -327,8 +351,8 @@ function StationListView({
             key={s.id}
             onPress={() => onStationPress(s)}
             style={({ pressed }) => ({
-              backgroundColor: palette.paper,
-              borderColor: palette.ink + '1a',
+              backgroundColor: theme.bg,
+              borderColor: theme.fg + '1a',
               borderWidth: 1,
               borderRadius: 20,
               padding: 16,
@@ -340,7 +364,7 @@ function StationListView({
                 {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
               </Text>
             )}
-            <Text className="font-display text-ink text-xl mt-1">{s.name}</Text>
+            <Text className="font-display text-ink dark:text-paper text-xl mt-1">{s.name}</Text>
             <View className="flex-row flex-wrap gap-2 mt-3">
               {s.sports.map((sport) => {
                 const stock = s.stock[sport] ?? 0;
@@ -349,7 +373,7 @@ function StationListView({
                   <View
                     key={sport}
                     style={{
-                      backgroundColor: out ? palette.ink + '14' : palette.butter,
+                      backgroundColor: out ? theme.fg + '14' : palette.butter,
                       borderRadius: 10,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
@@ -361,7 +385,9 @@ function StationListView({
                     <Text style={{ fontSize: 12 }}>{SPORT_EMOJI[sport]}</Text>
                     <Text
                       className={
-                        out ? 'font-sans text-ink/40 text-xs' : 'font-medium text-ink text-xs'
+                        out
+                          ? 'font-sans text-ink/40 dark:text-paper/40 text-xs'
+                          : 'font-medium text-ink text-xs'
                       }
                     >
                       {SPORT_LABELS[sport]}
@@ -374,7 +400,7 @@ function StationListView({
               style={{
                 alignSelf: 'flex-start',
                 marginTop: 12,
-                backgroundColor: s.availableNow ? palette.coral : palette.ink + '22',
+                backgroundColor: s.availableNow ? palette.coral : theme.fg + '22',
                 borderRadius: 12,
                 paddingHorizontal: 14,
                 paddingVertical: 8,
@@ -384,7 +410,7 @@ function StationListView({
                 className={
                   s.availableNow
                     ? 'text-paper font-semibold text-xs'
-                    : 'text-ink/50 font-semibold text-xs'
+                    : 'text-ink/50 dark:text-paper/50 font-semibold text-xs'
                 }
               >
                 {t('map.preview.open')}
@@ -400,6 +426,7 @@ function StationListView({
 function SearchBar() {
   const insets = useSafeAreaInsets();
   const { t } = useT();
+  const theme = useTheme();
   const { searchQuery, setSearchQuery } = useMapStore();
   const inputRef = useRef<TextInput>(null);
 
@@ -422,13 +449,13 @@ function SearchBar() {
     >
       <BlurView
         intensity={40}
-        tint="light"
+        tint={theme.isDark ? 'dark' : 'light'}
         style={{
           borderRadius: 999,
           overflow: 'hidden',
-          backgroundColor: palette.paper + 'e6',
+          backgroundColor: theme.bg + 'e6',
           borderWidth: 1,
-          borderColor: palette.ink + '1a',
+          borderColor: theme.fg + '1a',
           flexDirection: 'row',
           alignItems: 'center',
           paddingHorizontal: 14,
@@ -436,22 +463,22 @@ function SearchBar() {
           gap: 10,
         }}
       >
-        <Feather name="search" size={18} color={palette.ink + '66'} />
+        <Feather name="search" size={18} color={theme.fg + '66'} />
         <TextInput
           ref={inputRef}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('map.search.placeholder')}
-          placeholderTextColor={palette.ink + '66'}
+          placeholderTextColor={theme.fg + '66'}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
-          className="flex-1 font-sans text-ink text-base"
+          className="flex-1 font-sans text-ink dark:text-paper text-base"
           style={{ paddingVertical: 0 }}
         />
         {searchQuery.length > 0 ? (
           <Pressable onPress={onClear} hitSlop={10}>
-            <Feather name="x" size={18} color={palette.ink + '80'} />
+            <Feather name="x" size={18} color={theme.fg + '80'} />
           </Pressable>
         ) : null}
       </BlurView>
@@ -462,6 +489,7 @@ function SearchBar() {
 export default function Map() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
+  const theme = useTheme();
   const mapRef = useRef<MapView>(null);
   const sheetRef = useRef<BottomSheet>(null);
   const router = useRouter();
@@ -654,18 +682,18 @@ export default function Map() {
     >
       <BlurView
         intensity={40}
-        tint="light"
+        tint={theme.isDark ? 'dark' : 'light'}
         style={{
           borderRadius: 999,
           paddingHorizontal: 16,
           paddingVertical: 10,
           overflow: 'hidden',
-          backgroundColor: palette.paper + 'cc',
+          backgroundColor: theme.bg + 'cc',
           borderWidth: 1,
-          borderColor: palette.ink + '14',
+          borderColor: theme.fg + '14',
         }}
       >
-        <Text className="font-medium text-ink text-sm">
+        <Text className="font-medium text-ink dark:text-paper text-sm">
           {t('map.city_count', { city: cityLabel, count: cityActiveCount })}
         </Text>
       </BlurView>
@@ -673,7 +701,7 @@ export default function Map() {
   );
 
   return (
-    <View className="flex-1 bg-paper">
+    <View className="flex-1 bg-paper dark:bg-ink">
       {viewMode === 'map' ? (
         <>
           <MapView
@@ -739,16 +767,16 @@ export default function Map() {
             snapPoints={[260]}
             enablePanDownToClose
             onClose={onSheetClose}
-            backgroundStyle={{ backgroundColor: palette.paper }}
-            handleIndicatorStyle={{ backgroundColor: palette.ink + '44' }}
+            backgroundStyle={{ backgroundColor: theme.bg }}
+            handleIndicatorStyle={{ backgroundColor: theme.fg + '44' }}
           >
             <BottomSheetView style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
               {selectedStation ? (
                 <>
-                  <Text className="font-display-x text-ink text-3xl" style={{ lineHeight: 30 }}>
+                  <Text className="font-display-x text-ink dark:text-paper text-3xl" style={{ lineHeight: 30 }}>
                     {selectedStation.name}
                   </Text>
-                  <Text className="font-sans text-ink/60 text-sm mt-1">
+                  <Text className="font-sans text-ink/60 dark:text-paper/60 text-sm mt-1">
                     {distanceKm !== null
                       ? t('map.preview.walking_time', { min: walkingMinutes(distanceKm) })
                       : t('map.no_location')}
@@ -762,7 +790,7 @@ export default function Map() {
                         <View
                           key={sport}
                           style={{
-                            backgroundColor: out ? palette.ink + '14' : palette.butter,
+                            backgroundColor: out ? theme.fg + '14' : palette.butter,
                             borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 8,
@@ -775,7 +803,7 @@ export default function Map() {
                           <Text
                             className={
                               out
-                                ? 'font-sans text-ink/40 text-sm'
+                                ? 'font-sans text-ink/40 dark:text-paper/40 text-sm'
                                 : 'font-medium text-ink text-sm'
                             }
                           >
@@ -801,7 +829,7 @@ export default function Map() {
                     style={({ pressed }) => ({
                       backgroundColor: selectedStation.availableNow
                         ? palette.coral
-                        : palette.ink + '33',
+                        : theme.fg + '33',
                       borderRadius: 16,
                       paddingVertical: 16,
                       marginTop: 16,
@@ -812,7 +840,7 @@ export default function Map() {
                       className={
                         selectedStation.availableNow
                           ? 'text-paper font-semibold text-base text-center'
-                          : 'text-ink/50 font-semibold text-base text-center'
+                          : 'text-ink/50 dark:text-paper/50 font-semibold text-base text-center'
                       }
                     >
                       {selectedStation.availableNow

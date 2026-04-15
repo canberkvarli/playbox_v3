@@ -4,6 +4,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/hooks/useT';
 import { useDevStore } from '@/stores/devStore';
 import { hx } from '@/lib/haptics';
@@ -11,6 +12,7 @@ import { hx } from '@/lib/haptics';
 function DevBadge() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const theme = useTheme();
   const bypass = useDevStore((s) => s.bypass);
   const setBypass = useDevStore((s) => s.setBypass);
   if (!__DEV__ || !bypass) return null;
@@ -26,20 +28,21 @@ function DevBadge() {
         top: insets.top + 8,
         right: 12,
         zIndex: 999,
-        backgroundColor: palette.ink,
+        backgroundColor: theme.fg,
         paddingHorizontal: 10,
         paddingVertical: 4,
         borderRadius: 999,
       }}
       hitSlop={8}
     >
-      <Text className="font-mono text-paper text-xs">DEV</Text>
+      <Text className="font-mono text-paper dark:text-ink text-xs">DEV</Text>
     </Pressable>
   );
 }
 
 export default function TabLayout() {
   const { t } = useT();
+  const theme = useTheme();
   return (
     <View style={{ flex: 1 }}>
       <Tabs
@@ -48,7 +51,7 @@ export default function TabLayout() {
           tabBarActiveTintColor: palette.coral,
           tabBarInactiveTintColor: palette.mauve,
           tabBarStyle: {
-            backgroundColor: palette.paper,
+            backgroundColor: theme.bg,
             borderTopWidth: 0,
             elevation: 0,
             shadowOpacity: 0,
