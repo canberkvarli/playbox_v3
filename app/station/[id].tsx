@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,11 @@ import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { RiseIn } from '@/components/RiseIn';
+import {
+  StationTourSheet,
+  type StationTourSheetHandle,
+} from '@/components/StationTourSheet';
+import { hasSeenTour, markTourSeen } from '@/lib/seenTour';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -23,6 +28,32 @@ export default function StationDetail() {
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
   const startSession = useSessionStore((s) => s.startSession);
+
+  const tourRef = useRef<StationTourSheetHandle>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    hasSeenTour().then((seen) => {
+      if (cancelled || seen) return;
+      // Delay a beat so it doesn't stomp the route transition
+      setTimeout(() => {
+        tourRef.current?.open();
+      }, 400);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const onTourDismiss = () => {
+    // fire and forget — persists the seen flag
+    markTourSeen();
+  };
+
+  const onHelp = async () => {
+    await hx.tap();
+    tourRef.current?.open();
+  };
 
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === id) return lastSelected;
@@ -95,6 +126,30 @@ export default function StationDetail() {
           <Feather name="arrow-left" size={20} color={theme.fg} />
         </Pressable>
       </View>
+
+      {/* Help (?) button — mirrors back arrow at top-right. Re-opens the tour. */}
+      <Pressable
+        onPress={onHelp}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.help')}
+        style={{
+          position: 'absolute',
+          top: insets.top + 12,
+          right: 16,
+          zIndex: 10,
+          width: 40,
+          height: 40,
+          borderRadius: 20,
+          backgroundColor: theme.bg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: theme.fg + '1a',
+        }}
+      >
+        <Feather name="help-circle" size={20} color={theme.fg} />
+      </Pressable>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -332,6 +387,9 @@ export default function StationDetail() {
           </Text>
         </Pressable>
       </View>
+
+      {/* First-time tour — auto-opens once, help button re-triggers */}
+      <StationTourSheet ref={tourRef} onDismiss={onTourDismiss} />
     </View>
   );
 }

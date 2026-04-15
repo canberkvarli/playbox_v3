@@ -66,7 +66,32 @@
     "cancel": "cancel",
     "done": "done",
     "loading": "loading",
-    "error_generic": "something went wrong"
+    "error_generic": "something went wrong",
+    "help": "help"
+  },
+  "tour": {
+    "eyebrow": "getting started",
+    "title": "how does it work?",
+    "sub": "play and return in four steps — see it once, know it always.",
+    "cta": "got it",
+    "steps": {
+      "pick": {
+        "title": "pick your sport",
+        "desc": "choose the equipment you want at the station — football, basketball, volleyball, paddle, tennis."
+      },
+      "scan": {
+        "title": "scan the qr",
+        "desc": "point your camera at the qr code on the station, the lock opens."
+      },
+      "play": {
+        "title": "play",
+        "desc": "your timer starts. you planned 30 minutes, play, rest, laugh."
+      },
+      "return": {
+        "title": "return it",
+        "desc": "when done, put the equipment back and scan the qr again. overtime fees apply if you exceed your time."
+      }
+    }
   },
   "profile": {
     "title": "profile",
@@ -140,6 +165,44 @@
     "history": {
       "label": "history",
       "count_suffix": "sessions"
+    }
+  },
+  "settings": {
+    "title": "settings",
+    "profile": {
+      "section": "profile",
+      "name": "name",
+      "username": "username",
+      "city": "city",
+      "edit_name": "edit name",
+      "edit_username": "edit username"
+    },
+    "city": {
+      "pick_title": "pick your city"
+    },
+    "notif": {
+      "section": "notifications",
+      "return_reminder": "return reminder",
+      "friend_activity": "friend activity"
+    },
+    "account": {
+      "section": "account",
+      "phone": "phone",
+      "signout": "sign out",
+      "signout_title": "sign out?",
+      "signout_msg": "you'll be logged out — your data stays safe.",
+      "signout_cta": "sign out",
+      "delete": "delete account",
+      "delete_title": "delete account?",
+      "delete_msg": "this can't be undone. all sessions and friends will be deleted.",
+      "delete_cta": "delete"
+    },
+    "about": {
+      "section": "about",
+      "version": "version",
+      "privacy": "privacy policy",
+      "terms": "terms of use",
+      "coming_soon": "coming soon"
     }
   },
   "station": {

@@ -66,7 +66,32 @@
     "cancel": "iptal",
     "done": "tamam",
     "loading": "yükleniyor",
-    "error_generic": "bir şeyler ters gitti"
+    "error_generic": "bir şeyler ters gitti",
+    "help": "yardım"
+  },
+  "tour": {
+    "eyebrow": "başlangıç",
+    "title": "nasıl çalışır?",
+    "sub": "dört adımda oyna ve iade et — bir kere gör, her zaman bil.",
+    "cta": "anladım",
+    "steps": {
+      "pick": {
+        "title": "sporunu seç",
+        "desc": "istasyonda hangi ekipmanı istediğini seç — futbol, basket, voleybol, paddle, tenis."
+      },
+      "scan": {
+        "title": "qr'ı okut",
+        "desc": "istasyondaki qr kodunu kameraya tut, kilit açılsın."
+      },
+      "play": {
+        "title": "oyna",
+        "desc": "süren başlar. 30 dakika planladın, oyna, dinlen, gül."
+      },
+      "return": {
+        "title": "iade et",
+        "desc": "bittiğinde ekipmanı istasyona bırak, qr'ı tekrar okut. süreyi aşarsan ek ücret uygulanır."
+      }
+    }
   },
   "profile": {
     "title": "profil",
@@ -140,6 +165,44 @@
     "history": {
       "label": "geçmiş",
       "count_suffix": "seans"
+    }
+  },
+  "settings": {
+    "title": "ayarlar",
+    "profile": {
+      "section": "profil",
+      "name": "isim",
+      "username": "kullanıcı adı",
+      "city": "şehir",
+      "edit_name": "ismini değiştir",
+      "edit_username": "kullanıcı adını değiştir"
+    },
+    "city": {
+      "pick_title": "şehrini seç"
+    },
+    "notif": {
+      "section": "bildirimler",
+      "return_reminder": "iade hatırlatıcısı",
+      "friend_activity": "arkadaş etkinliği"
+    },
+    "account": {
+      "section": "hesap",
+      "phone": "telefon",
+      "signout": "çıkış yap",
+      "signout_title": "çıkış yap?",
+      "signout_msg": "hesabından çıkacaksın, verilerin korunur.",
+      "signout_cta": "çıkış yap",
+      "delete": "hesabı sil",
+      "delete_title": "hesabı sil?",
+      "delete_msg": "bu işlem geri alınamaz. tüm seansların ve arkadaşların silinir.",
+      "delete_cta": "sil"
+    },
+    "about": {
+      "section": "hakkında",
+      "version": "sürüm",
+      "privacy": "gizlilik politikası",
+      "terms": "kullanım şartları",
+      "coming_soon": "yakında"
     }
   },
   "station": {
