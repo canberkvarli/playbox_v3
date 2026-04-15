@@ -109,6 +109,9 @@
       "out_of_stock": "şu an boş",
       "open": "aç"
     },
+    "search": {
+      "placeholder": "istasyon ara..."
+    },
     "no_location": "konum yok",
     "generic_area": "yakınında"
   },

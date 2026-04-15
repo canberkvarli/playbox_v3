@@ -109,6 +109,9 @@
       "out_of_stock": "out of stock",
       "open": "open"
     },
+    "search": {
+      "placeholder": "search stations..."
+    },
     "no_location": "no location",
     "generic_area": "nearby"
   },

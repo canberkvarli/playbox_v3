@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
@@ -312,7 +312,7 @@ function StationListView({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 108, // toggle + city pill + breathing room
+        paddingTop: insets.top + 156, // toggle + search + city pill + breathing room
         paddingBottom: insets.bottom + 120,
         paddingHorizontal: 20,
         gap: 10,
@@ -396,13 +396,82 @@ function StationListView({
   );
 }
 
+function SearchBar() {
+  const insets = useSafeAreaInsets();
+  const { t } = useT();
+  const { searchQuery, setSearchQuery } = useMapStore();
+  const inputRef = useRef<TextInput>(null);
+
+  const onClear = async () => {
+    await hx.tap();
+    setSearchQuery('');
+    Keyboard.dismiss();
+  };
+
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        top: insets.top + 64,
+        left: 20,
+        right: 20,
+        zIndex: 9,
+      }}
+    >
+      <BlurView
+        intensity={40}
+        tint="light"
+        style={{
+          borderRadius: 999,
+          overflow: 'hidden',
+          backgroundColor: palette.paper + 'e6',
+          borderWidth: 1,
+          borderColor: palette.ink + '1a',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          gap: 10,
+        }}
+      >
+        <Feather name="search" size={18} color={palette.ink + '66'} />
+        <TextInput
+          ref={inputRef}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('map.search.placeholder')}
+          placeholderTextColor={palette.ink + '66'}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          className="flex-1 font-sans text-ink text-base"
+          style={{ paddingVertical: 0 }}
+        />
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={onClear} hitSlop={10}>
+            <Feather name="x" size={18} color={palette.ink + '80'} />
+          </Pressable>
+        ) : null}
+      </BlurView>
+    </View>
+  );
+}
+
 export default function Map() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const sheetRef = useRef<BottomSheet>(null);
-  const { filter, selectedStationId, viewMode, setFilter, selectStation, setViewMode } =
-    useMapStore();
+  const {
+    filter,
+    selectedStationId,
+    viewMode,
+    setFilter,
+    selectStation,
+    setViewMode,
+    searchQuery,
+  } = useMapStore();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
@@ -414,14 +483,18 @@ export default function Map() {
     [userLoc]
   );
 
-  // Filter stations by sport
-  const visibleStations = useMemo(
-    () =>
-      filter === 'all'
-        ? allStations
-        : allStations.filter((s) => s.sports.includes(filter as Sport)),
-    [filter, allStations]
-  );
+  // Filter stations by sport and search query (case-insensitive substring match on name)
+  const visibleStations = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = allStations;
+    if (filter !== 'all') {
+      list = list.filter((s) => s.sports.includes(filter as Sport));
+    }
+    if (q.length > 0) {
+      list = list.filter((s) => s.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [filter, allStations, searchQuery]);
 
   const cityActiveCount = useMemo(
     () =>
@@ -570,7 +643,7 @@ export default function Map() {
       pointerEvents="none"
       style={{
         position: 'absolute',
-        top: insets.top + 60, // pushed below the view toggle
+        top: insets.top + 120, // pushed below the view toggle + search bar
         left: 0,
         right: 0,
         alignItems: 'center',
@@ -617,7 +690,7 @@ export default function Map() {
               if (item.type === 'cluster') {
                 return (
                   <Marker
-                    key={`${filter}-${item.data.id}`}
+                    key={`${filter}-${searchQuery}-${item.data.id}`}
                     coordinate={{
                       latitude: item.data.lat,
                       longitude: item.data.lng,
@@ -642,7 +715,7 @@ export default function Map() {
               }
               return (
                 <Marker
-                  key={`${filter}-${item.data.id}`}
+                  key={`${filter}-${searchQuery}-${item.data.id}`}
                   coordinate={{ latitude: item.data.lat, longitude: item.data.lng }}
                   onPress={() => onMarkerPress(item.data)}
                   tracksViewChanges={false}
@@ -755,6 +828,7 @@ export default function Map() {
       )}
 
       <ViewToggle />
+      <SearchBar />
     </View>
   );
 }
