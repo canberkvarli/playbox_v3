@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
@@ -25,6 +24,7 @@ import { useMapStore } from '@/stores/mapStore';
 import { haversineKm } from '@/lib/geo';
 import { clusterStations } from '@/lib/cluster';
 import { stationsNearUser } from '@/lib/generateStations';
+import { StationSheet, type StationSheetHandle } from '@/components/StationSheet';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -528,8 +528,8 @@ function StationListView({
 export default function Map() {
   const { t } = useT();
   const mapRef = useRef<MapView>(null);
-  const router = useRouter();
-  const { filter, viewMode, searchQuery, cacheStation } = useMapStore();
+  const stationSheetRef = useRef<StationSheetHandle>(null);
+  const { filter, viewMode, searchQuery, setViewMode, cacheStation } = useMapStore();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
@@ -637,7 +637,30 @@ export default function Map() {
   const openStation = async (s: Station) => {
     await hx.press();
     cacheStation(s);
-    router.push({ pathname: '/station/[id]', params: { id: s.id } });
+    stationSheetRef.current?.open(s);
+  };
+
+  const openStationFromList = async (s: Station) => {
+    await hx.press();
+    cacheStation(s);
+    // Switch to map mode so the sheet layers over the map, then center + open.
+    if (viewMode === 'list') {
+      setViewMode('map');
+      requestAnimationFrame(() => {
+        mapRef.current?.animateToRegion(
+          {
+            latitude: s.lat,
+            longitude: s.lng,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
+          },
+          500
+        );
+        setTimeout(() => stationSheetRef.current?.open(s), 600);
+      });
+    } else {
+      stationSheetRef.current?.open(s);
+    }
   };
 
   return (
@@ -702,12 +725,13 @@ export default function Map() {
         <StationListView
           stations={visibleStations}
           userLoc={userLoc}
-          onStationPress={openStation}
+          onStationPress={openStationFromList}
         />
       )}
 
       <CommandBar />
       {viewMode === 'map' && <SportDock sportCounts={sportCounts} />}
+      <StationSheet ref={stationSheetRef} />
     </View>
   );
 }
