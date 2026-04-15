@@ -11,6 +11,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -33,6 +34,8 @@ const FALLBACK_REGION: Region = {
 };
 
 const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyball', 'paddle', 'tennis'];
+
+type SportCounts = Record<Sport | 'all', number>;
 
 function StationMarkerView({ station, index }: { station: Station; index: number }) {
   const enter = useSharedValue(0);
@@ -137,9 +140,7 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
 }
 
 function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null }) {
-  // Reanimated can't drive <Circle> props directly at this version. Use a state
-  // driven pulse cycle that runs 3 times (~3s total) then unmounts.
-  const [phase, setPhase] = useState(0); // 0..1 per 1000ms cycle
+  const [phase, setPhase] = useState(0);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
@@ -154,7 +155,7 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
         setDone(true);
         setPhase(0);
       }
-    }, 33); // ~30fps
+    }, 33);
     return () => clearInterval(id);
   }, [userLoc, done]);
 
@@ -174,153 +175,248 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
   );
 }
 
-function FilterChip({
-  active,
-  label,
-  icon,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  icon: string | null;
-  onPress: () => void;
-}) {
+function CommandBar() {
+  const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const { t } = useT();
+  const { viewMode, setViewMode, searchQuery, setSearchQuery } = useMapStore();
+  const inputRef = useRef<TextInput>(null);
+
+  const onModeChange = async (next: 'map' | 'list') => {
+    if (next === viewMode) return;
+    await hx.tap();
+    setViewMode(next);
+  };
+  const onClear = async () => {
+    await hx.tap();
+    setSearchQuery('');
+    Keyboard.dismiss();
+  };
+
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        backgroundColor: active ? palette.coral : 'transparent',
-        borderRadius: 999,
-        width: 42,
-        height: 42,
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [{ scale: pressed ? 0.88 : active ? 1.04 : 1 }],
-        shadowColor: palette.coral,
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: active ? 0.35 : 0,
-        shadowRadius: active ? 6 : 0,
-        elevation: active ? 4 : 0,
-      })}
+    <View
+      pointerEvents="box-none"
+      style={{ position: 'absolute', top: insets.top + 12, left: 16, right: 16, zIndex: 10 }}
     >
-      <Text
+      <BlurView
+        intensity={60}
+        tint={theme.isDark ? 'dark' : 'light'}
         style={{
-          fontSize: icon ? 20 : 0,
-          opacity: active ? 1 : 0.55,
+          borderRadius: 28,
+          overflow: 'hidden',
+          backgroundColor: theme.bg + 'e6',
+          borderWidth: 1,
+          borderColor: theme.fg + '14',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: 16,
+          paddingRight: 6,
+          paddingVertical: 6,
+          gap: 10,
+          minHeight: 52,
         }}
       >
-        {icon ?? ''}
-      </Text>
-      {!icon && (
-        <Feather
-          name="globe"
-          size={18}
-          color={active ? palette.paper : theme.fg}
-          style={{ opacity: active ? 1 : 0.55 }}
+        <Feather name="search" size={18} color={theme.fg + '7f'} />
+        <TextInput
+          ref={inputRef}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('map.search.placeholder')}
+          placeholderTextColor={theme.fg + '66'}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="search"
+          className="flex-1 font-sans text-ink dark:text-paper text-base"
+          style={{ paddingVertical: 0 }}
         />
-      )}
-    </Pressable>
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={onClear} hitSlop={8}>
+            <Feather name="x" size={16} color={theme.fg + '99'} />
+          </Pressable>
+        ) : null}
+        <View style={{ width: 1, height: 22, backgroundColor: theme.fg + '1a' }} />
+        <View style={{ flexDirection: 'row', gap: 2 }}>
+          {(['map', 'list'] as const).map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => onModeChange(m)}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: viewMode === m ? theme.fg : 'transparent',
+              }}
+            >
+              <Feather
+                name={m === 'map' ? 'map' : 'list'}
+                size={15}
+                color={viewMode === m ? theme.bg : theme.fg + '99'}
+              />
+            </Pressable>
+          ))}
+        </View>
+      </BlurView>
+    </View>
   );
 }
 
-function ViewToggle() {
+function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { viewMode, setViewMode } = useMapStore();
+  return (
+    <View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: insets.top + 76,
+        left: 20,
+        backgroundColor: theme.fg,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        zIndex: 8,
+      }}
+    >
+      <Text
+        style={{
+          color: theme.bg,
+          fontFamily: 'Inter_500Medium',
+          fontSize: 11,
+          letterSpacing: 0.3,
+        }}
+      >
+        {cityLabel.toLowerCase()} · {count}
+      </Text>
+    </View>
+  );
+}
 
-  const onToggle = async (mode: 'map' | 'list') => {
-    if (mode === viewMode) return;
-    await hx.tap();
-    setViewMode(mode);
-  };
+function SportChip({
+  sport,
+  active,
+  count,
+  onPress,
+  label,
+}: {
+  sport: Sport | 'all';
+  active: boolean;
+  count: number;
+  onPress: () => void;
+  label: string;
+}) {
+  const theme = useTheme();
+  const scale = useSharedValue(active ? 1.05 : 1);
+
+  useEffect(() => {
+    scale.value = withSpring(active ? 1.05 : 1, { damping: 14, stiffness: 180 });
+  }, [active, scale]);
+
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const disabled = count === 0;
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: active, disabled }}
+        style={{
+          width: 72,
+          height: 80,
+          borderRadius: 22,
+          backgroundColor: active ? theme.butter : theme.bg + 'e6',
+          borderWidth: 1,
+          borderColor: active ? theme.fg + '1a' : theme.fg + '14',
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingVertical: 10,
+          opacity: disabled ? 0.35 : 1,
+          gap: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {active && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: theme.coral,
+            }}
+          />
+        )}
+        <Text style={{ fontSize: active ? 28 : 24, opacity: active ? 1 : 0.65 }}>
+          {sport === 'all' ? '🎯' : SPORT_EMOJI[sport]}
+        </Text>
+        <Text
+          style={{
+            fontFamily: active ? 'Inter_600SemiBold' : 'Inter_500Medium',
+            fontSize: 10,
+            color: active ? palette.ink : theme.fg + 'a6',
+            textTransform: 'lowercase',
+            letterSpacing: 0.2,
+          }}
+        >
+          {label}
+        </Text>
+        {!active && count > 0 ? (
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_400Regular',
+              fontSize: 9,
+              color: theme.fg + '7f',
+            }}
+          >
+            {count}
+          </Text>
+        ) : null}
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+function SportDock({ sportCounts }: { sportCounts: SportCounts }) {
+  const insets = useSafeAreaInsets();
+  const { filter, setFilter } = useMapStore();
+  const { t } = useT();
 
   return (
     <View
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        top: insets.top + 12,
+        bottom: insets.bottom + 96,
         left: 0,
         right: 0,
-        alignItems: 'center',
-        zIndex: 10,
+        zIndex: 9,
       }}
     >
-      <BlurView
-        intensity={40}
-        tint={theme.isDark ? 'dark' : 'light'}
-        style={{
-          borderRadius: 999,
-          overflow: 'hidden',
-          backgroundColor: theme.bg + 'cc',
-          borderWidth: 1,
-          borderColor: theme.fg + '14',
-          flexDirection: 'row',
-          padding: 4,
-          gap: 4,
-        }}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
       >
-        <Pressable
-          onPress={() => onToggle('map')}
-          style={{
-            backgroundColor: viewMode === 'map' ? theme.fg : 'transparent',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 999,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <Feather
-            name="map"
-            size={14}
-            color={viewMode === 'map' ? theme.bg : theme.fg}
+        {FILTERS.map((f) => (
+          <SportChip
+            key={f}
+            sport={f}
+            active={filter === f}
+            count={sportCounts[f]}
+            label={t(`map.filters.${f}`)}
+            onPress={async () => {
+              await hx.tap();
+              setFilter(f);
+            }}
           />
-          <Text
-            className={
-              viewMode === 'map'
-                ? 'text-paper dark:text-ink font-medium'
-                : 'text-ink dark:text-paper font-medium'
-            }
-            style={{ fontSize: 13 }}
-          >
-            harita
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onToggle('list')}
-          style={{
-            backgroundColor: viewMode === 'list' ? theme.fg : 'transparent',
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderRadius: 999,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 6,
-          }}
-        >
-          <Feather
-            name="list"
-            size={14}
-            color={viewMode === 'list' ? theme.bg : theme.fg}
-          />
-          <Text
-            className={
-              viewMode === 'list'
-                ? 'text-paper dark:text-ink font-medium'
-                : 'text-ink dark:text-paper font-medium'
-            }
-            style={{ fontSize: 13 }}
-          >
-            liste
-          </Text>
-        </Pressable>
-      </BlurView>
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -329,12 +425,10 @@ function StationListView({
   stations,
   userLoc,
   onStationPress,
-  filtersRow,
 }: {
   stations: Station[];
   userLoc: { lat: number; lng: number } | null;
   onStationPress: (s: Station) => void;
-  filtersRow: React.ReactNode;
 }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -352,14 +446,13 @@ function StationListView({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 156, // toggle + search + city pill + breathing room
-        paddingBottom: insets.bottom + 24,
+        paddingTop: insets.top + 84, // single command bar (52 + 12 top + ~20 gap)
+        paddingBottom: insets.bottom + 200, // clear sport dock + tab bar
         paddingHorizontal: 20,
         gap: 10,
       }}
       showsVerticalScrollIndicator={false}
     >
-      {filtersRow}
       {sorted.map((s) => {
         const km = userLoc ? haversineKm(userLoc, { lat: s.lat, lng: s.lng }) : null;
         return (
@@ -439,94 +532,21 @@ function StationListView({
   );
 }
 
-function SearchBar() {
-  const insets = useSafeAreaInsets();
-  const { t } = useT();
-  const theme = useTheme();
-  const { searchQuery, setSearchQuery } = useMapStore();
-  const inputRef = useRef<TextInput>(null);
-
-  const onClear = async () => {
-    await hx.tap();
-    setSearchQuery('');
-    Keyboard.dismiss();
-  };
-
-  return (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top: insets.top + 64,
-        left: 20,
-        right: 20,
-        zIndex: 9,
-      }}
-    >
-      <BlurView
-        intensity={40}
-        tint={theme.isDark ? 'dark' : 'light'}
-        style={{
-          borderRadius: 999,
-          overflow: 'hidden',
-          backgroundColor: theme.bg + 'e6',
-          borderWidth: 1,
-          borderColor: theme.fg + '1a',
-          flexDirection: 'row',
-          alignItems: 'center',
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          gap: 10,
-        }}
-      >
-        <Feather name="search" size={18} color={theme.fg + '66'} />
-        <TextInput
-          ref={inputRef}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('map.search.placeholder')}
-          placeholderTextColor={theme.fg + '66'}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-          className="flex-1 font-sans text-ink dark:text-paper text-base"
-          style={{ paddingVertical: 0 }}
-        />
-        {searchQuery.length > 0 ? (
-          <Pressable onPress={onClear} hitSlop={10}>
-            <Feather name="x" size={18} color={theme.fg + '80'} />
-          </Pressable>
-        ) : null}
-      </BlurView>
-    </View>
-  );
-}
-
 export default function Map() {
   const { t } = useT();
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const mapRef = useRef<MapView>(null);
   const router = useRouter();
-  const {
-    filter,
-    viewMode,
-    setFilter,
-    searchQuery,
-    cacheStation,
-  } = useMapStore();
+  const { filter, viewMode, searchQuery, cacheStation } = useMapStore();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
   const [latDelta, setLatDelta] = useState(FALLBACK_REGION.latitudeDelta);
 
-  // Build the active station list from seed + generated demo stations near the user.
   const allStations = useMemo(
     () => stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 }),
     [userLoc]
   );
 
-  // Filter stations by sport and search query (case-insensitive substring match on name)
   const visibleStations = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = allStations;
@@ -538,6 +558,24 @@ export default function Map() {
     }
     return list;
   }, [filter, allStations, searchQuery]);
+
+  const sportCounts = useMemo<SportCounts>(() => {
+    const c: SportCounts = {
+      all: allStations.filter((s) => s.availableNow).length,
+      football: 0,
+      basketball: 0,
+      volleyball: 0,
+      paddle: 0,
+      tennis: 0,
+    };
+    for (const s of allStations) {
+      if (!s.availableNow) continue;
+      for (const sp of s.sports) {
+        if ((s.stock[sp] ?? 0) > 0) c[sp]++;
+      }
+    }
+    return c;
+  }, [allStations]);
 
   const cityActiveCount = useMemo(
     () =>
@@ -554,14 +592,11 @@ export default function Map() {
     [visibleStations, latDelta]
   );
 
-  // Resolve user location
   useEffect(() => {
     (async () => {
       try {
         let { status } = await Location.getForegroundPermissionsAsync();
         if (status !== 'granted') {
-          // Onboarding usually prompts, but dev bypass / denial might skip it.
-          // Re-request once here so the map can center on the user by default.
           const req = await Location.requestForegroundPermissionsAsync();
           status = req.status;
         }
@@ -571,7 +606,6 @@ export default function Map() {
         const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLoc(next);
 
-        // Pick city based on closest centroid
         const centroids: Record<keyof typeof CITY_LABELS, { lat: number; lng: number }> = {
           istanbul: { lat: 41.0082, lng: 28.9784 },
           ankara: { lat: 39.9334, lng: 32.8597 },
@@ -586,11 +620,8 @@ export default function Map() {
             best = k;
           }
         }
-        // If the user is >200km from any Turkish city, show a generic label
-        // instead of mislabeling them as "İstanbul".
         setCity(bestDist > 200 ? 'generic' : best);
 
-        // Animate camera (tight enough that demo stations within 150m-2km are visible)
         mapRef.current?.animateToRegion(
           {
             latitude: next.lat,
@@ -615,88 +646,6 @@ export default function Map() {
     cacheStation(s);
     router.push({ pathname: '/station/[id]', params: { id: s.id } });
   };
-
-  const onFilterPress = async (f: Sport | 'all') => {
-    await hx.tap();
-    setFilter(f);
-  };
-
-  const FilterBar = (
-    <View
-      pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top: insets.top + 120,
-        left: 20,
-        right: 20,
-        zIndex: 8,
-      }}
-    >
-      <BlurView
-        intensity={50}
-        tint={theme.isDark ? 'dark' : 'light'}
-        style={{
-          borderRadius: 999,
-          overflow: 'hidden',
-          backgroundColor: theme.bg + 'e6',
-          borderWidth: 1,
-          borderColor: theme.fg + '14',
-          shadowColor: palette.ink,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.12,
-          shadowRadius: 10,
-          elevation: 6,
-        }}
-      >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 6, paddingVertical: 5, gap: 4 }}
-        >
-          {FILTERS.map((f) => (
-            <FilterChip
-              key={f}
-              active={filter === f}
-              label={t(`map.filters.${f}`)}
-              icon={f === 'all' ? null : SPORT_EMOJI[f]}
-              onPress={() => onFilterPress(f)}
-            />
-          ))}
-        </ScrollView>
-      </BlurView>
-    </View>
-  );
-
-  const CityPill = (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: insets.top + 180, // below view toggle + search + filter bar
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-      }}
-    >
-      <BlurView
-        intensity={40}
-        tint={theme.isDark ? 'dark' : 'light'}
-        style={{
-          borderRadius: 999,
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          overflow: 'hidden',
-          backgroundColor: theme.bg + 'cc',
-          borderWidth: 1,
-          borderColor: theme.fg + '14',
-        }}
-      >
-        <Text className="font-medium text-ink dark:text-paper text-sm">
-          {t('map.city_count', { city: cityLabel, count: cityActiveCount })}
-        </Text>
-      </BlurView>
-    </View>
-  );
 
   return (
     <View className="flex-1 bg-paper dark:bg-ink">
@@ -754,24 +703,18 @@ export default function Map() {
               );
             })}
           </MapView>
-
-          {CityPill}
-          {SideRail}
+          <CityBadge cityLabel={cityLabel} count={cityActiveCount} />
         </>
       ) : (
-        <>
-          <StationListView
-            stations={visibleStations}
-            userLoc={userLoc}
-            onStationPress={openStation}
-            filtersRow={ListChipsRow}
-          />
-          {CityPill}
-        </>
+        <StationListView
+          stations={visibleStations}
+          userLoc={userLoc}
+          onStationPress={openStation}
+        />
       )}
 
-      <ViewToggle />
-      <SearchBar />
+      <CommandBar />
+      <SportDock sportCounts={sportCounts} />
     </View>
   );
 }
