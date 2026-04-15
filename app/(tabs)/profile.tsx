@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import ViewShot, { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -200,6 +202,8 @@ export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const [follows, setFollows] = useState(() => FRIENDS.map((f) => f.following));
+  const [capturing, setCapturing] = useState(false);
+  const flexCardRef = useRef<ViewShot>(null);
 
   const milestone = nextMilestone(ME.streakDays);
 
@@ -210,7 +214,31 @@ export default function Profile() {
 
   const onShareFlex = async () => {
     await hx.press();
-    console.log('share flex card');
+    setCapturing(true);
+    try {
+      await new Promise((r) => requestAnimationFrame(r));
+      await new Promise((r) => setTimeout(r, 50));
+      const uri = await captureRef(flexCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        console.warn('[playbox] Sharing not available on this platform');
+        return;
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Playbox',
+        UTI: 'public.png',
+      });
+    } catch (e) {
+      console.warn('[playbox] share failed', e);
+      await hx.no();
+    } finally {
+      setCapturing(false);
+    }
   };
 
   const onToggleFollow = async (idx: number) => {
@@ -323,35 +351,47 @@ export default function Profile() {
 
         {/* Flex card */}
         <RiseIn delay={240}>
-          <View className="bg-ink rounded-3xl p-6 mt-6">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="share"
-              onPress={onShareFlex}
-              hitSlop={8}
-              style={{ position: 'absolute', top: 16, right: 16 }}
-              className="bg-paper/10 rounded-full p-2"
-            >
-              <Feather name="share-2" size={20} color={palette.butter} />
-            </Pressable>
-            <Text className="font-mono text-paper/60 text-xs uppercase tracking-wider">
-              {t('profile.flex.header', { city: ME.city })}
-            </Text>
-            <Text className="font-display-x text-butter text-6xl mt-2">
-              {ME.sessionsThisWeek}
-            </Text>
-            <Text className="font-sans text-paper/80 text-base">
-              {t('profile.flex.played_suffix')}
-            </Text>
-            <View className="h-px bg-paper/15 my-4" />
-            <Text className="font-mono text-paper/70 text-sm">
-              {t('profile.flex.summary', {
-                rank: ME.cityRank,
-                minutes: ME.totalMinutes,
-                streak: ME.streakDays,
-              })}
-            </Text>
-          </View>
+          <ViewShot
+            ref={flexCardRef}
+            options={{ format: 'png', quality: 1, result: 'tmpfile' }}
+          >
+            <View className="bg-ink rounded-3xl p-6 mt-6">
+              {!capturing ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="share"
+                  onPress={onShareFlex}
+                  hitSlop={8}
+                  style={{ position: 'absolute', top: 16, right: 16 }}
+                  className="bg-paper/10 rounded-full p-2"
+                >
+                  <Feather name="share-2" size={20} color={palette.butter} />
+                </Pressable>
+              ) : null}
+              <Text className="font-mono text-paper/60 text-xs uppercase tracking-wider">
+                {t('profile.flex.header', { city: ME.city })}
+              </Text>
+              <Text className="font-display-x text-butter text-6xl mt-2">
+                {ME.sessionsThisWeek}
+              </Text>
+              <Text className="font-sans text-paper/80 text-base">
+                {t('profile.flex.played_suffix')}
+              </Text>
+              <View className="h-px bg-paper/15 my-4" />
+              <Text className="font-mono text-paper/70 text-sm">
+                {t('profile.flex.summary', {
+                  rank: ME.cityRank,
+                  minutes: ME.totalMinutes,
+                  streak: ME.streakDays,
+                })}
+              </Text>
+              <View className="mt-3 items-center">
+                <Text className="font-display text-butter/80 text-xs tracking-[4px]">
+                  PLAYBOX
+                </Text>
+              </View>
+            </View>
+          </ViewShot>
         </RiseIn>
 
         {/* Friends section */}
