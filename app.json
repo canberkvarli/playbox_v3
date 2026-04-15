@@ -59,7 +59,9 @@
         {
           "cameraPermission": "Playbox istasyonlardaki QR kodları okumak için kamera kullanır."
         }
-      ]
+      ],
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
