@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -10,47 +10,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
-import { type Sport } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore, type ActiveSession } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
-
-// --- Fake history -----------------------------------------------------------
-
-const HISTORY: Array<{
-  id: string;
-  stationName: string;
-  sport: Sport;
-  minutes: number;
-  hoursAgo: number;
-}> = [
-  { id: 'h1', stationName: 'Kadıköy Moda', sport: 'football',   minutes: 28, hoursAgo: 2 },
-  { id: 'h2', stationName: 'Bebek Sahili', sport: 'paddle',     minutes: 45, hoursAgo: 26 },
-  { id: 'h3', stationName: 'Maçka Parkı',  sport: 'basketball', minutes: 32, hoursAgo: 74 },
-  { id: 'h4', stationName: 'Moda Sahili',  sport: 'volleyball', minutes: 52, hoursAgo: 168 },
-];
-
-// --- Relative time helpers --------------------------------------------------
-
-function relativeTimeTr(hoursAgo: number): string {
-  if (hoursAgo < 1) return 'az önce';
-  if (hoursAgo < 24) return `${hoursAgo} saat önce`;
-  if (hoursAgo < 48) return 'dün';
-  const days = Math.floor(hoursAgo / 24);
-  if (days < 7) return `${days} gün önce`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks} hafta önce`;
-}
-
-function relativeTimeEn(hoursAgo: number): string {
-  if (hoursAgo < 1) return 'just now';
-  if (hoursAgo < 24) return `${hoursAgo}h ago`;
-  if (hoursAgo < 48) return 'yesterday';
-  const days = Math.floor(hoursAgo / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
 
 function formatMMSS(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -116,42 +78,6 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   );
 }
 
-// --- History row ------------------------------------------------------------
-
-function HistoryRow({
-  stationName,
-  sport,
-  minutes,
-  timeLabel,
-}: {
-  stationName: string;
-  sport: Sport;
-  minutes: number;
-  timeLabel: string;
-}) {
-  return (
-    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
-      <View
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 16,
-          backgroundColor: palette.butter,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontSize: 24 }}>{SPORT_EMOJI[sport]}</Text>
-      </View>
-      <View className="flex-1">
-        <Text className="font-medium text-ink dark:text-paper text-base">{stationName}</Text>
-        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-0.5">{timeLabel}</Text>
-      </View>
-      <Text className="font-mono text-ink dark:text-paper text-sm">{minutes}dk</Text>
-    </View>
-  );
-}
-
 // --- Tip row ----------------------------------------------------------------
 
 function TipRow({
@@ -172,7 +98,7 @@ function TipRow({
 // --- Screen -----------------------------------------------------------------
 
 export default function Play() {
-  const { t, lang } = useT();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const sheetRef = useRef<BottomSheet>(null);
@@ -183,8 +109,6 @@ export default function Play() {
 
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
-
-  const relTime = lang === 'en' ? relativeTimeEn : relativeTimeTr;
 
   // Dev fake: when toggle is on AND no real session, backfill a fake one.
   useEffect(() => {
@@ -225,19 +149,10 @@ export default function Play() {
     router.replace('/(tabs)/map');
   };
 
-  const onHeaderHistoryTap = async () => {
-    await hx.tap();
-  };
-
   const onDevToggle = async () => {
     await hx.tap();
     setFakeActiveSession(!fakeActiveSession);
   };
-
-  const historyCountLabel = useMemo(
-    () => `${HISTORY.length} ${t('play.history.count_suffix')}`,
-    [t]
-  );
 
   return (
     <View className="flex-1 bg-paper dark:bg-ink">
@@ -248,14 +163,6 @@ export default function Play() {
       >
         <View className="flex-row items-center justify-between">
           <Text className="font-display text-ink dark:text-paper text-lg">{t('play.title')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="history"
-            onPress={onHeaderHistoryTap}
-            hitSlop={12}
-          >
-            <Feather name="clock" size={22} color={theme.fg} />
-          </Pressable>
         </View>
       </View>
 
@@ -304,89 +211,36 @@ export default function Play() {
                 <TipRow icon="alert-circle" text={t('play.tips.time_limit')} />
               </View>
             </RiseIn>
-
-            {/* Section F: history */}
-            <RiseIn delay={280}>
-              <View className="mt-8 mb-3 flex-row items-center justify-between">
-                <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
-                  {t('play.history.label')}
-                </Text>
-                <Text className="font-mono text-ink/40 dark:text-paper/40 text-xs">
-                  {historyCountLabel}
-                </Text>
-              </View>
-              <View className="gap-2">
-                {HISTORY.map((h) => (
-                  <HistoryRow
-                    key={h.id}
-                    stationName={h.stationName}
-                    sport={h.sport}
-                    minutes={h.minutes}
-                    timeLabel={relTime(h.hoursAgo)}
-                  />
-                ))}
-              </View>
-            </RiseIn>
           </>
         ) : (
-          <>
-            {/* Section E: empty-state hero */}
-            <RiseIn delay={0}>
-              <View className="bg-butter rounded-3xl p-8 mt-4 items-center">
-                <Feather name="zap" size={64} color={palette.ink} />
-                <Text className="font-display-x text-ink text-4xl text-center mt-4">
-                  {t('play.empty.title')}
+          <RiseIn delay={0}>
+            <View className="bg-butter rounded-3xl p-8 mt-4 items-center">
+              <Feather name="zap" size={64} color={palette.ink} />
+              <Text className="font-display-x text-ink text-4xl text-center mt-4">
+                {t('play.empty.title')}
+              </Text>
+              <Text className="font-sans text-ink/70 text-base text-center mt-3">
+                {t('play.empty.sub')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="open map"
+                onPress={onOpenMap}
+                className="bg-coral rounded-2xl py-4 mt-6 w-full"
+                style={({ pressed }) => ({
+                  transform: [{ scale: pressed ? 0.98 : 1 }],
+                })}
+              >
+                <Text className="font-semibold text-paper text-base text-center">
+                  {t('play.empty.cta')}
                 </Text>
-                <Text className="font-sans text-ink/70 text-base text-center mt-3">
-                  {t('play.empty.sub')}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="open map"
-                  onPress={onOpenMap}
-                  className="bg-coral rounded-2xl py-4 mt-6 w-full"
-                  style={({ pressed }) => ({
-                    transform: [{ scale: pressed ? 0.98 : 1 }],
-                  })}
-                >
-                  <Text className="font-semibold text-paper text-base text-center">
-                    {t('play.empty.cta')}
-                  </Text>
-                </Pressable>
-              </View>
-            </RiseIn>
-
-            {/* Section F: history */}
-            <RiseIn delay={120}>
-              <View className="mt-8 mb-3 flex-row items-center justify-between">
-                <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
-                  {t('play.history.label')}
-                </Text>
-                <Text className="font-mono text-ink/40 dark:text-paper/40 text-xs">
-                  {historyCountLabel}
-                </Text>
-              </View>
-              <View className="gap-2">
-                {HISTORY.map((h) => (
-                  <HistoryRow
-                    key={h.id}
-                    stationName={h.stationName}
-                    sport={h.sport}
-                    minutes={h.minutes}
-                    timeLabel={relTime(h.hoursAgo)}
-                  />
-                ))}
-              </View>
-            </RiseIn>
-          </>
+              </Pressable>
+            </View>
+          </RiseIn>
         )}
 
         {__DEV__ ? (
-          <Pressable
-            onPress={onDevToggle}
-            className="mt-8"
-            hitSlop={8}
-          >
+          <Pressable onPress={onDevToggle} className="mt-8" hitSlop={8}>
             <Text className="font-mono text-xs text-ink/40 dark:text-paper/40 underline text-center">
               dev: {fakeActiveSession ? 'aktif seansı kapat' : 'aktif seans simüle et'}
             </Text>
@@ -437,4 +291,3 @@ export default function Play() {
     </View>
   );
 }
-

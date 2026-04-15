@@ -216,6 +216,9 @@
     "out_of_stock": "out of stock",
     "units_available": "available",
     "how_it_works": "how it works",
+    "gate_count": "{{total}} gates · {{available}} available",
+    "available": "available",
+    "full": "full",
     "steps": {
       "tap_sport": "tap the sport you want",
       "scan_qr": "scan the qr at the station",
@@ -223,5 +226,18 @@
     },
     "cta_unlock": "unlock",
     "cta_out_of_stock": "out of stock"
+  },
+  "prep": {
+    "gate_ready": "{{sport}} gate ready",
+    "how_it_works": "quick reminder",
+    "cta": "play!",
+    "opening": "opening gate..."
+  },
+  "scan": {
+    "title": "scan the station's qr",
+    "sub": "frame the code",
+    "permission_needed": "camera permission required",
+    "grant": "grant",
+    "not_found": "station not found"
   }
 }

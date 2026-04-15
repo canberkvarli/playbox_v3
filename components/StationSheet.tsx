@@ -17,10 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import type { Station, Sport } from '@/data/stations.seed';
-import { useSessionStore } from '@/stores/sessionStore';
+import { useMapStore } from '@/stores/mapStore';
 import { StationDetailPanel } from './StationDetailPanel';
 import { StationTourSheet, type StationTourSheetHandle } from './StationTourSheet';
-import { hasSeenTour, markTourSeen } from '@/lib/seenTour';
+import { markTourSeen } from '@/lib/seenTour';
 
 export type StationSheetHandle = {
   open: (s: Station) => void;
@@ -29,8 +29,8 @@ export type StationSheetHandle = {
 
 /**
  * Bottom-sheet host for station detail. Mounts StationDetailPanel inside
- * a BottomSheetScrollView at a 92% snap point. Also mounts StationTourSheet
- * so the first-time tour overlays the station sheet properly.
+ * a BottomSheetScrollView at a 92% snap point. The tour auto-open has been
+ * removed — users can re-open via the `?` help button.
  */
 export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet(_, ref) {
   const sheetRef = useRef<BottomSheet>(null);
@@ -39,15 +39,13 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const startSession = useSessionStore((s) => s.startSession);
+  const setStationSheetOpen = useMapStore((s) => s.setStationSheetOpen);
 
   useImperativeHandle(ref, () => ({
     open: (s) => {
       setStation(s);
+      setStationSheetOpen(true);
       sheetRef.current?.snapToIndex(0);
-      hasSeenTour().then((seen) => {
-        if (!seen) setTimeout(() => tourRef.current?.open(), 500);
-      });
     },
     close: () => sheetRef.current?.close(),
   }));
@@ -65,17 +63,16 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
     []
   );
 
-  const onUnlock = async (sport: Sport) => {
+  const onSportTap = async (sport: Sport) => {
     if (!station) return;
-    await hx.punch();
-    startSession({
-      stationId: station.id,
-      stationName: station.name,
-      sport,
-      durationMinutes: 30,
-    });
+    await hx.tap();
     sheetRef.current?.close();
-    router.replace('/(tabs)/play');
+    setTimeout(() => {
+      router.push({
+        pathname: '/session-prep/[stationId]/[sport]',
+        params: { stationId: station.id, sport },
+      });
+    }, 250);
   };
 
   const onHelp = async () => {
@@ -140,6 +137,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         snapPoints={['92%']}
         enablePanDownToClose
         backdropComponent={renderBackdrop}
+        onClose={() => setStationSheetOpen(false)}
         backgroundStyle={{ backgroundColor: theme.bg }}
         handleIndicatorStyle={{ backgroundColor: theme.fg + '44', width: 40, height: 4 }}
       >
@@ -150,7 +148,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           {station ? (
             <StationDetailPanel
               station={station}
-              onUnlock={onUnlock}
+              onSportTap={onSportTap}
               headerSlot={headerSlot}
             />
           ) : null}

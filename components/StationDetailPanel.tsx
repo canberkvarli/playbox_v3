@@ -10,13 +10,10 @@ import { RiseIn } from '@/components/RiseIn';
 
 export type StationDetailPanelProps = {
   station: Station;
-  onUnlock: (sport: Sport) => void;
+  onSportTap: (sport: Sport) => void;
   /**
    * Optional slot rendered at the very top of the panel — before the hero.
    * Host-specific controls (close button, back arrow, help) go here.
-   * When hosted in the station sheet, the sheet passes a close/help row.
-   * When hosted in the deep-link route, the route passes nothing
-   * (back arrow + help are positioned absolutely by the host).
    */
   headerSlot?: React.ReactNode;
 };
@@ -26,28 +23,31 @@ export type StationDetailPanelProps = {
  * no sticky CTA, no first-time tour sheet. The host decides how to wrap
  * this (bottom sheet's BottomSheetScrollView vs. a regular ScrollView).
  *
- * Per-sport cards are the unlock affordance — tap a card to start a session.
+ * Per-sport cards (gates) are tappable — each card represents a numbered
+ * gate (K1, K2, K3) and shows müsait / dolu status. Tap opens session-prep.
  */
-export function StationDetailPanel({ station, onUnlock, headerSlot }: StationDetailPanelProps) {
+export function StationDetailPanel({ station, onSportTap, headerSlot }: StationDetailPanelProps) {
   const { t } = useT();
   const theme = useTheme();
+
+  const availableCount = station.sports.filter((s) => (station.stock[s] ?? 0) > 0).length;
 
   return (
     <View>
       {headerSlot}
 
       <View style={{ paddingHorizontal: 24, paddingTop: headerSlot ? 12 : 0 }}>
-        {/* Hero card — stylized "station visual" */}
+        {/* Hero card — sport emojis + gate count line */}
         <RiseIn delay={0}>
           <View
             style={{
               backgroundColor: palette.butter,
               borderRadius: 28,
               padding: 24,
-              minHeight: 180,
+              minHeight: 140,
               overflow: 'hidden',
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.ink + '1a',
             }}
           >
             {[0.25, 0.5, 0.75].map((p) => (
@@ -77,17 +77,26 @@ export function StationDetailPanel({ station, onUnlock, headerSlot }: StationDet
               />
             ))}
 
-            <Text className="font-mono text-ink/60 text-xs uppercase tracking-wider">
-              {station.availableNow ? t('station.status.open') : t('station.status.closed')}
-            </Text>
-            <View className="flex-row items-center gap-2 mt-2">
-              {station.availableNow && (
-                <View
-                  style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: palette.coral }}
-                />
-              )}
-              <Text className="font-mono text-ink text-sm">ID · {station.id}</Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 12,
+                marginTop: 12,
+              }}
+            >
+              {station.sports.map((s) => (
+                <Text key={s} style={{ fontSize: 40 }}>
+                  {SPORT_EMOJI[s]}
+                </Text>
+              ))}
             </View>
+            <Text className="font-mono text-ink/60 text-xs text-center mt-4">
+              {t('station.gate_count', {
+                total: station.sports.length,
+                available: availableCount,
+              })}
+            </Text>
           </View>
         </RiseIn>
 
@@ -118,14 +127,15 @@ export function StationDetailPanel({ station, onUnlock, headerSlot }: StationDet
           </View>
         </RiseIn>
 
-        {/* Stock grid — tappable sport cards (these are the unlock mechanism) */}
+        {/* Gate grid — tappable sport cards with K{n} badges */}
         <RiseIn delay={160}>
           <View className="mt-8">
             <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
               {t('station.available_equipment')}
             </Text>
             <View className="flex-row flex-wrap gap-3">
-              {station.sports.map((sport) => {
+              {station.sports.map((sport, idx) => {
+                const n = idx + 1;
                 const stock = station.stock[sport] ?? 0;
                 const out = stock === 0 || !station.availableNow;
                 return (
@@ -133,7 +143,7 @@ export function StationDetailPanel({ station, onUnlock, headerSlot }: StationDet
                     key={sport}
                     onPress={() => {
                       if (out) return;
-                      onUnlock(sport);
+                      onSportTap(sport);
                     }}
                     disabled={out}
                     style={({ pressed }) => ({
@@ -150,58 +160,47 @@ export function StationDetailPanel({ station, onUnlock, headerSlot }: StationDet
                   >
                     <View className="flex-row items-center justify-between">
                       <Text style={{ fontSize: 32 }}>{SPORT_EMOJI[sport]}</Text>
-                      {!out && (
-                        <View
-                          style={{
-                            backgroundColor: palette.coral,
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
-                          }}
-                        />
-                      )}
+                      <View
+                        style={{
+                          backgroundColor: palette.ink,
+                          borderRadius: 6,
+                          paddingHorizontal: 6,
+                          paddingVertical: 2,
+                        }}
+                      >
+                        <Text
+                          className="font-mono text-paper"
+                          style={{ fontSize: 10 }}
+                        >
+                          K{n}
+                        </Text>
+                      </View>
                     </View>
                     <Text className="font-medium text-ink dark:text-paper text-base mt-3">
                       {SPORT_LABELS[sport]}
                     </Text>
-                    <Text className="font-mono text-ink/60 dark:text-paper/60 text-xs mt-0.5">
-                      {out
-                        ? t('station.out_of_stock')
-                        : `${stock} ${t('station.units_available')}`}
-                    </Text>
+                    {out ? (
+                      <Text className="font-sans text-ink/40 dark:text-paper/40 text-xs mt-0.5">
+                        {t('station.full')}
+                      </Text>
+                    ) : (
+                      <View className="flex-row items-center gap-1.5 mt-0.5">
+                        <Text className="font-medium text-ink dark:text-paper text-xs">
+                          {t('station.available')}
+                        </Text>
+                        <View
+                          style={{
+                            width: 5,
+                            height: 5,
+                            borderRadius: 2.5,
+                            backgroundColor: palette.coral,
+                          }}
+                        />
+                      </View>
+                    )}
                   </Pressable>
                 );
               })}
-            </View>
-          </View>
-        </RiseIn>
-
-        {/* How it works */}
-        <RiseIn delay={240}>
-          <View className="mt-8 bg-paper dark:bg-ink rounded-2xl border border-ink/10 dark:border-paper/10 p-5">
-            <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
-              {t('station.how_it_works')}
-            </Text>
-            <View className="gap-3">
-              {(['tap_sport', 'scan_qr', 'return'] as const).map((key, i) => (
-                <View key={key} className="flex-row items-center gap-3">
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      backgroundColor: palette.mauve + '26',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text className="font-display text-ink dark:text-paper text-sm">{i + 1}</Text>
-                  </View>
-                  <Text className="font-sans text-ink dark:text-paper text-sm flex-1">
-                    {t(`station.steps.${key}`)}
-                  </Text>
-                </View>
-              ))}
             </View>
           </View>
         </RiseIn>

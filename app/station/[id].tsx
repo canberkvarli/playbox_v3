@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +9,12 @@ import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { useSessionStore } from '@/stores/sessionStore';
 import { StationDetailPanel } from '@/components/StationDetailPanel';
 import {
   StationTourSheet,
   type StationTourSheetHandle,
 } from '@/components/StationTourSheet';
-import { hasSeenTour, markTourSeen } from '@/lib/seenTour';
+import { markTourSeen } from '@/lib/seenTour';
 
 /**
  * Standalone /station/[id] route — kept functional for deep links.
@@ -30,22 +29,8 @@ export default function StationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
-  const startSession = useSessionStore((s) => s.startSession);
 
   const tourRef = useRef<StationTourSheetHandle>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    hasSeenTour().then((seen) => {
-      if (cancelled || seen) return;
-      setTimeout(() => {
-        tourRef.current?.open();
-      }, 400);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === id) return lastSelected;
@@ -85,15 +70,12 @@ export default function StationDetail() {
     tourRef.current?.open();
   };
 
-  const onUnlock = async (sport: Sport) => {
-    await hx.punch();
-    startSession({
-      stationId: station.id,
-      stationName: station.name,
-      sport,
-      durationMinutes: 30,
+  const onSportTap = async (sport: Sport) => {
+    await hx.tap();
+    router.push({
+      pathname: '/session-prep/[stationId]/[sport]',
+      params: { stationId: station.id, sport },
     });
-    router.replace('/(tabs)/play');
   };
 
   return (
@@ -158,7 +140,7 @@ export default function StationDetail() {
           paddingBottom: insets.bottom + 40,
         }}
       >
-        <StationDetailPanel station={station} onUnlock={onUnlock} />
+        <StationDetailPanel station={station} onSportTap={onSportTap} />
       </ScrollView>
 
       <StationTourSheet ref={tourRef} onDismiss={() => markTourSeen()} />

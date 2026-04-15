@@ -216,6 +216,9 @@
     "out_of_stock": "stokta yok",
     "units_available": "adet",
     "how_it_works": "nasıl çalışır",
+    "gate_count": "{{total}} kapı · {{available}} müsait",
+    "available": "müsait",
+    "full": "dolu",
     "steps": {
       "tap_sport": "istediğin sporu seç",
       "scan_qr": "istasyondaki qr'ı oku",
@@ -223,5 +226,18 @@
     },
     "cta_unlock": "kilidi aç",
     "cta_out_of_stock": "şu an boş"
+  },
+  "prep": {
+    "gate_ready": "{{sport}} kapısı hazır",
+    "how_it_works": "kısa bir hatırlatma",
+    "cta": "oyna!",
+    "opening": "kapı açılıyor..."
+  },
+  "scan": {
+    "title": "istasyonun qr'ını okut",
+    "sub": "kodu çerçevenin içine al",
+    "permission_needed": "kamera izni gerekli",
+    "grant": "izin ver",
+    "not_found": "istasyon bulunamadı"
   }
 }

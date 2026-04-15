@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
@@ -179,6 +180,7 @@ function CommandBar() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { t } = useT();
+  const router = useRouter();
   const { viewMode, setViewMode, searchQuery, setSearchQuery } = useMapStore();
   const inputRef = useRef<TextInput>(null);
 
@@ -191,6 +193,10 @@ function CommandBar() {
     await hx.tap();
     setSearchQuery('');
     Keyboard.dismiss();
+  };
+  const onScanPress = async () => {
+    await hx.tap();
+    router.push('/scan');
   };
 
   return (
@@ -209,13 +215,27 @@ function CommandBar() {
           borderColor: theme.fg + '14',
           flexDirection: 'row',
           alignItems: 'center',
-          paddingLeft: 16,
+          paddingLeft: 6,
           paddingRight: 6,
           paddingVertical: 6,
           gap: 10,
           minHeight: 52,
         }}
       >
+        <Pressable onPress={onScanPress} accessibilityRole="button" accessibilityLabel="scan">
+          <View
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              backgroundColor: theme.coral,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="camera" size={16} color={palette.paper} />
+          </View>
+        </Pressable>
         <Feather name="search" size={18} color={theme.fg + '7f'} />
         <TextInput
           ref={inputRef}
@@ -530,6 +550,9 @@ export default function Map() {
   const mapRef = useRef<MapView>(null);
   const stationSheetRef = useRef<StationSheetHandle>(null);
   const { filter, viewMode, searchQuery, setViewMode, cacheStation } = useMapStore();
+  const stationSheetOpen = useMapStore((s) => s.stationSheetOpen);
+  const pendingSheetStationId = useMapStore((s) => s.pendingSheetStationId);
+  const setPendingSheetStationId = useMapStore((s) => s.setPendingSheetStationId);
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
@@ -630,6 +653,27 @@ export default function Map() {
     })();
   }, []);
 
+  useEffect(() => {
+    if (!pendingSheetStationId) return;
+    const s =
+      allStations.find((x) => x.id === pendingSheetStationId) ??
+      STATIONS.find((x) => x.id === pendingSheetStationId);
+    if (s) {
+      cacheStation(s);
+      mapRef.current?.animateToRegion(
+        {
+          latitude: s.lat,
+          longitude: s.lng,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        },
+        500
+      );
+      setTimeout(() => stationSheetRef.current?.open(s), 400);
+    }
+    setPendingSheetStationId(null);
+  }, [pendingSheetStationId, allStations, cacheStation, setPendingSheetStationId]);
+
   const onRegionChangeComplete = (region: Region) => {
     setLatDelta(region.latitudeDelta);
   };
@@ -719,7 +763,7 @@ export default function Map() {
               );
             })}
           </MapView>
-          <CityBadge cityLabel={cityLabel} count={cityActiveCount} />
+          {!stationSheetOpen && <CityBadge cityLabel={cityLabel} count={cityActiveCount} />}
         </>
       ) : (
         <StationListView
@@ -729,8 +773,8 @@ export default function Map() {
         />
       )}
 
-      <CommandBar />
-      {viewMode === 'map' && <SportDock sportCounts={sportCounts} />}
+      {!stationSheetOpen && <CommandBar />}
+      {viewMode === 'map' && !stationSheetOpen && <SportDock sportCounts={sportCounts} />}
       <StationSheet ref={stationSheetRef} />
     </View>
   );

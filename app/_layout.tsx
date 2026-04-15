@@ -55,6 +55,18 @@ export default function RootLayout() {
               name="station/[id]"
               options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
             />
+            <Stack.Screen
+              name="session-prep/[stationId]/[sport]"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="scan"
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
