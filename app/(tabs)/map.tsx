@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
   Easing,
@@ -22,7 +21,7 @@ import { palette } from '@/constants/theme';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
-import { haversineKm, walkingMinutes } from '@/lib/geo';
+import { haversineKm } from '@/lib/geo';
 import { clusterStations } from '@/lib/cluster';
 import { stationsNearUser } from '@/lib/generateStations';
 
@@ -178,38 +177,52 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
 function FilterChip({
   active,
   label,
+  icon,
   onPress,
 }: {
   active: boolean;
   label: string;
+  icon: string | null;
   onPress: () => void;
 }) {
   const theme = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: active ? theme.fg : theme.bg,
+        backgroundColor: active ? palette.coral : 'transparent',
         borderRadius: 999,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        borderWidth: 1,
-        borderColor: active ? theme.fg : theme.fg + '33',
-        transform: [{ scale: pressed ? 0.97 : 1 }],
+        width: 42,
+        height: 42,
+        alignItems: 'center',
+        justifyContent: 'center',
+        transform: [{ scale: pressed ? 0.88 : active ? 1.04 : 1 }],
+        shadowColor: palette.coral,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: active ? 0.35 : 0,
+        shadowRadius: active ? 6 : 0,
+        elevation: active ? 4 : 0,
       })}
     >
       <Text
-        className={
-          active
-            ? 'text-paper dark:text-ink font-medium'
-            : 'text-ink dark:text-paper font-medium'
-        }
-        style={{ fontSize: 14 }}
+        style={{
+          fontSize: icon ? 20 : 0,
+          opacity: active ? 1 : 0.55,
+        }}
       >
-        {label}
+        {icon ?? ''}
       </Text>
+      {!icon && (
+        <Feather
+          name="globe"
+          size={18}
+          color={active ? palette.paper : theme.fg}
+          style={{ opacity: active ? 1 : 0.55 }}
+        />
+      )}
     </Pressable>
   );
 }
@@ -316,10 +329,12 @@ function StationListView({
   stations,
   userLoc,
   onStationPress,
+  filtersRow,
 }: {
   stations: Station[];
   userLoc: { lat: number; lng: number } | null;
   onStationPress: (s: Station) => void;
+  filtersRow: React.ReactNode;
 }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -338,12 +353,13 @@ function StationListView({
     <ScrollView
       contentContainerStyle={{
         paddingTop: insets.top + 156, // toggle + search + city pill + breathing room
-        paddingBottom: insets.bottom + 120,
+        paddingBottom: insets.bottom + 24,
         paddingHorizontal: 20,
         gap: 10,
       }}
       showsVerticalScrollIndicator={false}
     >
+      {filtersRow}
       {sorted.map((s) => {
         const km = userLoc ? haversineKm(userLoc, { lat: s.lat, lng: s.lng }) : null;
         return (
@@ -491,15 +507,11 @@ export default function Map() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const mapRef = useRef<MapView>(null);
-  const sheetRef = useRef<BottomSheet>(null);
   const router = useRouter();
   const {
     filter,
-    selectedStationId,
     viewMode,
     setFilter,
-    selectStation,
-    setViewMode,
     searchQuery,
     cacheStation,
   } = useMapStore();
@@ -536,11 +548,6 @@ export default function Map() {
   );
 
   const cityLabel = city === 'generic' ? t('map.generic_area') : CITY_LABELS[city];
-
-  const selectedStation = useMemo(
-    () => allStations.find((s) => s.id === selectedStationId) ?? null,
-    [selectedStationId, allStations]
-  );
 
   const clustered = useMemo(
     () => clusterStations(visibleStations, latDelta),
@@ -603,10 +610,10 @@ export default function Map() {
     setLatDelta(region.latitudeDelta);
   };
 
-  const onMarkerPress = async (station: Station) => {
-    await hx.tap();
-    selectStation(station.id);
-    sheetRef.current?.expand();
+  const openStation = async (s: Station) => {
+    await hx.press();
+    cacheStation(s);
+    router.push({ pathname: '/station/[id]', params: { id: s.id } });
   };
 
   const onFilterPress = async (f: Sport | 'all') => {
@@ -614,58 +621,49 @@ export default function Map() {
     setFilter(f);
   };
 
-  const onSheetClose = () => {
-    selectStation(null);
-  };
-
-  const onListStationPress = async (s: Station) => {
-    await hx.tap();
-    setViewMode('map');
-    selectStation(s.id);
-    // Next render has MapView mounted — recenter then open the sheet.
-    requestAnimationFrame(() => {
-      mapRef.current?.animateToRegion(
-        {
-          latitude: s.lat,
-          longitude: s.lng,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
-        },
-        500
-      );
-      setTimeout(() => sheetRef.current?.expand(), 600);
-    });
-  };
-
-  const distanceKm = useMemo(() => {
-    if (!userLoc || !selectedStation) return null;
-    return haversineKm(userLoc, { lat: selectedStation.lat, lng: selectedStation.lng });
-  }, [userLoc, selectedStation]);
-
-  const FilterChipsBar = (
+  const FilterBar = (
     <View
+      pointerEvents="box-none"
       style={{
         position: 'absolute',
-        bottom: insets.bottom + 12,
-        left: 0,
-        right: 0,
+        top: insets.top + 120,
+        left: 20,
+        right: 20,
+        zIndex: 8,
       }}
-      pointerEvents="box-none"
     >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+      <BlurView
+        intensity={50}
+        tint={theme.isDark ? 'dark' : 'light'}
+        style={{
+          borderRadius: 999,
+          overflow: 'hidden',
+          backgroundColor: theme.bg + 'e6',
+          borderWidth: 1,
+          borderColor: theme.fg + '14',
+          shadowColor: palette.ink,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.12,
+          shadowRadius: 10,
+          elevation: 6,
+        }}
       >
-        {FILTERS.map((f) => (
-          <FilterChip
-            key={f}
-            active={filter === f}
-            label={t(`map.filters.${f}`)}
-            onPress={() => onFilterPress(f)}
-          />
-        ))}
-      </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 6, paddingVertical: 5, gap: 4 }}
+        >
+          {FILTERS.map((f) => (
+            <FilterChip
+              key={f}
+              active={filter === f}
+              label={t(`map.filters.${f}`)}
+              icon={f === 'all' ? null : SPORT_EMOJI[f]}
+              onPress={() => onFilterPress(f)}
+            />
+          ))}
+        </ScrollView>
+      </BlurView>
     </View>
   );
 
@@ -674,7 +672,7 @@ export default function Map() {
       pointerEvents="none"
       style={{
         position: 'absolute',
-        top: insets.top + 120, // pushed below the view toggle + search bar
+        top: insets.top + 180, // below view toggle + search + filter bar
         left: 0,
         right: 0,
         alignItems: 'center',
@@ -748,7 +746,7 @@ export default function Map() {
                 <Marker
                   key={`${filter}-${searchQuery}-${item.data.id}`}
                   coordinate={{ latitude: item.data.lat, longitude: item.data.lng }}
-                  onPress={() => onMarkerPress(item.data)}
+                  onPress={() => openStation(item.data)}
                   tracksViewChanges={false}
                 >
                   <StationMarkerView station={item.data} index={i} />
@@ -758,110 +756,17 @@ export default function Map() {
           </MapView>
 
           {CityPill}
-          {FilterChipsBar}
-
-          {/* Bottom sheet station preview */}
-          <BottomSheet
-            ref={sheetRef}
-            index={-1}
-            snapPoints={[260]}
-            enablePanDownToClose
-            onClose={onSheetClose}
-            backgroundStyle={{ backgroundColor: theme.bg }}
-            handleIndicatorStyle={{ backgroundColor: theme.fg + '44' }}
-          >
-            <BottomSheetView style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}>
-              {selectedStation ? (
-                <>
-                  <Text className="font-display-x text-ink dark:text-paper text-3xl" style={{ lineHeight: 30 }}>
-                    {selectedStation.name}
-                  </Text>
-                  <Text className="font-sans text-ink/60 dark:text-paper/60 text-sm mt-1">
-                    {distanceKm !== null
-                      ? t('map.preview.walking_time', { min: walkingMinutes(distanceKm) })
-                      : t('map.no_location')}
-                  </Text>
-
-                  <View className="flex-row flex-wrap gap-2 mt-4">
-                    {selectedStation.sports.map((sport) => {
-                      const stock = selectedStation.stock[sport] ?? 0;
-                      const out = stock === 0;
-                      return (
-                        <View
-                          key={sport}
-                          style={{
-                            backgroundColor: out ? theme.fg + '14' : palette.butter,
-                            borderRadius: 12,
-                            paddingHorizontal: 12,
-                            paddingVertical: 8,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 6,
-                          }}
-                        >
-                          <Text style={{ fontSize: 14 }}>{SPORT_EMOJI[sport]}</Text>
-                          <Text
-                            className={
-                              out
-                                ? 'font-sans text-ink/40 dark:text-paper/40 text-sm'
-                                : 'font-medium text-ink text-sm'
-                            }
-                          >
-                            {SPORT_LABELS[sport]} · {stock}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-
-                  <Pressable
-                    onPress={async () => {
-                      if (!selectedStation || !selectedStation.availableNow) return;
-                      await hx.press();
-                      cacheStation(selectedStation);
-                      sheetRef.current?.close();
-                      router.push({
-                        pathname: '/station/[id]',
-                        params: { id: selectedStation.id },
-                      });
-                    }}
-                    disabled={!selectedStation.availableNow}
-                    style={({ pressed }) => ({
-                      backgroundColor: selectedStation.availableNow
-                        ? palette.coral
-                        : theme.fg + '33',
-                      borderRadius: 16,
-                      paddingVertical: 16,
-                      marginTop: 16,
-                      transform: [{ scale: pressed && selectedStation.availableNow ? 0.98 : 1 }],
-                    })}
-                  >
-                    <Text
-                      className={
-                        selectedStation.availableNow
-                          ? 'text-paper font-semibold text-base text-center'
-                          : 'text-ink/50 dark:text-paper/50 font-semibold text-base text-center'
-                      }
-                    >
-                      {selectedStation.availableNow
-                        ? t('map.preview.open')
-                        : t('map.preview.out_of_stock')}
-                    </Text>
-                  </Pressable>
-                </>
-              ) : null}
-            </BottomSheetView>
-          </BottomSheet>
+          {SideRail}
         </>
       ) : (
         <>
           <StationListView
             stations={visibleStations}
             userLoc={userLoc}
-            onStationPress={onListStationPress}
+            onStationPress={openStation}
+            filtersRow={ListChipsRow}
           />
           {CityPill}
-          {FilterChipsBar}
         </>
       )}
 
