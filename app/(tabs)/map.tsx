@@ -307,14 +307,68 @@ function SportChip({
   label: string;
 }) {
   const theme = useTheme();
-  const scale = useSharedValue(active ? 1.05 : 1);
+  const scale = useSharedValue(active ? 1.04 : 1);
 
   useEffect(() => {
-    scale.value = withSpring(active ? 1.05 : 1, { damping: 14, stiffness: 180 });
+    scale.value = withSpring(active ? 1.04 : 1, { damping: 14, stiffness: 200 });
   }, [active, scale]);
 
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const disabled = count === 0;
+  const emoji = sport === 'all' ? '🎯' : SPORT_EMOJI[sport];
+
+  const pill = (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        gap: 6,
+        borderRadius: 999,
+        backgroundColor: active ? theme.butter : theme.bg + 'cc',
+        borderWidth: 1,
+        borderColor: active ? theme.fg + '1a' : theme.fg + '14',
+        opacity: disabled ? 0.3 : 1,
+        overflow: 'hidden',
+      }}
+    >
+      <Text style={{ fontSize: 16, opacity: active ? 1 : 0.75 }}>{emoji}</Text>
+      <Text
+        style={{
+          fontFamily: active ? 'Inter_600SemiBold' : 'Inter_500Medium',
+          fontSize: 12,
+          color: active ? palette.ink : theme.fg + 'cc',
+          textTransform: 'lowercase',
+          letterSpacing: 0.2,
+        }}
+      >
+        {label}
+      </Text>
+      {!active && count > 0 ? (
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_400Regular',
+            fontSize: 10,
+            color: theme.fg + '7f',
+          }}
+        >
+          · {count}
+        </Text>
+      ) : null}
+      {active ? (
+        <View
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: theme.coral,
+            marginLeft: 2,
+          }}
+        />
+      ) : null}
+    </View>
+  );
 
   return (
     <Animated.View style={animStyle}>
@@ -324,59 +378,18 @@ function SportChip({
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ selected: active, disabled }}
-        style={{
-          width: 72,
-          height: 80,
-          borderRadius: 22,
-          backgroundColor: active ? theme.butter : theme.bg + 'e6',
-          borderWidth: 1,
-          borderColor: active ? theme.fg + '1a' : theme.fg + '14',
-          alignItems: 'center',
-          justifyContent: 'center',
-          paddingVertical: 10,
-          opacity: disabled ? 0.35 : 1,
-          gap: 2,
-          overflow: 'hidden',
-        }}
       >
-        {active && (
-          <View
-            style={{
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: theme.coral,
-            }}
-          />
-        )}
-        <Text style={{ fontSize: active ? 28 : 24, opacity: active ? 1 : 0.65 }}>
-          {sport === 'all' ? '🎯' : SPORT_EMOJI[sport]}
-        </Text>
-        <Text
-          style={{
-            fontFamily: active ? 'Inter_600SemiBold' : 'Inter_500Medium',
-            fontSize: 10,
-            color: active ? palette.ink : theme.fg + 'a6',
-            textTransform: 'lowercase',
-            letterSpacing: 0.2,
-          }}
-        >
-          {label}
-        </Text>
-        {!active && count > 0 ? (
-          <Text
-            style={{
-              fontFamily: 'JetBrainsMono_400Regular',
-              fontSize: 9,
-              color: theme.fg + '7f',
-            }}
+        {active ? (
+          pill
+        ) : (
+          <BlurView
+            intensity={40}
+            tint={theme.isDark ? 'dark' : 'light'}
+            style={{ borderRadius: 999, overflow: 'hidden' }}
           >
-            {count}
-          </Text>
-        ) : null}
+            {pill}
+          </BlurView>
+        )}
       </Pressable>
     </Animated.View>
   );
@@ -392,7 +405,7 @@ function SportDock({ sportCounts }: { sportCounts: SportCounts }) {
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        bottom: insets.bottom + 96,
+        top: insets.top + 110,
         left: 0,
         right: 0,
         zIndex: 9,
@@ -446,8 +459,8 @@ function StationListView({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 84, // single command bar (52 + 12 top + ~20 gap)
-        paddingBottom: insets.bottom + 200, // clear sport dock + tab bar
+        paddingTop: insets.top + 160, // command bar + city badge + filter row stack
+        paddingBottom: insets.bottom + 120, // tab bar only (dock moved to top)
         paddingHorizontal: 20,
         gap: 10,
       }}
