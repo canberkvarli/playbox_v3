@@ -141,5 +141,24 @@
       "label": "geçmiş",
       "count_suffix": "seans"
     }
+  },
+  "station": {
+    "not_found": "istasyon bulunamadı",
+    "not_found_sub": "bu istasyon artık mevcut değil",
+    "status": {
+      "open": "açık",
+      "closed": "şu an kapalı"
+    },
+    "available_equipment": "mevcut ekipman",
+    "out_of_stock": "stokta yok",
+    "units_available": "adet",
+    "how_it_works": "nasıl çalışır",
+    "steps": {
+      "tap_sport": "istediğin sporu seç",
+      "scan_qr": "istasyondaki qr'ı oku",
+      "return": "bittiğinde iade et"
+    },
+    "cta_unlock": "kilidi aç",
+    "cta_out_of_stock": "şu an boş"
   }
 }

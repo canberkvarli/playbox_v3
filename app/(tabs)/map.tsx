@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
@@ -463,6 +464,7 @@ export default function Map() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
   const sheetRef = useRef<BottomSheet>(null);
+  const router = useRouter();
   const {
     filter,
     selectedStationId,
@@ -471,6 +473,7 @@ export default function Map() {
     selectStation,
     setViewMode,
     searchQuery,
+    cacheStation,
   } = useMapStore();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
@@ -785,7 +788,14 @@ export default function Map() {
 
                   <Pressable
                     onPress={async () => {
+                      if (!selectedStation || !selectedStation.availableNow) return;
                       await hx.press();
+                      cacheStation(selectedStation);
+                      sheetRef.current?.close();
+                      router.push({
+                        pathname: '/station/[id]',
+                        params: { id: selectedStation.id },
+                      });
                     }}
                     disabled={!selectedStation.availableNow}
                     style={({ pressed }) => ({

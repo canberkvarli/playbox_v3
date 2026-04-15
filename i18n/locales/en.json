@@ -141,5 +141,24 @@
       "label": "history",
       "count_suffix": "sessions"
     }
+  },
+  "station": {
+    "not_found": "station not found",
+    "not_found_sub": "this station is no longer available",
+    "status": {
+      "open": "open",
+      "closed": "closed now"
+    },
+    "available_equipment": "available equipment",
+    "out_of_stock": "out of stock",
+    "units_available": "available",
+    "how_it_works": "how it works",
+    "steps": {
+      "tap_sport": "tap the sport you want",
+      "scan_qr": "scan the qr at the station",
+      "return": "return when done"
+    },
+    "cta_unlock": "unlock",
+    "cta_out_of_stock": "out of stock"
   }
 }
