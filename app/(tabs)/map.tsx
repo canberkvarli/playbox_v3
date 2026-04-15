@@ -22,6 +22,7 @@ import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
 import { haversineKm, walkingMinutes } from '@/lib/geo';
 import { clusterStations } from '@/lib/cluster';
+import { stationsNearUser } from '@/lib/generateStations';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -404,26 +405,37 @@ export default function Map() {
     useMapStore();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
-  const [city, setCity] = useState<keyof typeof CITY_LABELS>('istanbul');
+  const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
   const [latDelta, setLatDelta] = useState(FALLBACK_REGION.latitudeDelta);
+
+  // Build the active station list from seed + generated demo stations near the user.
+  const allStations = useMemo(
+    () => stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 }),
+    [userLoc]
+  );
 
   // Filter stations by sport
   const visibleStations = useMemo(
     () =>
       filter === 'all'
-        ? STATIONS
-        : STATIONS.filter((s) => s.sports.includes(filter as Sport)),
-    [filter]
+        ? allStations
+        : allStations.filter((s) => s.sports.includes(filter as Sport)),
+    [filter, allStations]
   );
 
   const cityActiveCount = useMemo(
-    () => visibleStations.filter((s) => s.city === city && s.availableNow).length,
+    () =>
+      city === 'generic'
+        ? visibleStations.filter((s) => s.availableNow).length
+        : visibleStations.filter((s) => s.city === city && s.availableNow).length,
     [visibleStations, city]
   );
 
+  const cityLabel = city === 'generic' ? t('map.generic_area') : CITY_LABELS[city];
+
   const selectedStation = useMemo(
-    () => STATIONS.find((s) => s.id === selectedStationId) ?? null,
-    [selectedStationId]
+    () => allStations.find((s) => s.id === selectedStationId) ?? null,
+    [selectedStationId, allStations]
   );
 
   const clustered = useMemo(
@@ -435,11 +447,15 @@ export default function Map() {
   useEffect(() => {
     (async () => {
       try {
-        const { status } = await Location.getForegroundPermissionsAsync();
+        let { status } = await Location.getForegroundPermissionsAsync();
         if (status !== 'granted') {
-          // Task 13 already prompts during onboarding — don't re-prompt here.
-          return;
+          // Onboarding usually prompts, but dev bypass / denial might skip it.
+          // Re-request once here so the map can center on the user by default.
+          const req = await Location.requestForegroundPermissionsAsync();
+          status = req.status;
         }
+        if (status !== 'granted') return;
+
         const pos = await Location.getCurrentPositionAsync({});
         const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLoc(next);
@@ -459,15 +475,17 @@ export default function Map() {
             best = k;
           }
         }
-        setCity(best);
+        // If the user is >200km from any Turkish city, show a generic label
+        // instead of mislabeling them as "İstanbul".
+        setCity(bestDist > 200 ? 'generic' : best);
 
-        // Animate camera
+        // Animate camera (tight enough that demo stations within 150m-2km are visible)
         mapRef.current?.animateToRegion(
           {
             latitude: next.lat,
             longitude: next.lng,
-            latitudeDelta: 0.04,
-            longitudeDelta: 0.04,
+            latitudeDelta: 0.02,
+            longitudeDelta: 0.02,
           },
           900
         );
@@ -572,7 +590,7 @@ export default function Map() {
         }}
       >
         <Text className="font-medium text-ink text-sm">
-          {t('map.city_count', { city: CITY_LABELS[city], count: cityActiveCount })}
+          {t('map.city_count', { city: cityLabel, count: cityActiveCount })}
         </Text>
       </BlurView>
     </View>

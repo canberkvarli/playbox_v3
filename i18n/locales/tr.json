@@ -109,7 +109,8 @@
       "out_of_stock": "şu an boş",
       "open": "aç"
     },
-    "no_location": "konum yok"
+    "no_location": "konum yok",
+    "generic_area": "yakınında"
   },
   "play": {
     "title": "oyna",

@@ -109,7 +109,8 @@
       "out_of_stock": "out of stock",
       "open": "open"
     },
-    "no_location": "no location"
+    "no_location": "no location",
+    "generic_area": "nearby"
   },
   "play": {
     "title": "play",
