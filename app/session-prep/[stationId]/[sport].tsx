@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import {
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
 type StepKey = 'pick' | 'scan' | 'play' | 'return';
@@ -27,10 +28,10 @@ type StepConfig = {
 };
 
 const STEPS: StepConfig[] = [
-  { key: 'pick', icon: 'grid', bg: palette.mauve + '33' },
-  { key: 'scan', icon: 'camera', bg: palette.coral + '33' },
+  { key: 'pick', icon: 'grid', bg: palette.mauve },
+  { key: 'scan', icon: 'camera', bg: palette.coral },
   { key: 'play', icon: 'play-circle', bg: palette.butter },
-  { key: 'return', icon: 'rotate-ccw', bg: palette.ink + '26' },
+  { key: 'return', icon: 'rotate-ccw', bg: palette.ink },
 ];
 
 export default function SessionPrep() {
@@ -52,6 +53,7 @@ export default function SessionPrep() {
     return STATIONS.find((s) => s.id === stationId) ?? null;
   }, [stationId, lastSelected]);
 
+  const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
 
   if (!station) {
@@ -82,15 +84,27 @@ export default function SessionPrep() {
   const gateIndex = station.sports.indexOf(sport);
   const n = gateIndex >= 0 ? gateIndex + 1 : 1;
   const sportLabel = SPORT_LABELS[sport] ?? sport;
+  const current = STEPS[step];
+  const isLast = step === STEPS.length - 1;
 
-  const onClose = async () => {
+  const onBack = async () => {
     if (unlocking) return;
     await hx.tap();
-    router.back();
+    if (step === 0) {
+      router.back();
+    } else {
+      setStep(step - 1);
+    }
+  };
+
+  const onContinue = async () => {
+    if (unlocking) return;
+    if (isLast) return onOyna();
+    await hx.tap();
+    setStep(step + 1);
   };
 
   const onOyna = async () => {
-    if (unlocking) return;
     setUnlocking(true);
     await hx.tap();
     await new Promise((r) => setTimeout(r, 150));
@@ -109,135 +123,107 @@ export default function SessionPrep() {
   };
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
-      {/* Close button — top-left */}
-      <View
-        style={{
-          position: 'absolute',
-          top: insets.top + 12,
-          left: 16,
-          zIndex: 10,
-        }}
-      >
+    <View
+      className="flex-1 bg-paper dark:bg-ink px-6"
+      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+    >
+      {/* Top row: back + progress */}
+      <View className="flex-row items-center justify-between">
         <Pressable
-          onPress={onClose}
-          hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: theme.fg + '0d',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          onPress={onBack}
+          hitSlop={12}
         >
-          <Feather name="x" size={20} color={theme.fg} />
+          <Feather
+            name={step === 0 ? 'x' : 'arrow-left'}
+            size={24}
+            color={theme.fg}
+          />
         </Pressable>
+        <OnboardingProgress total={STEPS.length} active={step} />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingTop: insets.top + 72,
-          paddingBottom: insets.bottom + 120,
-          paddingHorizontal: 24,
-        }}
-      >
-        {/* Gate badge + station name + subtitle */}
-        <RiseIn delay={0}>
-          <View className="items-center">
-            <View
-              style={{
-                backgroundColor: palette.ink,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: 999,
-              }}
-            >
-              <Text
-                className="font-mono text-paper"
-                style={{ fontSize: 12, letterSpacing: 0.5 }}
-              >
-                K{n} · {sportLabel}
-              </Text>
-            </View>
-            <Text
-              className="font-display-x text-ink dark:text-paper text-3xl text-center mt-4"
-              style={{ lineHeight: 36 }}
-            >
-              {station.name}
-            </Text>
-            <Text className="font-sans text-ink/60 dark:text-paper/60 text-base text-center mt-2">
-              {t('prep.gate_ready', { sport: sportLabel })}
-            </Text>
-          </View>
-        </RiseIn>
+      {/* Station context pill */}
+      <View className="items-start mt-6">
+        <View
+          style={{
+            backgroundColor: palette.ink,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 999,
+          }}
+        >
+          <Text
+            className="font-mono text-paper"
+            style={{ fontSize: 12, letterSpacing: 0.5 }}
+          >
+            K{n} · {sportLabel} · {station.name}
+          </Text>
+        </View>
+      </View>
 
-        {/* Reminder title */}
-        <RiseIn delay={80}>
-          <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mt-10 mb-3">
-            {t('prep.how_it_works')}
+      {/* Step content — key={step} re-triggers RiseIn on each advance */}
+      <View key={step} style={{ flex: 1 }}>
+        <RiseIn delay={0}>
+          <Text className="font-mono text-ink/45 dark:text-paper/45 text-xs tracking-widest mt-8">
+            {step + 1} / {STEPS.length}
+          </Text>
+          <Text
+            className="font-display-x text-ink dark:text-paper text-5xl mt-2"
+            style={{ lineHeight: 52 }}
+          >
+            {t(`tour.steps.${current.key}.title`)}
           </Text>
         </RiseIn>
 
-        {/* Step cards */}
-        <View style={{ gap: 12 }}>
-          {STEPS.map((step, i) => (
-            <RiseIn key={step.key} delay={120 + i * 60}>
-              <View
-                className="bg-paper dark:bg-ink/40 rounded-3xl p-5 border border-ink/10 dark:border-paper/10"
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}
-              >
-                <View
-                  style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
-                    backgroundColor: step.bg,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Text
-                    className="font-display-x text-2xl"
-                    style={{ color: palette.ink }}
-                  >
-                    {i + 1}
-                  </Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text className="font-display text-ink dark:text-paper text-lg">
-                    {t(`tour.steps.${step.key}.title`)}
-                  </Text>
-                  <Text className="font-sans text-ink/70 dark:text-paper/70 text-sm mt-1">
-                    {t(`tour.steps.${step.key}.desc`)}
-                  </Text>
-                </View>
-                <Feather name={step.icon} size={22} color={theme.fg + '99'} />
-              </View>
-            </RiseIn>
-          ))}
-        </View>
-      </ScrollView>
+        <RiseIn delay={80}>
+          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-4">
+            {t(`tour.steps.${current.key}.desc`)}
+          </Text>
+        </RiseIn>
 
-      {/* Pinned OYNA CTA */}
-      <View
-        style={{
-          position: 'absolute',
-          left: 16,
-          right: 16,
-          bottom: insets.bottom + 16,
-        }}
-      >
+        <RiseIn
+          delay={160}
+          style={{ flex: 1, marginTop: 32, marginBottom: 16 }}
+        >
+          <View
+            className="flex-1 rounded-3xl items-center justify-center border border-ink/10 dark:border-paper/10"
+            style={{ backgroundColor: current.bg + (current.bg === palette.ink ? '' : '40') }}
+          >
+            <View
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: 70,
+                backgroundColor: current.bg,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Feather
+                name={current.icon}
+                size={60}
+                color={current.bg === palette.ink ? palette.paper : palette.ink}
+              />
+            </View>
+          </View>
+        </RiseIn>
+      </View>
+
+      {/* Pinned CTA */}
+      <RiseIn delay={240}>
         <Pressable
-          onPress={onOyna}
+          onPress={onContinue}
           disabled={unlocking}
           accessibilityRole="button"
-          accessibilityLabel={t('prep.cta')}
+          accessibilityLabel={isLast ? t('prep.cta') : t('onb.intro_map.cta')}
           style={({ pressed }) => ({
-            backgroundColor: unlocking ? palette.butter : palette.coral,
+            backgroundColor: unlocking
+              ? palette.butter
+              : isLast
+              ? palette.coral
+              : palette.ink,
             borderRadius: 20,
             paddingVertical: 20,
             flexDirection: 'row',
@@ -248,7 +234,7 @@ export default function SessionPrep() {
           })}
         >
           <Feather
-            name={unlocking ? 'unlock' : 'play'}
+            name={unlocking ? 'unlock' : isLast ? 'play' : 'arrow-right'}
             size={20}
             color={unlocking ? palette.ink : palette.paper}
           />
@@ -256,10 +242,14 @@ export default function SessionPrep() {
             className="font-semibold text-lg"
             style={{ color: unlocking ? palette.ink : palette.paper }}
           >
-            {unlocking ? t('prep.opening') : t('prep.cta')}
+            {unlocking
+              ? t('prep.opening')
+              : isLast
+              ? t('prep.cta')
+              : t('onb.intro_map.cta')}
           </Text>
         </Pressable>
-      </View>
+      </RiseIn>
     </View>
   );
 }

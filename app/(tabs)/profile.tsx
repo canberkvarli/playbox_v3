@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 import Animated, {
@@ -14,6 +15,7 @@ import * as Sharing from 'expo-sharing';
 
 import { useT } from '@/hooks/useT';
 import { useTheme } from '@/hooks/useTheme';
+import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
@@ -25,8 +27,6 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 // --- Fake data (v1) ---------------------------------------------------------
 
 const ME = {
-  name: 'Mert',
-  handle: '@mert',
   city: 'İstanbul',
   joinedMonth: 'Mart 2026',
   streakDays: 7,
@@ -204,6 +204,8 @@ export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const router = useRouter();
+  const { displayName, username, initial } = useDisplayUser();
   const [follows, setFollows] = useState(() => FRIENDS.map((f) => f.following));
   const [capturing, setCapturing] = useState(false);
   const flexCardRef = useRef<ViewShot>(null);
@@ -212,7 +214,7 @@ export default function Profile() {
 
   const onSettings = async () => {
     await hx.tap();
-    console.log('settings');
+    router.push('/settings');
   };
 
   const onShareFlex = async () => {
@@ -289,13 +291,11 @@ export default function Profile() {
                 justifyContent: 'center',
               }}
             >
-              <Text className="font-display-x text-paper text-4xl">
-                {ME.name.charAt(0).toUpperCase()}
-              </Text>
+              <Text className="font-display-x text-paper text-4xl">{initial}</Text>
             </View>
             <View className="flex-1 pl-4">
-              <Text className="font-display-x text-ink dark:text-paper text-3xl">{ME.name}</Text>
-              <Text className="font-mono text-ink/60 dark:text-paper/60 text-base">{ME.handle}</Text>
+              <Text className="font-display-x text-ink dark:text-paper text-3xl">{displayName}</Text>
+              <Text className="font-mono text-ink/60 dark:text-paper/60 text-base">@{username}</Text>
               <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-1">
                 {t('profile.joined_since', {
                   city: ME.city,
