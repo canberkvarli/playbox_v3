@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type CityKey = 'istanbul' | 'ankara' | 'izmir';
 
@@ -16,16 +18,25 @@ type SettingsStore = {
   setCityOverride: (v: CityKey | null) => void;
 };
 
-export const useSettingsStore = create<SettingsStore>((set) => ({
-  notifReturnReminder: true,
-  notifFriendActivity: true,
-  setReturnReminder: (v) => set({ notifReturnReminder: v }),
-  setFriendActivity: (v) => set({ notifFriendActivity: v }),
+export const useSettingsStore = create<SettingsStore>()(
+  persist(
+    (set) => ({
+      notifReturnReminder: true,
+      notifFriendActivity: true,
+      setReturnReminder: (v) => set({ notifReturnReminder: v }),
+      setFriendActivity: (v) => set({ notifFriendActivity: v }),
 
-  nameOverride: null,
-  usernameOverride: null,
-  cityOverride: null,
-  setNameOverride: (v) => set({ nameOverride: v }),
-  setUsernameOverride: (v) => set({ usernameOverride: v }),
-  setCityOverride: (v) => set({ cityOverride: v }),
-}));
+      nameOverride: null,
+      usernameOverride: null,
+      cityOverride: null,
+      setNameOverride: (v) => set({ nameOverride: v }),
+      setUsernameOverride: (v) => set({ usernameOverride: v }),
+      setCityOverride: (v) => set({ cityOverride: v }),
+    }),
+    {
+      name: 'playbox.settings',
+      storage: createJSONStorage(() => AsyncStorage),
+      version: 1,
+    }
+  )
+);
