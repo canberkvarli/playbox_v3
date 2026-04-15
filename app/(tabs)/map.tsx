@@ -727,7 +727,7 @@ export default function Map() {
       )}
 
       <CommandBar />
-      <SportDock sportCounts={sportCounts} />
+      {viewMode === 'map' && <SportDock sportCounts={sportCounts} />}
     </View>
   );
 }
