@@ -459,7 +459,7 @@ function StationListView({
   return (
     <ScrollView
       contentContainerStyle={{
-        paddingTop: insets.top + 160, // command bar + city badge + filter row stack
+        paddingTop: insets.top + 90, // command bar only (filter dock + city badge hidden in list)
         paddingBottom: insets.bottom + 120, // tab bar only (dock moved to top)
         paddingHorizontal: 20,
         gap: 10,
@@ -517,26 +517,6 @@ function StationListView({
                   </View>
                 );
               })}
-            </View>
-            <View
-              style={{
-                alignSelf: 'flex-start',
-                marginTop: 12,
-                backgroundColor: s.availableNow ? palette.coral : theme.fg + '22',
-                borderRadius: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-              }}
-            >
-              <Text
-                className={
-                  s.availableNow
-                    ? 'text-paper font-semibold text-xs'
-                    : 'text-ink/50 dark:text-paper/50 font-semibold text-xs'
-                }
-              >
-                {t('map.preview.open')}
-              </Text>
             </View>
           </Pressable>
         );
