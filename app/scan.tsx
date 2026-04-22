@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+let CameraView: any = null;
+let useCameraPermissions: any = () => [null, () => {}];
+try {
+  const mod = require('expo-camera');
+  CameraView = mod.CameraView;
+  useCameraPermissions = mod.useCameraPermissions;
+} catch {}
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';

@@ -1,5 +1,5 @@
-import { useMemo, useRef } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -7,20 +7,12 @@ import { Feather } from '@expo/vector-icons';
 import { useT } from '@/hooks/useT';
 import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
+import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { StationDetailPanel } from '@/components/StationDetailPanel';
-import {
-  StationTourSheet,
-  type StationTourSheetHandle,
-} from '@/components/StationTourSheet';
-import { markTourSeen } from '@/lib/seenTour';
+import { useSessionStore } from '@/stores/sessionStore';
+import { StationGateSelector } from '@/components/StationGateSelector';
 
-/**
- * Standalone /station/[id] route — kept functional for deep links.
- * Reuses StationDetailPanel. The primary station-detail surface is now the
- * bottom sheet mounted in the map tab (components/StationSheet.tsx).
- */
 export default function StationDetail() {
   const { t } = useT();
   const router = useRouter();
@@ -29,8 +21,9 @@ export default function StationDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
+  const startSession = useSessionStore((s) => s.startSession);
 
-  const tourRef = useRef<StationTourSheetHandle>(null);
+  const [unlocking, setUnlocking] = useState(false);
 
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === id) return lastSelected;
@@ -65,13 +58,19 @@ export default function StationDetail() {
     router.back();
   };
 
-  const onHelp = async () => {
+  const onDirections = async () => {
     await hx.tap();
-    tourRef.current?.open();
+    const url = Platform.select({
+      ios: `maps:0,0?q=${encodeURIComponent(station.name)}@${station.lat},${station.lng}`,
+      android: `geo:${station.lat},${station.lng}?q=${station.lat},${station.lng}(${encodeURIComponent(
+        station.name
+      )})`,
+    });
+    if (url) Linking.openURL(url).catch(() => {});
   };
 
-  const onSportTap = async (sport: Sport) => {
-    await hx.tap();
+  const onUnlock = async (sport: Sport, _durationMinutes: number) => {
+    // Route to the "how it works" prep slides; the last slide starts the session.
     router.push({
       pathname: '/session-prep/[stationId]/[sport]',
       params: { stationId: station.id, sport },
@@ -80,70 +79,112 @@ export default function StationDetail() {
 
   return (
     <View className="flex-1 bg-paper dark:bg-ink">
-      {/* Back arrow — top-left overlay */}
+      {/* Top chrome — back arrow only (info icon removed; directions inline below) */}
       <View
         style={{
-          position: 'absolute',
-          top: insets.top + 12,
-          left: 16,
-          zIndex: 10,
+          paddingTop: insets.top + 12,
+          paddingHorizontal: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
         }}
       >
         <Pressable
           onPress={onBack}
-          hitSlop={12}
+          hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             backgroundColor: theme.bg,
             alignItems: 'center',
             justifyContent: 'center',
-            borderWidth: 1,
+            borderWidth: 1.5,
             borderColor: theme.fg + '1a',
           }}
         >
-          <Feather name="arrow-left" size={20} color={theme.fg} />
+          <Feather name="arrow-left" size={22} color={theme.fg} />
         </Pressable>
       </View>
-
-      {/* Help (?) — top-right overlay */}
-      <Pressable
-        onPress={onHelp}
-        hitSlop={12}
-        accessibilityRole="button"
-        accessibilityLabel={t('common.help')}
-        style={{
-          position: 'absolute',
-          top: insets.top + 12,
-          right: 16,
-          zIndex: 10,
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: theme.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: 1,
-          borderColor: theme.fg + '1a',
-        }}
-      >
-        <Feather name="help-circle" size={20} color={theme.fg} />
-      </Pressable>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingTop: insets.top + 72,
-          paddingBottom: insets.bottom + 40,
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: insets.bottom + 32,
         }}
       >
-        <StationDetailPanel station={station} onSportTap={onSportTap} />
-      </ScrollView>
+        {/* Title block — name + status dot + hours + directions link */}
+        <Text
+          className="font-display-x text-ink dark:text-paper"
+          style={{ fontSize: 44, lineHeight: 46, letterSpacing: 0.2 }}
+        >
+          {station.name}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 14,
+          }}
+        >
+          <View className="flex-row items-center gap-2">
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: station.availableNow ? '#3aaf6a' : palette.coral,
+              }}
+            />
+            <Text className="font-mono text-ink/70 dark:text-paper/70 text-sm">
+              {t(
+                station.availableNow
+                  ? 'station.status.open'
+                  : 'station.status.closed'
+              )}
+              {' · 24/7'}
+            </Text>
+          </View>
+          <Pressable
+            onPress={onDirections}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: theme.fg + '0d',
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 999,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Feather name="navigation" size={14} color={theme.fg} />
+            <Text
+              style={{
+                fontSize: 12,
+                color: theme.fg,
+                fontWeight: '600',
+                letterSpacing: 0.2,
+              }}
+            >
+              {t('station.directions')}
+            </Text>
+          </Pressable>
+        </View>
 
-      <StationTourSheet ref={tourRef} onDismiss={() => markTourSeen()} />
+        <View className="mt-10">
+          <StationGateSelector
+            station={station}
+            onUnlock={onUnlock}
+            unlocking={unlocking}
+          />
+        </View>
+      </ScrollView>
     </View>
   );
 }

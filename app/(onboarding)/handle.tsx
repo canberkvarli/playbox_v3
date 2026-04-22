@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, Text, TextInput, View, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useUser } from '@clerk/clerk-expo';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -10,11 +9,13 @@ import { palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { supabase } from '@/lib/supabase';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
-const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
-
-function sanitizeHandle(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+// Deterministic unique handle derived from the user's Supabase UUID.
+// UUIDs are globally unique → the last 6 hex chars are effectively collision-free.
+function defaultUsername(userId: string): string {
+  return `oyuncu_${userId.slice(-6)}`;
 }
 
 export default function Handle() {
@@ -22,49 +23,45 @@ export default function Handle() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { user, isLoaded } = useUser();
+  const { user, loading } = useAuthSession();
 
   const [name, setName] = useState('');
-  const [handle, setHandle] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const initial = name.trim().charAt(0).toUpperCase() || '?';
-  const handleValid = useMemo(() => HANDLE_RE.test(handle), [handle]);
-  const nameValid = name.trim().length >= 1;
-  const ctaEnabled = nameValid && handleValid && !busy && isLoaded;
+  const trimmedName = name.trim();
+  const initial = trimmedName.charAt(0).toUpperCase() || '?';
 
-  const onChangeHandle = (s: string) => {
-    setError(null);
-    setHandle(sanitizeHandle(s));
-  };
-
-  const onChangeName = (s: string) => {
-    setError(null);
-    setName(s.slice(0, 30));
-  };
-
-  const onSubmit = async () => {
-    if (!ctaEnabled || !user) return;
+  const finish = async (withName: boolean) => {
+    if (!user || busy) return;
     Keyboard.dismiss();
     setBusy(true);
     setError(null);
     await hx.press();
-    try {
-      await user.update({
-        firstName: name.trim(),
-        username: handle,
-      });
-      await hx.yes();
-      router.replace('/(tabs)/map');
-    } catch (e: any) {
+
+    const meta: Record<string, string | boolean> = {
+      username: defaultUsername(user.id),
+      onboarded: true,
+    };
+    if (withName && trimmedName) meta.name = trimmedName;
+
+    const { error: err } = await supabase.auth.updateUser({ data: meta });
+    if (err) {
+      console.warn('[auth] updateUser failed', err);
       await hx.no();
-      const msg = e?.errors?.[0]?.longMessage || e?.errors?.[0]?.message;
-      setError(msg ?? t('onb.handle.save_failed'));
-    } finally {
+      setError(err.message ?? t('onb.handle.save_failed'));
       setBusy(false);
+      return;
     }
+    await hx.yes();
+    router.replace('/(tabs)/map');
+    setBusy(false);
   };
+
+  const onSubmit = () => finish(true);
+  const onSkip = () => finish(false);
+
+  const primaryEnabled = !busy && !loading;
 
   return (
     <View
@@ -84,7 +81,7 @@ export default function Handle() {
         >
           <Text className="font-semibold text-paper text-base">{initial}</Text>
         </View>
-        <OnboardingProgress total={6} active={5} />
+        <OnboardingProgress total={5} active={5} />
       </View>
 
       <RiseIn delay={0}>
@@ -95,92 +92,68 @@ export default function Handle() {
           >
             {t('onb.handle.title')}
           </Text>
+          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
+            {t('onb.handle.sub')}
+          </Text>
         </View>
       </RiseIn>
 
       <RiseIn delay={120}>
-        <View className="mt-8">
+        <View className="mt-10">
           <Text className="font-medium text-ink/70 dark:text-paper/70 text-sm uppercase tracking-wider mb-2">
             {t('onb.handle.name_label')}
           </Text>
           <TextInput
             value={name}
-            onChangeText={onChangeName}
-            placeholder="..."
+            onChangeText={(s) => {
+              setError(null);
+              setName(s.slice(0, 30));
+            }}
+            placeholder={t('onb.handle.name_placeholder')}
             placeholderTextColor={theme.fg + '4d'}
             autoFocus
             autoCapitalize="words"
             autoCorrect={false}
             textContentType="givenName"
             maxLength={30}
-            className="bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-sans text-ink dark:text-paper text-lg"
-            style={{ minHeight: 56 }}
+            className="bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 font-sans text-ink dark:text-paper"
+            style={{ minHeight: 60, fontSize: 18 }}
           />
+          {error ? (
+            <Text className="font-sans text-coral text-xs mt-2 ml-1">{error}</Text>
+          ) : null}
         </View>
-      </RiseIn>
-
-      <RiseIn delay={200}>
-       <View className="mt-6">
-        <Text className="font-medium text-ink/70 dark:text-paper/70 text-sm uppercase tracking-wider mb-2">
-          {t('onb.handle.handle_label')}
-        </Text>
-        <View className="flex-row gap-3 items-center">
-          <View
-            style={{
-              backgroundColor: theme.fg,
-              borderRadius: 16,
-              paddingHorizontal: 14,
-              paddingVertical: 16,
-            }}
-          >
-            <Text className="font-mono text-paper dark:text-ink text-lg">@</Text>
-          </View>
-          <TextInput
-            value={handle}
-            onChangeText={onChangeHandle}
-            placeholder="kullanici_adi"
-            placeholderTextColor={theme.fg + '4d'}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="username"
-            textContentType="username"
-            maxLength={20}
-            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-mono text-ink dark:text-paper text-lg"
-            style={{ minHeight: 56 }}
-          />
-        </View>
-        {error ? (
-          <Text className="font-sans text-coral text-xs mt-2 ml-1">{error}</Text>
-        ) : handle.length > 0 && !handleValid ? (
-          <Text className="font-sans text-coral text-xs mt-2 ml-1">
-            {t('onb.handle.invalid')}
-          </Text>
-        ) : (
-          <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-2 ml-1">
-            {t('onb.handle.hint')}
-          </Text>
-        )}
-       </View>
       </RiseIn>
 
       <View className="flex-1" />
 
-      <RiseIn delay={300}>
+      <RiseIn delay={220}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('onb.handle.cta')}
-          accessibilityState={{ disabled: !ctaEnabled }}
+          accessibilityState={{ disabled: !primaryEnabled }}
           onPress={onSubmit}
-          disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
+          disabled={!primaryEnabled}
+          className={`${primaryEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
-            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+            transform: [{ scale: pressed && primaryEnabled ? 0.98 : 1 }],
           })}
         >
           <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
+            className={`${primaryEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
           >
             {busy ? '...' : t('onb.handle.cta')}
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onSkip}
+          disabled={!primaryEnabled}
+          hitSlop={8}
+          className="mt-4"
+        >
+          <Text className="font-sans text-ink/55 dark:text-paper/55 text-sm text-center underline">
+            {t('onb.handle.skip')}
           </Text>
         </Pressable>
       </RiseIn>

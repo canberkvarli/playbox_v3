@@ -1,4 +1,4 @@
-import { useUser } from '@clerk/clerk-expo';
+import { useAuthSession } from './useAuthSession';
 import { useSettingsStore } from '@/stores/settingsStore';
 
 export type DisplayUser = {
@@ -10,32 +10,44 @@ export type DisplayUser = {
 
 /**
  * Single source of truth for how the user is labeled across the app.
- * Both Profile and Settings read from here so they never drift.
  *
  * Resolution order:
- *   1. Settings store overrides (survive dev bypass; update immediately on edit)
- *   2. Clerk user fields
+ *   1. Settings-store overrides (update immediately on edit; survive dev bypass)
+ *   2. Supabase user_metadata (name, username) + user.phone
  *   3. Hardcoded fallbacks (dev-friendly defaults)
  */
+// Return v if it's a non-empty trimmed string, else undefined. `??` alone would
+// accept an empty string as "defined", which lets a blank Settings override
+// win over a real name/username and render an empty header.
+function nonEmpty(v: string | null | undefined): string | undefined {
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  return t.length > 0 ? t : undefined;
+}
+
 export function useDisplayUser(): DisplayUser {
-  const { user, isLoaded } = useUser();
+  const { user } = useAuthSession();
   const nameOverride = useSettingsStore((s) => s.nameOverride);
   const usernameOverride = useSettingsStore((s) => s.usernameOverride);
 
-  const clerkName = isLoaded && user ? user.firstName?.trim() : undefined;
-  const clerkUsername = isLoaded && user ? user.username?.trim() : undefined;
-  const clerkPhone = isLoaded && user ? user.primaryPhoneNumber?.phoneNumber : undefined;
+  const meta = (user?.user_metadata ?? {}) as { name?: string; username?: string };
+  const metaName = nonEmpty(meta.name);
+  const metaUsername = nonEmpty(meta.username);
+  const phoneRaw = user?.phone;
 
-  const displayName = nameOverride ?? clerkName ?? 'Mert';
+  const displayName =
+    nonEmpty(nameOverride) ??
+    metaName ??
+    'Oyuncu';
   const username =
-    usernameOverride ??
-    clerkUsername ??
-    (user ? `p_${user.id.slice(-8)}` : 'mert_42');
+    nonEmpty(usernameOverride) ??
+    metaUsername ??
+    (user ? `oyuncu_${user.id.slice(-6)}` : 'oyuncu');
 
   return {
     displayName,
     username,
-    phone: clerkPhone ?? '—',
-    initial: (displayName.charAt(0) || 'M').toUpperCase(),
+    phone: phoneRaw ? `+${phoneRaw}` : '—',
+    initial: (displayName.charAt(0) || 'O').toUpperCase(),
   };
 }

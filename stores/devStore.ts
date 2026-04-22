@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { safeStorage } from '@/lib/safeStorage';
 
 type DevStore = {
   bypass: boolean;
@@ -7,9 +9,17 @@ type DevStore = {
   setFakeActiveSession: (v: boolean) => void;
 };
 
-export const useDevStore = create<DevStore>((set) => ({
-  bypass: false,
-  setBypass: (bypass) => set({ bypass }),
-  fakeActiveSession: false,
-  setFakeActiveSession: (fakeActiveSession) => set({ fakeActiveSession }),
-}));
+export const useDevStore = create<DevStore>()(
+  persist(
+    (set) => ({
+      bypass: false,
+      setBypass: (bypass) => set({ bypass }),
+      fakeActiveSession: false,
+      setFakeActiveSession: (fakeActiveSession) => set({ fakeActiveSession }),
+    }),
+    {
+      name: 'playbox.dev',
+      storage: safeStorage,
+    }
+  )
+);

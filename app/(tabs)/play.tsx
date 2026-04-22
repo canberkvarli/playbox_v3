@@ -1,30 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 
-import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { RiseIn } from '@/components/RiseIn';
+import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore, type ActiveSession } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 
-function formatMMSS(ms: number): string {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  const mm = Math.floor(totalSeconds / 60);
-  const ss = totalSeconds % 60;
+function fmt(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const mm = Math.floor(s / 60);
+  const ss = s % 60;
   return `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 }
 
-// --- Live Timer -------------------------------------------------------------
-
 function LiveTimer({ session }: { session: ActiveSession }) {
-  const { t } = useT();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -33,75 +27,107 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   }, []);
 
   const elapsed = now - session.startedAt;
-  const total = session.durationMinutes * 60 * 1000;
-  const rawProgress = total > 0 ? elapsed / total : 0;
-  const clampedProgress = Math.min(Math.max(rawProgress, 0), 1);
+  const total = session.durationMinutes * 60_000;
+  const progress = Math.min(elapsed / Math.max(total, 1), 1);
   const overtime = elapsed > total;
 
   return (
-    <View className="bg-ink dark:bg-paper rounded-3xl p-6 mt-4">
-      <Text className="font-mono text-butter/80 dark:text-ink/60 text-xs uppercase tracking-wider">
-        {t('play.live.eyebrow')}
+    <View
+      style={{
+        backgroundColor: palette.ink,
+        borderRadius: 28,
+        padding: 28,
+        alignItems: 'center',
+      }}
+    >
+      {/* Eyebrow */}
+      <Text
+        style={{
+          fontFamily: 'JetBrainsMono_400Regular',
+          color: palette.butter + 'cc',
+          fontSize: 11,
+          letterSpacing: 1,
+          textTransform: 'uppercase',
+        }}
+      >
+        aktif seans
       </Text>
 
+      {/* Big timer */}
       <Text
-        className="font-mono text-paper dark:text-ink text-7xl text-center mt-3"
-        style={{ letterSpacing: 2 }}
+        style={{
+          fontFamily: 'JetBrainsMono_400Regular',
+          color: palette.paper,
+          fontSize: 72,
+          lineHeight: 80,
+          letterSpacing: 4,
+          marginTop: 12,
+          includeFontPadding: false,
+        }}
       >
-        {formatMMSS(elapsed)}
+        {fmt(elapsed)}
       </Text>
 
       {/* Progress bar */}
-      <View className="bg-paper/15 dark:bg-ink/15 h-1 rounded-full mt-4 overflow-hidden">
+      <View
+        style={{
+          width: '100%',
+          height: 6,
+          backgroundColor: palette.paper + '22',
+          borderRadius: 3,
+          marginTop: 20,
+          overflow: 'hidden',
+        }}
+      >
         <View
           style={{
-            width: `${clampedProgress * 100}%`,
+            width: `${progress * 100}%`,
             height: '100%',
             backgroundColor: overtime ? palette.butter : palette.coral,
-            borderRadius: 999,
+            borderRadius: 3,
           }}
         />
       </View>
 
-      {/* Meta row */}
-      <View className="flex-row items-center gap-2 mt-3">
-        <Text style={{ fontSize: 18 }}>{SPORT_EMOJI[session.sport]}</Text>
-        <Text className="font-medium text-paper dark:text-ink text-base flex-1">
+      {/* Sport + station + planned */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          marginTop: 16,
+          width: '100%',
+        }}
+      >
+        <Text style={{ fontSize: 22 }}>{SPORT_EMOJI[session.sport]}</Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.paper,
+            fontSize: 16,
+            lineHeight: 20,
+          }}
+        >
           {session.stationName}
         </Text>
-        <Text className="font-mono text-paper/60 dark:text-ink/60 text-sm">
-          {session.durationMinutes}
-          {t('play.live.planned_suffix')}
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_400Regular',
+            color: palette.paper + '88',
+            fontSize: 12,
+          }}
+        >
+          {session.durationMinutes} dk
         </Text>
       </View>
     </View>
   );
 }
 
-// --- Tip row ----------------------------------------------------------------
-
-function TipRow({
-  icon,
-  text,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  text: string;
-}) {
-  return (
-    <View className="flex-row items-center gap-3">
-      <Feather name={icon} size={20} color={palette.mauve} />
-      <Text className="font-sans text-ink/70 dark:text-paper/70 text-sm flex-1">{text}</Text>
-    </View>
-  );
-}
-
-// --- Screen -----------------------------------------------------------------
-
 export default function Play() {
-  const { t } = useT();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
-  const sheetRef = useRef<BottomSheet>(null);
 
   const active = useSessionStore((s) => s.active);
   const startSession = useSessionStore((s) => s.startSession);
@@ -110,184 +136,214 @@ export default function Play() {
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
 
-  // Dev fake: when toggle is on AND no real session, backfill a fake one.
   useEffect(() => {
     if (fakeActiveSession && !active) {
       startSession({
         stationId: 'ist-kadikoy',
-        stationName: 'Kadıköy Moda',
+        stationName: 'Kadıköy Moda Spor Vakfı',
         sport: 'football',
         durationMinutes: 30,
-        startedAt: Date.now() - 7 * 60 * 1000, // 7 minutes ago
+        startedAt: Date.now() - 7 * 60_000,
       });
     }
   }, [fakeActiveSession, active, startSession]);
 
-  const hasActive = active !== null;
-
-  const onReturnPress = async () => {
-    await hx.punch();
-    sheetRef.current?.expand();
-  };
-
-  const onConfirmReturn = async () => {
-    await hx.yes();
-    if (fakeActiveSession) {
-      setFakeActiveSession(false);
-    }
-    endSession();
-    sheetRef.current?.close();
-  };
-
-  const onCancelReturn = async () => {
+  const onHowToFinish = async () => {
     await hx.tap();
-    sheetRef.current?.close();
+    if (!active) return;
+    router.push({
+      pathname: '/session-prep/[stationId]/[sport]',
+      params: { stationId: active.stationId, sport: active.sport },
+    });
   };
 
-  const onOpenMap = async () => {
-    await hx.press();
+  const onFinishSession = async () => {
+    await hx.punch();
+    Alert.alert(
+      'Topu iade ettin mi?',
+      'Kapıyı kapat ve ekipmanı yerine bırak. Kapatmadıysan ek ücret alınabilir.',
+      [
+        { text: 'Henüz değil', style: 'cancel' },
+        {
+          text: 'Evet, kapattım',
+          style: 'destructive',
+          onPress: async () => {
+            await hx.yes();
+            if (fakeActiveSession) setFakeActiveSession(false);
+            endSession();
+            router.replace('/session-review');
+          },
+        },
+      ]
+    );
+  };
+
+  const onGoMap = async () => {
+    await hx.tap();
     router.replace('/(tabs)/map');
   };
 
-  const onDevToggle = async () => {
-    await hx.tap();
-    setFakeActiveSession(!fakeActiveSession);
-  };
-
-  return (
-    <View className="flex-1 bg-paper dark:bg-ink">
-      {/* Sticky header */}
+  if (!active) {
+    return (
       <View
-        style={{ paddingTop: insets.top + 8 }}
-        className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink"
-      >
-        <View className="flex-row items-center justify-between">
-          <Text className="font-display text-ink dark:text-paper text-lg">{t('play.title')}</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: insets.bottom + 120,
+        style={{
+          flex: 1,
+          backgroundColor: palette.paper,
+          paddingTop: insets.top + 40,
           paddingHorizontal: 24,
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {hasActive && active ? (
-          <>
-            {/* Section A: live hero */}
-            <RiseIn delay={0}>
-              <LiveTimer session={active} />
-            </RiseIn>
-
-            {/* Section B: return CTA */}
-            <RiseIn delay={80}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="return"
-                onPress={onReturnPress}
-                style={({ pressed }) => ({
-                  transform: [{ scale: pressed ? 0.99 : 1 }],
-                })}
-              >
-                <View className="bg-coral rounded-3xl p-6 mt-3 flex-row items-center justify-between">
-                  <Text className="font-display-x text-paper text-2xl">
-                    {t('play.return.title')}
-                  </Text>
-                  <Feather
-                    name="arrow-right-circle"
-                    size={36}
-                    color={palette.paper}
-                  />
-                </View>
-              </Pressable>
-            </RiseIn>
-
-            {/* Section D: tips */}
-            <RiseIn delay={180}>
-              <View className="gap-3 mt-6">
-                <TipRow icon="map-pin" text={t('play.tips.check_station')} />
-                <TipRow icon="camera" text={t('play.tips.photo_return')} />
-                <TipRow icon="alert-circle" text={t('play.tips.time_limit')} />
-              </View>
-            </RiseIn>
-          </>
-        ) : (
-          <RiseIn delay={0}>
-            <View className="bg-butter rounded-3xl p-8 mt-4 items-center">
-              <Feather name="zap" size={64} color={palette.ink} />
-              <Text className="font-display-x text-ink text-4xl text-center mt-4">
-                {t('play.empty.title')}
-              </Text>
-              <Text className="font-sans text-ink/70 text-base text-center mt-3">
-                {t('play.empty.sub')}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="open map"
-                onPress={onOpenMap}
-                className="bg-coral rounded-2xl py-4 mt-6 w-full"
-                style={({ pressed }) => ({
-                  transform: [{ scale: pressed ? 0.98 : 1 }],
-                })}
-              >
-                <Text className="font-semibold text-paper text-base text-center">
-                  {t('play.empty.cta')}
-                </Text>
-              </Pressable>
-            </View>
-          </RiseIn>
-        )}
-
-        {__DEV__ ? (
-          <Pressable onPress={onDevToggle} className="mt-8" hitSlop={8}>
-            <Text className="font-mono text-xs text-ink/40 dark:text-paper/40 underline text-center">
-              dev: {fakeActiveSession ? 'aktif seansı kapat' : 'aktif seans simüle et'}
-            </Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
-
-      {/* Return confirmation sheet */}
-      <BottomSheet
-        ref={sheetRef}
-        index={-1}
-        snapPoints={['50%']}
-        enablePanDownToClose
-        backgroundStyle={{ backgroundColor: theme.bg }}
-        handleIndicatorStyle={{ backgroundColor: theme.fg + '44' }}
-      >
-        <BottomSheetView
-          style={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 24 }}
+        <Feather name="zap" size={48} color={palette.ink + '44'} />
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 24,
+            textAlign: 'center',
+            marginTop: 16,
+          }}
         >
-          <Text className="font-display-x text-ink dark:text-paper text-3xl">
-            {t('play.return.confirm_title')}
+          aktif seans yok
+        </Text>
+        <Text
+          style={{
+            fontFamily: 'Inter_400Regular',
+            color: palette.ink + '88',
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 8,
+          }}
+        >
+          haritadan bir istasyona git ve oyna
+        </Text>
+        <Pressable
+          onPress={onGoMap}
+          style={({ pressed }) => ({
+            backgroundColor: palette.coral,
+            borderRadius: 20,
+            paddingVertical: 16,
+            paddingHorizontal: 32,
+            marginTop: 24,
+            transform: [{ scale: pressed ? 0.98 : 1 }],
+          })}
+        >
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.paper,
+              fontSize: 16,
+            }}
+          >
+            haritayı aç
           </Text>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base mt-3">
-            {t('play.return.confirm_sub')}
+        </Pressable>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingTop: insets.top + 16,
+        paddingBottom: insets.bottom + 20,
+        paddingHorizontal: 24,
+      }}
+    >
+      {/* Back to map */}
+      <Pressable
+        onPress={onGoMap}
+        hitSlop={14}
+        style={{ alignSelf: 'flex-start', marginBottom: 16, padding: 4 }}
+      >
+        <Feather name="chevron-left" size={28} color={palette.ink} />
+      </Pressable>
+
+      {/* Live timer card */}
+      <LiveTimer session={active} />
+
+      {/* How to finish — opens the prep slides */}
+      <Pressable
+        onPress={onHowToFinish}
+        style={({ pressed }) => ({
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          marginTop: 24,
+          paddingVertical: 14,
+          backgroundColor: palette.butter,
+          borderRadius: 18,
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <Feather name="help-circle" size={18} color={palette.ink} />
+        <Text
+          style={{
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.ink,
+            fontSize: 14,
+          }}
+        >
+          nasıl bitirilir?
+        </Text>
+      </Pressable>
+
+      <View style={{ flex: 1 }} />
+
+      {/* Finish session CTA */}
+      <Pressable
+        onPress={onFinishSession}
+        style={({ pressed }) => ({
+          backgroundColor: palette.coral,
+          borderRadius: 24,
+          paddingVertical: 22,
+          alignItems: 'center',
+          shadowColor: palette.coral,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.3,
+          shadowRadius: 14,
+          elevation: 8,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        })}
+      >
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.paper,
+            fontSize: 22,
+            letterSpacing: 1,
+          }}
+        >
+          seansı bitir
+        </Text>
+      </Pressable>
+
+      {__DEV__ ? (
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            setFakeActiveSession(!fakeActiveSession);
+          }}
+          style={{ marginTop: 12 }}
+          hitSlop={8}
+        >
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_400Regular',
+              color: palette.ink + '55',
+              fontSize: 11,
+              textAlign: 'center',
+              textDecorationLine: 'underline',
+            }}
+          >
+            dev: {fakeActiveSession ? 'aktif seansı kapat' : 'aktif seans simüle et'}
           </Text>
-          <View className="flex-row gap-3 mt-6">
-            <Pressable
-              accessibilityRole="button"
-              onPress={onCancelReturn}
-              className="flex-1 border border-ink/20 dark:border-paper/20 rounded-2xl py-4"
-            >
-              <Text className="font-medium text-ink dark:text-paper text-base text-center">
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onConfirmReturn}
-              className="flex-1 bg-ink dark:bg-paper rounded-2xl py-4"
-            >
-              <Text className="font-semibold text-paper dark:text-ink text-base text-center">
-                {t('play.return.confirm_cta')}
-              </Text>
-            </Pressable>
-          </View>
-        </BottomSheetView>
-      </BottomSheet>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

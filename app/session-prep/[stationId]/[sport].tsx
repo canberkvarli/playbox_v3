@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -16,8 +16,13 @@ import {
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { usePaymentStore } from '@/stores/paymentStore';
+import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { CardRequiredSheet } from '@/components/CardRequiredSheet';
 import { RiseIn } from '@/components/RiseIn';
+
+const PREAUTH_HOLD_TRY = 150;
 
 type StepKey = 'pick' | 'scan' | 'play' | 'return';
 
@@ -29,9 +34,9 @@ type StepConfig = {
 
 const STEPS: StepConfig[] = [
   { key: 'pick', icon: 'grid', bg: palette.mauve },
-  { key: 'scan', icon: 'camera', bg: palette.coral },
+  { key: 'scan', icon: 'unlock', bg: palette.coral },
   { key: 'play', icon: 'play-circle', bg: palette.butter },
-  { key: 'return', icon: 'rotate-ccw', bg: palette.ink },
+  { key: 'return', icon: 'check-circle', bg: palette.ink },
 ];
 
 export default function SessionPrep() {
@@ -47,6 +52,13 @@ export default function SessionPrep() {
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
   const startSession = useSessionStore((s) => s.startSession);
+
+  const cardStatus = usePaymentStore((s) => s.cardStatus);
+  const freeFirstUsed = usePaymentStore((s) => s.freeFirstUsed);
+  const setHold = usePaymentStore((s) => s.setHold);
+  const { preauthorize } = useIyzico();
+
+  const mustAddCardFirst = cardStatus === 'none' && freeFirstUsed;
 
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === stationId) return lastSelected;
@@ -107,6 +119,27 @@ export default function SessionPrep() {
   const onOyna = async () => {
     setUnlocking(true);
     await hx.tap();
+
+    let holdId: string | null = null;
+    if (cardStatus === 'on_file') {
+      const conversationId = `${station.id}:${sport}:${Date.now()}`;
+      const res = await preauthorize(PREAUTH_HOLD_TRY, conversationId);
+      if (!res.ok) {
+        setUnlocking(false);
+        await hx.punch();
+        Alert.alert(t('card.preauth_failed.title'), t('card.preauth_failed.sub'), [
+          { text: t('card.preauth_failed.cta_secondary'), style: 'cancel' },
+          {
+            text: t('card.preauth_failed.cta_primary'),
+            onPress: () => router.push('/card-add'),
+          },
+        ]);
+        return;
+      }
+      holdId = res.holdId;
+      setHold(holdId);
+    }
+
     await new Promise((r) => setTimeout(r, 150));
     await hx.tap();
     await new Promise((r) => setTimeout(r, 150));
@@ -118,6 +151,7 @@ export default function SessionPrep() {
       stationName: station.name,
       sport,
       durationMinutes: 30,
+      holdId,
     });
     router.replace('/(tabs)/play');
   };
@@ -250,6 +284,8 @@ export default function SessionPrep() {
           </Text>
         </Pressable>
       </RiseIn>
+
+      {mustAddCardFirst ? <CardRequiredSheet holdAmountTry={PREAUTH_HOLD_TRY} /> : null}
     </View>
   );
 }

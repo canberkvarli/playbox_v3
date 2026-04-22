@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Pressable, Text, TextInput, View, Keyboard } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useSignUp } from '@clerk/clerk-expo';
 import { parsePhoneNumberFromString, AsYouType } from 'libphonenumber-js';
 
 import { useT } from '@/hooks/useT';
@@ -13,16 +12,15 @@ import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { useDevStore } from '@/stores/devStore';
+import { supabase } from '@/lib/supabase';
 
 function digitsOnly(s: string) {
   return s.replace(/\D/g, '');
 }
 
 function formatTr(rawDigits: string) {
-  // Strip leading 0 if user typed it
   const clean = rawDigits.startsWith('0') ? rawDigits.slice(1) : rawDigits;
   const formatter = new AsYouType('TR');
-  // libphonenumber wants the national portion
   return formatter.input(clean);
 }
 
@@ -39,7 +37,6 @@ export default function Phone() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const { signUp, isLoaded } = useSignUp();
   const setBypass = useDevStore((s) => s.setBypass);
 
   const [raw, setRaw] = useState('');
@@ -51,12 +48,12 @@ export default function Phone() {
 
   const onChange = (s: string) => {
     setError(null);
-    const d = digitsOnly(s).slice(0, 11); // 10 + room for stripped leading 0
+    const d = digitsOnly(s).slice(0, 11);
     setRaw(d);
   };
 
   const onContinue = async () => {
-    if (!valid || !isLoaded || !signUp || busy) return;
+    if (!valid || busy) return;
     Keyboard.dismiss();
     setBusy(true);
     setError(null);
@@ -65,16 +62,23 @@ export default function Phone() {
     const clean = raw.startsWith('0') ? raw.slice(1) : raw;
     const phoneNumber = '+90' + clean;
 
-    try {
-      await signUp.create({ phoneNumber });
-      await signUp.preparePhoneNumberVerification({ strategy: 'phone_code' });
-      router.push({ pathname: '/(onboarding)/otp', params: { phone: phoneNumber } });
-    } catch (e) {
+    // Supabase handles sign-in and sign-up in one call: if the user exists,
+    // it sends a login OTP; if not, it creates the account and sends a signup OTP.
+    const { error: err } = await supabase.auth.signInWithOtp({
+      phone: phoneNumber,
+      options: { shouldCreateUser: true },
+    });
+
+    if (err) {
+      console.warn('[auth] signInWithOtp failed', err);
       await hx.no();
       setError(t('onb.phone.send_failed'));
-    } finally {
       setBusy(false);
+      return;
     }
+
+    router.push({ pathname: '/(onboarding)/otp', params: { phone: phoneNumber } });
+    setBusy(false);
   };
 
   const onBack = async () => {
@@ -82,10 +86,12 @@ export default function Phone() {
     router.back();
   };
 
-  const ctaEnabled = valid && !busy && isLoaded;
+  const ctaEnabled = valid && !busy;
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
       className="flex-1 bg-paper dark:bg-ink px-6"
       style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
     >
@@ -116,16 +122,30 @@ export default function Phone() {
       </RiseIn>
 
       <RiseIn delay={120}>
-        <View className="mt-8 flex-row gap-3 items-center">
+        <View className="mt-10 flex-row gap-3 items-center">
           <View
             style={{
-              backgroundColor: theme.fg,
-              borderRadius: 16,
-              paddingHorizontal: 16,
-              paddingVertical: 16,
+              backgroundColor: palette.ink,
+              borderRadius: 18,
+              paddingHorizontal: 18,
+              paddingVertical: 22,
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 84,
+              minHeight: 76,
             }}
           >
-            <Text className="font-mono text-paper dark:text-ink text-lg">+90</Text>
+            <Text
+              style={{
+                color: palette.paper,
+                fontFamily: 'JetBrainsMono_400Regular',
+                fontSize: 24,
+                letterSpacing: 0.5,
+                fontWeight: '600',
+              }}
+            >
+              +90
+            </Text>
           </View>
           <TextInput
             value={formatted}
@@ -136,8 +156,8 @@ export default function Phone() {
             autoFocus
             textContentType="telephoneNumber"
             maxLength={14}
-            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 py-4 font-mono text-ink dark:text-paper text-lg"
-            style={{ minHeight: 56 }}
+            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-5 font-mono text-ink dark:text-paper"
+            style={{ minHeight: 76, fontSize: 26, letterSpacing: 0.5 }}
           />
         </View>
       </RiseIn>
@@ -191,6 +211,6 @@ export default function Phone() {
           </Text>
         </Pressable>
       ) : null}
-    </View>
+    </KeyboardAvoidingView>
   );
 }

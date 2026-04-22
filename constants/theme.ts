@@ -1,9 +1,9 @@
 export const palette = {
-  paper:  '#f5f5f5',
-  ink:    '#572c57',
-  mauve:  '#9f5f91',
-  coral:  '#e26972',
-  butter: '#f6ea98',
+  paper:  '#fafaf7', // near-white background, slightly warm so it doesn't look clinical
+  ink:    '#572c57', // dark purple — used as primary text + dark accent surfaces
+  mauve:  '#9f5f91', // mid purple
+  coral:  '#e26972', // primary action
+  butter: '#f6ea98', // soft yellow accent
 } as const;
 
 export const darkSurfaces = {

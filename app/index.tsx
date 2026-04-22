@@ -1,14 +1,18 @@
 import { Redirect } from 'expo-router';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuthSession } from '@/hooks/useAuthSession';
 import { useDevStore } from '@/stores/devStore';
 
 export default function Index() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { session, loading } = useAuthSession();
   const devBypass = useDevStore((s) => s.bypass);
 
+  // Dev bypass — skip auth, go straight to map
   if (__DEV__ && devBypass) {
     return <Redirect href="/(tabs)/map" />;
   }
-  if (!isLoaded) return null;
-  return <Redirect href={isSignedIn ? '/(tabs)/map' : '/(onboarding)/welcome'} />;
+
+  // Wait for Supabase to rehydrate the session from AsyncStorage
+  if (loading) return null;
+
+  return <Redirect href={session ? '/(tabs)/map' : '/(onboarding)/welcome'} />;
 }

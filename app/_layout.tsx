@@ -1,29 +1,27 @@
 import '../global.css';
 import '../i18n';
 import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native';
-import { ClerkProvider } from '@clerk/clerk-expo';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
-import { tokenCache } from '@/lib/clerk-token-cache';
+import { supabase } from '@/lib/supabase';
 
 export { ErrorBoundary } from 'expo-router';
 
 SplashScreen.preventAutoHideAsync();
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? '';
-if (!publishableKey && __DEV__) {
-  console.warn(
-    '[playbox] EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is not set. ' +
-    'Auth calls will fail until you add it to .env.local (see .env.example). ' +
-    'UI work (onboarding visuals, map, tabs) will still render.'
-  );
-}
+// Keep the Supabase session refreshing while the app is foregrounded; pause
+// when backgrounded so we're not burning battery on token refreshes.
+AppState.addEventListener('change', (state) => {
+  if (state === 'active') supabase.auth.startAutoRefresh();
+  else supabase.auth.stopAutoRefresh();
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -44,33 +42,39 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="station/[id]"
-              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-            />
-            <Stack.Screen
-              name="session-prep/[stationId]/[sport]"
-              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
-              name="scan"
-              options={{ headerShown: false, presentation: 'modal' }}
-            />
-            <Stack.Screen
-              name="settings"
-              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-            />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </ClerkProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="station/[id]"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="session-prep/[stationId]/[sport]"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="scan"
+            options={{ headerShown: false, presentation: 'modal' }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="session-review"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+          />
+          <Stack.Screen
+            name="card-add"
+            options={{ headerShown: false, presentation: 'modal' }}
+          />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

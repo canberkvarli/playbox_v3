@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useClerk, useUser } from '@clerk/clerk-expo';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
@@ -22,6 +21,8 @@ import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
 import { CITY_LABELS } from '@/data/stations.seed';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { supabase } from '@/lib/supabase';
+import { useAuthSession } from '@/hooks/useAuthSession';
 
 type CityKey = keyof typeof CITY_LABELS;
 
@@ -183,8 +184,7 @@ export default function Settings() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const router = useRouter();
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { user } = useAuthSession();
   const { displayName, username, phone } = useDisplayUser();
 
   const [editField, setEditField] = useState<'name' | 'username' | null>(null);
@@ -199,14 +199,22 @@ export default function Settings() {
   const saveName = async (v: string) => {
     setNameOverride(v);
     if (user) {
-      try { await user.update({ firstName: v }); } catch {}
+      try {
+        await supabase.auth.updateUser({ data: { name: v } });
+      } catch (e) {
+        console.warn('[settings] saveName failed', e);
+      }
     }
     await hx.yes();
   };
   const saveUsername = async (v: string) => {
     setUsernameOverride(v);
     if (user) {
-      try { await user.update({ username: v }); } catch {}
+      try {
+        await supabase.auth.updateUser({ data: { username: v } });
+      } catch (e) {
+        console.warn('[settings] saveUsername failed', e);
+      }
     }
     await hx.yes();
   };
@@ -232,7 +240,7 @@ export default function Settings() {
         text: t('settings.account.signout_cta'),
         style: 'destructive',
         onPress: async () => {
-          await signOut();
+          await supabase.auth.signOut();
           router.replace('/(onboarding)/welcome');
         },
       },
@@ -247,12 +255,16 @@ export default function Settings() {
         text: t('settings.account.delete_cta'),
         style: 'destructive',
         onPress: async () => {
-          try {
-            if (user) await user.delete();
-            router.replace('/(onboarding)/welcome');
-          } catch (e) {
-            Alert.alert(t('common.error_generic'), String((e as Error).message ?? e));
-          }
+          // Supabase doesn't expose a client-side account delete; this needs a
+          // server-side Edge Function calling admin.deleteUser(). For now, sign
+          // the user out and surface a support note — wire the Edge Function
+          // before launch.
+          await supabase.auth.signOut();
+          Alert.alert(
+            t('settings.account.delete_title'),
+            t('settings.about.coming_soon')
+          );
+          router.replace('/(onboarding)/welcome');
         },
       },
     ]);

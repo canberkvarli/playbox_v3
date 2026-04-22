@@ -3,7 +3,6 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useSignUp } from '@clerk/clerk-expo';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -11,6 +10,7 @@ import { palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { supabase } from '@/lib/supabase';
 
 const RESEND_SECONDS = 60;
 
@@ -20,7 +20,6 @@ export default function Otp() {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   const { phone } = useLocalSearchParams<{ phone?: string }>();
-  const { signUp, setActive, isLoaded } = useSignUp();
 
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -34,14 +33,12 @@ export default function Otp() {
     return arr;
   }, [code]);
 
-  // Countdown timer
   useEffect(() => {
     if (secondsLeft <= 0) return;
     const id = setInterval(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearInterval(id);
   }, [secondsLeft]);
 
-  // Auto-verify when 6 digits entered
   useEffect(() => {
     if (code.length === 6 && !busy) {
       void verify(code);
@@ -49,22 +46,34 @@ export default function Otp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
+  // Re-focus the hidden input after a verify error so the keyboard pops back up
+  // immediately instead of waiting for another tap. Deferred via rAF so React
+  // has time to re-render with editable=true (busy flipped back off in finally).
+  useEffect(() => {
+    if (!error || busy) return;
+    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [error, busy]);
+
   const verify = async (full: string) => {
-    if (!isLoaded || !signUp || !setActive) return;
+    if (!phone) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await signUp.attemptPhoneNumberVerification({ code: full });
-      if (result.status === 'complete') {
-        await setActive({ session: result.createdSessionId });
-        await hx.yes();
-        router.replace('/(onboarding)/handle');
-      } else {
-        // status might be missing requirements (e.g. needs more info) — push to handle anyway
-        await hx.yes();
-        router.replace('/(onboarding)/handle');
-      }
+      const { data, error: err } = await supabase.auth.verifyOtp({
+        phone,
+        token: full,
+        type: 'sms',
+      });
+      if (err || !data.session) throw err ?? new Error('no session');
+
+      await hx.yes();
+      // Users who finished the name step carry `onboarded: true`. Everyone else
+      // lands on the optional name screen (which they can skip).
+      const onboarded = data.user?.user_metadata?.onboarded === true;
+      router.replace(onboarded ? '/(tabs)/map' : '/(onboarding)/handle');
     } catch (e) {
+      console.warn('[auth] verifyOtp failed', e);
       await hx.no();
       setError(t('onb.otp.invalid'));
       setCode('');
@@ -75,16 +84,20 @@ export default function Otp() {
   };
 
   const onResend = async () => {
-    if (!isLoaded || !signUp || secondsLeft > 0) return;
+    if (secondsLeft > 0 || !phone) return;
     await hx.tap();
     setError(null);
-    try {
-      await signUp.preparePhoneNumberVerification({ strategy: 'phone_code' });
-      setSecondsLeft(RESEND_SECONDS);
-    } catch {
+    const { error: err } = await supabase.auth.signInWithOtp({
+      phone,
+      options: { shouldCreateUser: true },
+    });
+    if (err) {
+      console.warn('[auth] resend failed', err);
       await hx.no();
       setError(t('onb.otp.resend_failed'));
+      return;
     }
+    setSecondsLeft(RESEND_SECONDS);
   };
 
   const onBack = async () => {
@@ -132,8 +145,8 @@ export default function Otp() {
       </RiseIn>
 
       <RiseIn delay={140}>
-       <Pressable className="mt-10" onPress={focusInput}>
-        <View className="flex-row gap-2 justify-center">
+       <Pressable className="mt-12" onPress={focusInput}>
+        <View className="flex-row justify-center" style={{ gap: 10 }}>
           {cells.map((digit, i) => {
             const filled = digit !== '';
             const errored = error !== null;
@@ -142,14 +155,14 @@ export default function Otp() {
               : filled
                 ? theme.fg
                 : theme.fg + '26';
-            const borderWidth = errored || filled ? 2 : 1;
+            const borderWidth = errored || filled ? 2 : 1.5;
             return (
               <View
                 key={i}
                 style={{
-                  width: 48,
-                  height: 56,
-                  borderRadius: 12,
+                  width: 52,
+                  height: 72,
+                  borderRadius: 16,
                   borderWidth,
                   borderColor,
                   backgroundColor: theme.bg,
@@ -157,12 +170,16 @@ export default function Otp() {
                   justifyContent: 'center',
                 }}
               >
-                <Text className="font-mono text-ink dark:text-paper text-2xl">{digit}</Text>
+                <Text
+                  className="font-mono text-ink dark:text-paper"
+                  style={{ fontSize: 36, lineHeight: 40, includeFontPadding: false }}
+                >
+                  {digit}
+                </Text>
               </View>
             );
           })}
         </View>
-        {/* Hidden input handling all the keyboard work */}
         <TextInput
           ref={inputRef}
           value={code}
@@ -188,7 +205,7 @@ export default function Otp() {
       </RiseIn>
 
       <RiseIn delay={220}>
-        <View className="mt-6 items-center">
+        <View className="mt-8 items-center">
           {secondsLeft > 0 ? (
             <Text className="font-mono text-ink/50 dark:text-paper/50 text-sm">
               {t('onb.otp.resend_in', { s: secondsLeft })}

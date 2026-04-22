@@ -10,8 +10,15 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import ViewShot, { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
+let ViewShot: any = View; // fallback to View when native module missing
+let captureRef: any = async () => '';
+try {
+  const mod = require('react-native-view-shot');
+  ViewShot = mod.default;
+  captureRef = mod.captureRef;
+} catch {}
+let Sharing: any = { isAvailableAsync: async () => false, shareAsync: async () => {} };
+try { Sharing = require('expo-sharing'); } catch {}
 
 import { useT } from '@/hooks/useT';
 import { useTheme } from '@/hooks/useTheme';
@@ -259,6 +266,18 @@ export default function Profile() {
         className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink"
       >
         <View className="flex-row items-center justify-between">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+            onPress={async () => {
+              await hx.tap();
+              router.replace('/(tabs)/map');
+            }}
+            hitSlop={14}
+            style={{ marginLeft: -6, padding: 4 }}
+          >
+            <Feather name="chevron-left" size={26} color={theme.fg} />
+          </Pressable>
           <Text className="font-display text-ink dark:text-paper text-lg">{t('profile.title')}</Text>
           <Pressable
             accessibilityRole="button"
@@ -368,7 +387,7 @@ export default function Profile() {
                   style={{ position: 'absolute', top: 16, right: 16 }}
                   className="bg-paper/10 dark:bg-ink/10 rounded-full p-2"
                 >
-                  <Feather name="share-2" size={20} color={palette.butter} />
+                  <Feather name="share-2" size={20} color={palette.paper} />
                 </Pressable>
               ) : null}
               <Text className="font-mono text-paper/60 dark:text-ink/60 text-xs uppercase tracking-wider">

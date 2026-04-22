@@ -28,11 +28,16 @@
     },
     "perms": {
       "title": "a few permissions",
-      "location": { "title": "location", "why": "to find the nearest station" },
-      "notif":    { "title": "notifications", "why": "to remind you before your time's up" },
-      "camera":   { "title": "camera", "why": "to scan the QR at the station" },
+      "location": { "title": "location", "why": "to show nearby stations and unlock the gate" },
+      "notif":    { "title": "notifications", "why": "for reservation and session reminders" },
+      "camera":   { "title": "camera", "why": "to QR-scan at the station — you can also tap it on the map" },
       "denied": "permission denied",
+      "denied_required": "denied — required to continue",
+      "denied_optional": "denied — that's fine, you can change it later",
       "retry": "try again",
+      "required": "required",
+      "optional": "optional",
+      "optional_hint": "you can play without notifications or camera.",
       "cta": "ok, continue"
     },
     "phone": {
@@ -53,13 +58,27 @@
     },
     "handle": {
       "title": "what should we call you?",
+      "sub": "you can skip this and edit it later in settings.",
       "name_label": "name",
+      "name_placeholder": "mert",
       "handle_label": "username",
-      "cta": "finish",
+      "cta": "continue",
+      "skip": "skip for now",
       "hint": "3-20 chars — letters, numbers, underscore",
       "invalid": "invalid — must be 3-20 chars (letters/numbers/_)",
       "save_failed": "save failed, try again"
     }
+  },
+  "menu": {
+    "map": "map",
+    "profile": "profile",
+    "settings": "settings",
+    "billing": "billing",
+    "reservations": "reservations",
+    "follow": "follow us",
+    "safety": "safety",
+    "support": "support",
+    "soon": "soon"
   },
   "common": {
     "back": "back",
@@ -77,19 +96,19 @@
     "steps": {
       "pick": {
         "title": "pick your sport",
-        "desc": "choose the equipment you want at the station — football, basketball, volleyball, paddle, tennis."
+        "desc": "pick your sport and how long you want to play. football, basketball, volleyball, paddle, tennis."
       },
       "scan": {
-        "title": "scan the qr",
-        "desc": "point your camera at the qr code on the station, the lock opens."
+        "title": "open the gate",
+        "desc": "get to the station, tap play. the gate opens once — no need to rescan a qr."
       },
       "play": {
         "title": "play",
-        "desc": "your timer starts. you planned 30 minutes, play, rest, laugh."
+        "desc": "your timer starts. grab the gear, sweat it out, have fun. every minute counts automatically."
       },
       "return": {
-        "title": "return it",
-        "desc": "when done, put the equipment back and scan the qr again. overtime fees apply if you exceed your time."
+        "title": "close gate & finish",
+        "desc": "put the gear back and close the gate. tap 'end session' in the app and confirm the gate is closed. contact support if anything goes wrong."
       }
     }
   },
@@ -137,6 +156,24 @@
     "search": {
       "placeholder": "search stations..."
     },
+    "suggest": {
+      "recent": "recent",
+      "nearby": "open nearby",
+      "clear": "clear"
+    },
+    "segment": {
+      "stations": "stations",
+      "reservations": "reservations"
+    },
+    "section": {
+      "nearby": "nearby stations",
+      "station_count": "stations"
+    },
+    "empty": {
+      "no_stations": "no stations in this area",
+      "no_reservations_title": "no reservations yet",
+      "no_reservations_sub": "tap a station, lock it, play."
+    },
     "no_location": "no location",
     "generic_area": "nearby"
   },
@@ -147,10 +184,11 @@
       "planned_suffix": "min planned"
     },
     "return": {
-      "title": "return it",
-      "confirm_title": "sure?",
-      "confirm_sub": "close only if you've actually returned it — photo verification in v2",
-      "confirm_cta": "i returned it"
+      "title": "end session",
+      "confirm_title": "is the door closed?",
+      "confirm_sub": "if you couldn't close it, you may be charged extra. contact support if there's an issue.",
+      "confirm_cta": "yes, it's closed",
+      "confirm_no": "not yet"
     },
     "tips": {
       "check_station": "make sure the station is open",
@@ -224,8 +262,54 @@
       "scan_qr": "scan the qr at the station",
       "return": "return when done"
     },
-    "cta_unlock": "unlock",
-    "cta_out_of_stock": "out of stock"
+    "cta_unlock": "PLAY",
+    "cta_out_of_stock": "out of stock",
+    "info": "info",
+    "directions": "directions",
+    "gates_label": "pick a gate",
+    "duration_label": "duration",
+    "duration_question": "how long do you want to play?",
+    "duration_hint": "pick in minutes. you'll be billed when the session ends.",
+    "range_hint": "get closer to the station to unlock",
+    "range_hint_reserve": "you're far — reserve it so it's waiting for you",
+    "cta_pick_gate": "pick a gate",
+    "cta_get_closer": "get closer",
+    "cta_reserve": "reserve · {{min}} min",
+    "cta_other_reservation": "you have another reservation",
+    "unlocking": "opening...",
+    "reserving": "reserving...",
+    "reserved_title": "reserved",
+    "reserved_msg": "{{name}} is locked for you for {{min}} min. don't be late.",
+    "reserve_err_has_active": "you already have an active reservation.",
+    "reserve_err_cooldown": "you reserved this station recently. wait a bit.",
+    "blocked_by_reservation": "you have an active reservation at {{name}}. use it first."
+  },
+  "review": {
+    "title": "session complete",
+    "subtitle": "good run. here's the breakdown.",
+    "duration_label": "duration",
+    "calories_label": "kcal",
+    "distance_label": "distance",
+    "charge_label": "charge",
+    "charge_hint": "billed at ₺{{rate}}/min.",
+    "billing_label": "billing",
+    "line_session": "{{min}} min × ₺{{rate}}",
+    "line_tax": "vat (18%)",
+    "line_total": "total",
+    "feedback_title": "how was it?",
+    "feedback_hint": "pick a face — help us improve",
+    "feedback_placeholder": "your thoughts (optional)",
+    "share_cta": "share with friends",
+    "share_msg": "just played {{minutes}} min of {{sport}} at {{station}} 💪 — playbox",
+    "cta": "got it"
+  },
+  "reservations": {
+    "locked": "reserved",
+    "go_to_station": "go to station",
+    "cancel_short": "cancel",
+    "cancel_title": "cancel reservation?",
+    "cancel_msg": "your reservation at {{name}} will be removed.",
+    "cancel_cta": "cancel"
   },
   "prep": {
     "gate_ready": "{{sport}} gate ready",
@@ -239,5 +323,45 @@
     "permission_needed": "camera permission required",
     "grant": "grant",
     "not_found": "station not found"
+  },
+  "card": {
+    "add": {
+      "title": "add a card",
+      "sub": "stored securely by iyzico. you can remove it any time.",
+      "number_label": "card number",
+      "name_label": "name on card",
+      "name_placeholder": "full name",
+      "expiry_label": "expiry",
+      "cta": "save",
+      "cta_loading": "saving...",
+      "trust": "iyzico · 3d secure · pci dss level 1"
+    },
+    "post_session": {
+      "title": "add a card for next time",
+      "sub": "this session is on us. save a card to start in one tap next time. remove it whenever.",
+      "cta_primary": "add card",
+      "cta_secondary": "later"
+    },
+    "blocking": {
+      "title": "add a card\nbefore you start",
+      "sub": "stored securely via iyzico. 3d secure confirmation comes from your bank.",
+      "detail": "a temporary ₺{{amount}} hold is placed at start. released when you return on time, captured if you are late.",
+      "cta": "add card"
+    },
+    "preauth_failed": {
+      "title": "card not approved",
+      "sub": "your bank declined this transaction. try another card or call your bank and retry.",
+      "cta_primary": "try another card",
+      "cta_secondary": "close"
+    },
+    "error": {
+      "generic_title": "could not save card",
+      "generic_sub": "something went wrong. try again?",
+      "network": "connection lost. check your internet and retry.",
+      "bad_response": "unexpected response from the server. please retry.",
+      "supabase_not_configured": "payment service is not ready yet. try again shortly.",
+      "card_declined": "card was declined by your bank. try another card.",
+      "card_invalid": "check the card details and try again."
+    }
   }
 }

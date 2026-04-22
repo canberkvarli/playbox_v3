@@ -5,6 +5,8 @@ import { Platform, View } from 'react-native';
 import { palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/hooks/useT';
+import { ActiveSessionBanner } from '@/components/ActiveSessionBanner';
+import { MenuDrawer } from '@/components/MenuDrawer';
 
 export default function TabLayout() {
   const { t } = useT();
@@ -16,14 +18,7 @@ export default function TabLayout() {
           headerShown: false,
           tabBarActiveTintColor: palette.coral,
           tabBarInactiveTintColor: palette.mauve,
-          tabBarStyle: {
-            backgroundColor: theme.bg,
-            borderTopWidth: 0,
-            elevation: 0,
-            shadowOpacity: 0,
-            height: Platform.OS === 'ios' ? 84 : 64,
-            paddingTop: 8,
-          },
+          tabBarStyle: { display: 'none' },
           tabBarLabelStyle: {
             fontFamily: 'Inter_500Medium',
             fontSize: 11,
@@ -41,8 +36,8 @@ export default function TabLayout() {
         <Tabs.Screen
           name="play"
           options={{
-            title: t('tabs.play'),
-            tabBarIcon: ({ color, size }) => <Feather name="play-circle" size={size} color={color} />,
+            // Hidden from tab bar — accessible via ActiveSessionBanner only.
+            href: null,
           }}
         />
         <Tabs.Screen
@@ -53,6 +48,8 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
+      <ActiveSessionBanner />
+      <MenuDrawer />
     </View>
   );
 }

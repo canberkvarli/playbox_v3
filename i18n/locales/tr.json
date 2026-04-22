@@ -22,17 +22,22 @@
       "cta": "devam"
     },
     "intro_social": {
-      "title": "arkadaşlarınla\nseri yap",
+      "title": "dostlarınla\nseri yap",
       "sub": "haftalık şehir sıralaması. takip et, geç, övün.",
       "cta": "hadi başlayalım"
     },
     "perms": {
       "title": "birkaç izin",
-      "location": { "title": "konum", "why": "en yakın istasyonu bulmak için" },
-      "notif":    { "title": "bildirim", "why": "iade süresi dolmadan hatırlatmak için" },
-      "camera":   { "title": "kamera", "why": "istasyondaki qr'ı okumak için" },
+      "location": { "title": "konum", "why": "yakındaki istasyonları göstermek ve kapıyı açmak için" },
+      "notif":    { "title": "bildirim", "why": "rezervasyon ve seans hatırlatmaları için" },
+      "camera":   { "title": "kamera", "why": "qr ile hızlı başlamak için — haritadan da bulabilirsin" },
       "denied": "izin verilmedi",
+      "denied_required": "izin verilmedi — devam etmek için gerekli",
+      "denied_optional": "izin verilmedi — sorun değil, sonra değiştirebilirsin",
       "retry": "tekrar dene",
+      "required": "zorunlu",
+      "optional": "opsiyonel",
+      "optional_hint": "bildirim ve kamera olmadan da oynayabilirsin.",
       "cta": "tamam, devam"
     },
     "phone": {
@@ -53,13 +58,27 @@
     },
     "handle": {
       "title": "seni nasıl çağıralım?",
+      "sub": "dilersen atlayabilirsin, sonra ayarlardan değiştirirsin.",
       "name_label": "isim",
+      "name_placeholder": "mert",
       "handle_label": "kullanıcı adı",
-      "cta": "bitir",
+      "cta": "devam",
+      "skip": "şimdilik atla",
       "hint": "3-20 karakter — harf, sayı, alt tire",
       "invalid": "geçersiz — 3-20 karakter, harf/sayı/_ olmalı",
       "save_failed": "kaydedilemedi, tekrar dene"
     }
+  },
+  "menu": {
+    "map": "harita",
+    "profile": "profil",
+    "settings": "ayarlar",
+    "billing": "ödemeler",
+    "reservations": "rezervasyonlar",
+    "follow": "bizi takip et",
+    "safety": "güvenlik",
+    "support": "destek",
+    "soon": "yakında"
   },
   "common": {
     "back": "geri",
@@ -77,19 +96,19 @@
     "steps": {
       "pick": {
         "title": "sporunu seç",
-        "desc": "istasyonda hangi ekipmanı istediğini seç — futbol, basket, voleybol, paddle, tenis."
+        "desc": "istasyonda istediğin sporu ve ne kadar süre oynayacağını seç. futbol, basket, voleybol, paddle, tenis."
       },
       "scan": {
-        "title": "qr'ı okut",
-        "desc": "istasyondaki qr kodunu kameraya tut, kilit açılsın."
+        "title": "kapıyı aç",
+        "desc": "istasyona yaklaş, oyna butonuna bas. kapı bir kez açılır — qr'ı tekrar okutmaya gerek yok."
       },
       "play": {
         "title": "oyna",
-        "desc": "süren başlar. 30 dakika planladın, oyna, dinlen, gül."
+        "desc": "süren başlar. ekipmanı al, ter at, gül. her dakika otomatik sayılır."
       },
       "return": {
-        "title": "iade et",
-        "desc": "bittiğinde ekipmanı istasyona bırak, qr'ı tekrar okut. süreyi aşarsan ek ücret uygulanır."
+        "title": "kapıyı kapat & bitir",
+        "desc": "ekipmanı bırak, kapıyı kapat. uygulamadan 'seansı bitir'e dokun, kapının kapalı olduğunu onayla. sorun olursa destek ekibine ulaş."
       }
     }
   },
@@ -137,6 +156,24 @@
     "search": {
       "placeholder": "istasyon ara..."
     },
+    "suggest": {
+      "recent": "son aramalar",
+      "nearby": "yakında açık",
+      "clear": "temizle"
+    },
+    "segment": {
+      "stations": "istasyonlar",
+      "reservations": "rezervasyonlar"
+    },
+    "section": {
+      "nearby": "yakındaki istasyonlar",
+      "station_count": "istasyon"
+    },
+    "empty": {
+      "no_stations": "bu bölgede istasyon yok",
+      "no_reservations_title": "henüz rezervasyon yok",
+      "no_reservations_sub": "bir istasyona dokun, kilitle, oyna."
+    },
     "no_location": "konum yok",
     "generic_area": "yakınında"
   },
@@ -147,10 +184,11 @@
       "planned_suffix": "dk planlandı"
     },
     "return": {
-      "title": "iade et",
-      "confirm_title": "emin misin?",
-      "confirm_sub": "iade ettiğinden emin olduğunda kapat — fotoğraf ister (v2)",
-      "confirm_cta": "iade ettim"
+      "title": "seansı bitir",
+      "confirm_title": "kapı kapalı mı?",
+      "confirm_sub": "kapatamadıysan ek ücret alınabilir. sorun varsa destek ekibine ulaş.",
+      "confirm_cta": "evet, kapattım",
+      "confirm_no": "henüz kapatmadım"
     },
     "tips": {
       "check_station": "istasyonun açık olduğundan emin ol",
@@ -224,8 +262,54 @@
       "scan_qr": "istasyondaki qr'ı oku",
       "return": "bittiğinde iade et"
     },
-    "cta_unlock": "kilidi aç",
-    "cta_out_of_stock": "şu an boş"
+    "cta_unlock": "OYNA",
+    "cta_out_of_stock": "şu an boş",
+    "info": "bilgi",
+    "directions": "yol tarifi",
+    "gates_label": "kapı seç",
+    "duration_label": "süre",
+    "duration_question": "ne kadar oynayacaksın?",
+    "duration_hint": "dakika cinsinden seç. seans bitince ücret hesaplanır.",
+    "range_hint": "açmak için istasyona yaklaş",
+    "range_hint_reserve": "uzaktasın — istersen rezerve edebilirsin",
+    "cta_pick_gate": "bir kapı seç",
+    "cta_get_closer": "istasyona yaklaş",
+    "cta_reserve": "rezerve et · {{min}} dk",
+    "cta_other_reservation": "başka rezervasyonun var",
+    "unlocking": "açılıyor...",
+    "reserving": "rezerve ediliyor...",
+    "reserved_title": "rezerve edildi",
+    "reserved_msg": "{{name}} senin için {{min}} dk kilitlendi. zamanında gel.",
+    "reserve_err_has_active": "zaten aktif bir rezervasyonun var.",
+    "reserve_err_cooldown": "bu istasyonu kısa süre önce rezerve ettin. biraz bekle.",
+    "blocked_by_reservation": "{{name}} için aktif rezervasyonun var. önce onu kullan."
+  },
+  "review": {
+    "title": "seans tamamlandı",
+    "subtitle": "iyi oynadın. özet aşağıda.",
+    "duration_label": "süre",
+    "calories_label": "kalori",
+    "distance_label": "mesafe",
+    "charge_label": "ücret",
+    "charge_hint": "₺{{rate}}/dk üzerinden hesaplandı.",
+    "billing_label": "fatura",
+    "line_session": "{{min}} dk × ₺{{rate}}",
+    "line_tax": "kdv (%18)",
+    "line_total": "toplam",
+    "feedback_title": "nasıldı?",
+    "feedback_hint": "bir yüz seç — geliştirmemize yardım et",
+    "feedback_placeholder": "düşüncelerin (opsiyonel)",
+    "share_cta": "arkadaşlarınla paylaş",
+    "share_msg": "{{station}} istasyonunda {{minutes}} dakika {{sport}} oynadım 💪 — playbox",
+    "cta": "anladım"
+  },
+  "reservations": {
+    "locked": "rezerve",
+    "go_to_station": "istasyona git",
+    "cancel_short": "iptal",
+    "cancel_title": "rezervasyon iptal?",
+    "cancel_msg": "{{name}} rezervasyonun silinecek.",
+    "cancel_cta": "iptal et"
   },
   "prep": {
     "gate_ready": "{{sport}} kapısı hazır",
@@ -239,5 +323,45 @@
     "permission_needed": "kamera izni gerekli",
     "grant": "izin ver",
     "not_found": "istasyon bulunamadı"
+  },
+  "card": {
+    "add": {
+      "title": "kart ekle",
+      "sub": "iyzico üzerinden güvenli şekilde saklanır. istediğin zaman silebilirsin.",
+      "number_label": "kart numarası",
+      "name_label": "kart üzerindeki isim",
+      "name_placeholder": "ad soyad",
+      "expiry_label": "son kullanma",
+      "cta": "kaydet",
+      "cta_loading": "kaydediliyor...",
+      "trust": "iyzico · 3d secure · pci dss seviye 1"
+    },
+    "post_session": {
+      "title": "bir dahaki seans için kart ekle",
+      "sub": "bu seans bizden. kartını kaydet, bir dahakine tek dokunuşla başla. istediğin zaman silebilirsin.",
+      "cta_primary": "kart ekle",
+      "cta_secondary": "sonra"
+    },
+    "blocking": {
+      "title": "başlamadan önce\nbir kart ekle",
+      "sub": "iyzico ile güvenli şekilde saklıyoruz. 3d secure onayı bankan üzerinden gelir.",
+      "detail": "seans başında ₺{{amount}} geçici bloke konur. topu zamanında iade ettiğinde serbest bırakılır, gecikirse düşülür.",
+      "cta": "kart ekle"
+    },
+    "preauth_failed": {
+      "title": "kart onaylanmadı",
+      "sub": "bankan bu işlemi geçirmedi. başka bir kart deneyebilir ya da bankanı arayıp tekrar deneyebilirsin.",
+      "cta_primary": "başka kart dene",
+      "cta_secondary": "kapat"
+    },
+    "error": {
+      "generic_title": "kart kaydedilemedi",
+      "generic_sub": "bir şeyler ters gitti. tekrar dener misin?",
+      "network": "bağlantı koptu. interneti kontrol edip tekrar dene.",
+      "bad_response": "sunucudan beklenmedik bir yanıt geldi. tekrar dene.",
+      "supabase_not_configured": "ödeme servisi şu an hazır değil. birazdan tekrar dene.",
+      "card_declined": "kart bankan tarafından reddedildi. başka bir kart deneyebilirsin.",
+      "card_invalid": "kart bilgilerini kontrol et ve tekrar gir."
+    }
   }
 }

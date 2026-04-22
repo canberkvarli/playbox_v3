@@ -4,8 +4,25 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
-import { Camera } from 'expo-camera';
+
+// expo-camera 17 (SDK 53+) replaced the Camera class methods with top-level
+// named exports. Prefer those; fall back to legacy class methods for older SDKs.
+let CameraPerms: {
+  get?: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
+  request?: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
+} = {};
+try {
+  const mod = require('expo-camera');
+  CameraPerms.get =
+    mod.getCameraPermissionsAsync ??
+    mod.Camera?.getCameraPermissionsAsync;
+  CameraPerms.request =
+    mod.requestCameraPermissionsAsync ??
+    mod.Camera?.requestCameraPermissionsAsync;
+} catch {}
+
+let Notifications: any = null;
+try { Notifications = require('expo-notifications'); } catch {}
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -24,12 +41,25 @@ const ICONS: Record<PermKey, keyof typeof Feather.glyphMap> = {
   camera: 'camera',
 };
 
+const REQUIRED: Record<PermKey, boolean> = {
+  location: true,   // nearby stations, in-range unlock, reservation lock
+  notif: false,     // reservation / session reminders — nice to have
+  camera: false,    // QR scan shortcut; map-tap flow works without it
+};
+
 async function readInitial(): Promise<PermsState> {
-  const [loc, notif, cam] = await Promise.all([
-    Location.getForegroundPermissionsAsync(),
-    Notifications.getPermissionsAsync(),
-    Camera.getCameraPermissionsAsync(),
-  ]);
+  const loc = await Location.getForegroundPermissionsAsync();
+
+  let cam = { granted: false, canAskAgain: true } as any;
+  if (CameraPerms.get) {
+    try { cam = await CameraPerms.get(); } catch (e) { console.warn('cam get', e); }
+  }
+
+  let notif = { granted: false, canAskAgain: true } as any;
+  if (Notifications?.getPermissionsAsync) {
+    try { notif = await Notifications.getPermissionsAsync(); } catch (e) { console.warn('notif get', e); }
+  }
+
   return {
     location: loc.granted ? 'granted' : loc.canAskAgain === false ? 'denied' : 'idle',
     notif:    notif.granted ? 'granted' : notif.canAskAgain === false ? 'denied' : 'idle',
@@ -38,11 +68,36 @@ async function readInitial(): Promise<PermsState> {
 }
 
 async function request(key: PermKey): Promise<PermStatus> {
-  const result =
-    key === 'location' ? await Location.requestForegroundPermissionsAsync() :
-    key === 'notif'    ? await Notifications.requestPermissionsAsync() :
-                         await Camera.requestCameraPermissionsAsync();
-  return result.granted ? 'granted' : 'denied';
+  if (key === 'location') {
+    const r = await Location.requestForegroundPermissionsAsync();
+    return r.granted ? 'granted' : 'denied';
+  }
+  if (key === 'notif') {
+    if (!Notifications?.requestPermissionsAsync) {
+      console.warn('expo-notifications not linked');
+      return 'denied';
+    }
+    try {
+      const r = await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      });
+      return r.granted || r.status === 'granted' ? 'granted' : 'denied';
+    } catch (e) {
+      console.warn('notif request failed', e);
+      return 'denied';
+    }
+  }
+  if (!CameraPerms.request) {
+    console.warn('expo-camera request API missing');
+    return 'denied';
+  }
+  try {
+    const r = await CameraPerms.request();
+    return r.granted ? 'granted' : 'denied';
+  } catch (e) {
+    console.warn('cam request failed', e);
+    return 'denied';
+  }
 }
 
 function PermissionCard({
@@ -94,10 +149,35 @@ function PermissionCard({
         <Feather name={ICONS[k]} size={24} color={granted ? palette.ink : theme.fg} />
       </View>
       <View className="flex-1">
-        <Text className={`font-medium text-base ${granted ? 'text-ink' : 'text-ink dark:text-paper'}`}>{t(`onb.perms.${k}.title`)}</Text>
+        <View className="flex-row items-center gap-2">
+          <Text className={`font-medium text-base ${granted ? 'text-ink' : 'text-ink dark:text-paper'}`}>{t(`onb.perms.${k}.title`)}</Text>
+          <View
+            style={{
+              paddingHorizontal: 7,
+              paddingVertical: 2,
+              borderRadius: 999,
+              backgroundColor: REQUIRED[k] ? palette.coral + '26' : theme.fg + '14',
+            }}
+          >
+            <Text
+              className="font-mono"
+              style={{
+                fontSize: 9,
+                color: REQUIRED[k] ? palette.coral : theme.fg + '99',
+                letterSpacing: 0.6,
+                textTransform: 'uppercase',
+                fontWeight: '700',
+              }}
+            >
+              {t(REQUIRED[k] ? 'onb.perms.required' : 'onb.perms.optional')}
+            </Text>
+          </View>
+        </View>
         <Text className={`font-sans text-sm mt-0.5 ${granted ? 'text-ink/60' : 'text-ink/60 dark:text-paper/60'}`}>{t(`onb.perms.${k}.why`)}</Text>
         {denied && (
-          <Text className="text-coral/80 text-xs mt-1 font-sans">{t('onb.perms.denied')}</Text>
+          <Text className="text-coral/80 text-xs mt-1 font-sans">
+            {REQUIRED[k] ? t('onb.perms.denied_required') : t('onb.perms.denied_optional')}
+          </Text>
         )}
       </View>
       {granted ? (
@@ -202,6 +282,9 @@ export default function Permissions() {
             {t('onb.perms.cta')}
           </Text>
         </Pressable>
+        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs text-center mt-3">
+          {t('onb.perms.optional_hint')}
+        </Text>
       </RiseIn>
     </View>
   );
