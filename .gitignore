@@ -39,3 +39,7 @@ yarn-error.*
 ios/
 android/
 *.log
+
+# Supabase CLI local cache
+supabase/.temp/
+supabase/.branches/
