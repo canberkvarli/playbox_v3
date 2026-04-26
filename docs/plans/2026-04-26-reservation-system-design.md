@@ -420,3 +420,118 @@ All notifications use [tr.json](i18n/locales/tr.json) — Turkish-locked per pro
 | [app/_layout.tsx](app/_layout.tsx) | Register `/reserve/[stationId]/[sport]/[gateId]` route. |
 | [i18n/locales/tr.json](i18n/locales/tr.json), [en.json](i18n/locales/en.json) | Add reservation, lock, notification keys. |
 | `supabase/functions/iyzico-*` | Add `reservation-create`, `reservation-cancel`, `reservation-consume`, `reservation-sweep`, `reservation-retry-capture`. |
+
+---
+
+## Appendix C — Implementation status (as of 2026-04-26)
+
+13 commits on `feat/reservations` cover the design end-to-end. Two intentional v1 deferrals: per-gate UX and T-5 reminder push.
+
+| Phase | Status | Commit prefix |
+|---|---|---|
+| 1. Schema migration (5 tables + RPC) | ✅ landed | `feat(reservations): phase 1` |
+| 2. Core edge functions (create/cancel/consume) | ✅ landed | `phase 2` |
+| 3. Sweep cron + retry-capture + lazy sweep | ✅ landed | `phase 3` |
+| 4. Client lib wrapper + reactive state hook | ✅ landed | `phase 4` |
+| 12. i18n keys (slides, errors, banners, notifs) | ✅ landed | `phase 12` |
+| 5+6. Reserve flow (slides + mini-confirm) | ✅ landed | `phase 5+6` |
+| 7. Reservations screen refactor | ✅ landed | `phase 7` |
+| 8. Station gate selector handoff to /reserve | ✅ landed (gate_id synthesized as `${sport}-1`) | `phase 8` |
+| 9. QR scan integration with consume | ✅ landed | `phase 9` |
+| 10. Push notifications scaffold + sweep wiring | ✅ landed (3 of 5 events; T-5 reminder + force-release push wired separately) | `phase 10` |
+| 11. Operator force-release endpoint | ✅ landed (with system-fault push) | `phase 11` |
+| 13. QA checklist | ✅ this section | `phase 13` |
+
+Known v1 limitations:
+- Per-gate selection is auto-derived (`${sport}-1`); capacity is effectively 1 per (station, sport) until `stations.seed.ts` adds a `gates` field. The server already accepts arbitrary `gate_id` strings — the change is purely client-side.
+- T-5 reminder is *not* yet scheduled — needs either a `pg_cron` at-time job per reservation or a `scheduled_pushes` table swept by the existing sweeper.
+- Legacy [stores/reservationStore.ts](stores/reservationStore.ts) is still imported by some screens (map, play, station/[id], ActiveSessionBanner, sessionStore). Phase 7 + 8 migrated the screens that matter for the reserve loop; the rest will fall out as those callers are touched.
+- expo-device is optional — install with `npx expo install expo-device` for richer push token device_info; without it the upsert stores nulls.
+
+## Appendix D — Deployment runbook
+
+### One-time setup
+1. **Migrations** — apply in order:
+   ```
+   npx supabase db push
+   ```
+   This lands the four new migrations:
+   - `20260426120000_reservations.sql` (5 tables + RPC)
+   - `20260426130000_reservation_cron.sql` (pg_cron sweep job — see below for prereqs)
+   - `20260426140000_push_tokens.sql` (push token storage)
+
+2. **Vault secrets** for the pg_cron sweep job (Supabase Dashboard → Project Settings → Vault):
+   - `sweep_url` → `https://<project-ref>.supabase.co/functions/v1/reservation-sweep`
+   - `service_role_key` → from Project Settings → API
+
+3. **Postgres extensions** (Dashboard → Database → Extensions):
+   - Enable `pg_cron`
+   - Enable `pg_net`
+
+4. **Edge function env vars** (Dashboard → Edge Functions → Settings):
+   - `SUPABASE_SERVICE_ROLE_KEY` (required by all reservation-* functions)
+   - `IYZICO_API_KEY`, `IYZICO_SECRET_KEY`, `IYZICO_BASE_URL` (already set per existing iyzico-* functions)
+
+5. **Deploy edge functions**:
+   ```
+   npx supabase functions deploy reservation-create
+   npx supabase functions deploy reservation-cancel
+   npx supabase functions deploy reservation-consume
+   npx supabase functions deploy reservation-sweep
+   npx supabase functions deploy reservation-retry-capture
+   npx supabase functions deploy reservation-force-release
+   ```
+
+### QA test plan (run against the sandbox Iyzico account)
+
+**Smoke — happy path:**
+- [ ] Reserve from station screen → slide deck shows on first reservation only
+- [ ] Tick agree, tap "rezerv et" → reservation row exists in DB, hold visible in Iyzico sandbox
+- [ ] Reservations screen shows live countdown
+- [ ] Within 2 min: cancel → status=`cancelled`, hold released, no penalty
+- [ ] Reserve again → mini-confirm sheet (no slides this time)
+- [ ] Walk to station → scan QR → consume → status=`consumed`, hold released
+- [ ] Session starts as before (the existing session preauth replaces our hold)
+
+**No-show path:**
+- [ ] Reserve, do nothing for 30+ minutes
+- [ ] pg_cron fires → row becomes `expired_captured`, ₺20 charged to sandbox card
+- [ ] Push notification *"₺20 tahsil edildi"* lands
+- [ ] Reservations screen shows -₺20 on the recent row
+
+**Tier ladder:**
+- [ ] Trigger 3 captures within 30 days (sandbox: shorten the windows in `app_config` to test in real time)
+- [ ] On the 3rd capture: tier_24h lock applies, push *"rezervasyon kilidi"*, lock banner shows on reservations screen
+- [ ] Try to reserve again → 403 `locked` error
+- [ ] After 5 captures → tier_7d lock replaces tier_24h
+- [ ] After 10 captures (or simulate via 90-day window) → manual_review lock with infinity expiry
+
+**Payment-failed path:**
+- [ ] Set Iyzico sandbox card to "decline on capture"
+- [ ] Reserve, no-show → sweep tries capture, fails → status=`expired_captured` + payment_failed lock
+- [ ] Reserve attempt → 403 `locked` reason=`payment_failed`
+- [ ] Tap lock banner CTA → routes to /card-add
+- [ ] Update card → call reservation-retry-capture → lock cleared
+
+**Velocity caps:**
+- [ ] Make 3 reservations in <1 hour (cancel each within grace) → 4th attempt → 429 `velocity_hour`
+- [ ] Make 8 reservations in <24h → 9th attempt → 429 `velocity_day`
+
+**Race + concurrency:**
+- [ ] Two clients tap reserve on the same gate at the same instant
+- [ ] One wins, one gets 409 `gate_taken_race`; the loser's preauth was rolled back via iyzico cancel
+
+**System-fault path:**
+- [ ] Hit `/functions/v1/reservation-force-release` with service-role JWT and a body `{ reservation_id, reason: "gate_jam" }`
+- [ ] Row → `expired_released`, no charge, push *"sistemden kaynaklı bir sorun"* lands
+- [ ] Tier counters NOT incremented (verify by checking captures count vs. before)
+
+**Push notifications:**
+- [ ] App granted notification permission → user_push_tokens row exists with valid expo_token
+- [ ] Capture / capture-failure / tier-lock / system-fault all deliver to the device
+- [ ] Permission denied → app still works; pushes are silently no-op'd
+
+**Lazy sweep:**
+- [ ] Disable pg_cron temporarily
+- [ ] Let a reservation expire
+- [ ] Open reservations screen → useReservationState's pre-fetch sweep captures the row in real time
