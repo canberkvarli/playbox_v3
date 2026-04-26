@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { useRouter, useSegments } from 'expo-router';
+import { Text, View } from 'react-native';
+import { useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -13,7 +13,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { palette } from '@/constants/theme';
-import { hx } from '@/lib/haptics';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -50,11 +49,9 @@ const TICKER_PPS = 60;
  */
 function Ticker({
   label,
-  onPress,
   overrun,
 }: {
   label: string;
-  onPress: () => void;
   overrun: boolean;
 }) {
   const [textWidth, setTextWidth] = useState(0);
@@ -142,14 +139,15 @@ function Ticker({
   };
 
   return (
-    <Animated.View style={barStyle}>
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={label}
+    <Animated.View
+      style={barStyle}
+      accessibilityRole="text"
+      accessibilityLabel={label}
+    >
+      <View
         // Fixed height + overflow:hidden reserves vertical space and clips the
-        // absolutely-positioned marquee row. Height = lineHeight (20) + vertical
-        // padding (12) = 32.
+        // absolutely-positioned marquee row. Pure View (not Pressable) so the
+        // bar reads as ambient status, not a tappable link.
         style={{ height: 32, width: '100%', overflow: 'hidden' }}
       >
         <Animated.View
@@ -159,9 +157,6 @@ function Ticker({
               top: 6,
               left: 0,
               flexDirection: 'row',
-              // Absolute positioning detaches the row from the parent's width
-              // constraint, so Text children render at their natural width and
-              // the marquee scrolls instead of wrapping.
             },
             style,
           ]}
@@ -173,7 +168,7 @@ function Ticker({
             {label}
           </Text>
         </Animated.View>
-      </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -185,7 +180,6 @@ function Ticker({
  */
 export function ActiveSessionBanner() {
   const active = useSessionStore((s) => s.active);
-  const router = useRouter();
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const [, setTick] = useState(0);
@@ -216,15 +210,10 @@ export function ActiveSessionBanner() {
       fmt(remaining),
     ].join('  ·  ') + '          ';
 
-  const onPress = async () => {
-    await hx.tap();
-    router.push('/(tabs)/play');
-  };
-
   return (
     <>
       <View
-        pointerEvents="box-none"
+        pointerEvents="none"
         style={{
           position: 'absolute',
           top: insets.top,
@@ -234,10 +223,10 @@ export function ActiveSessionBanner() {
           elevation: 50,
         }}
       >
-        <Ticker label={label} onPress={onPress} overrun={overrun} />
+        <Ticker label={label} overrun={overrun} />
       </View>
       <View
-        pointerEvents="box-none"
+        pointerEvents="none"
         style={{
           position: 'absolute',
           bottom: insets.bottom,
@@ -247,7 +236,7 @@ export function ActiveSessionBanner() {
           elevation: 50,
         }}
       >
-        <Ticker label={label} onPress={onPress} overrun={overrun} />
+        <Ticker label={label} overrun={overrun} />
       </View>
     </>
   );

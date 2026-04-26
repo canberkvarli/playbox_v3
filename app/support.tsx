@@ -1,32 +1,15 @@
 import { useState } from 'react';
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 
-// ── Support channels ─────────────────────────────────────────────────────────
-// All MVP-friendly (no backend required):
-//   - tel: link opens the dialer with the number pre-filled
-//   - wa.me opens WhatsApp (installed) or web fallback with the pre-filled chat
-//   - mailto: opens the default mail client
-//
-// Live chat: deliberately using WhatsApp here instead of Intercom/Crisp/etc.
-// For a Turkish audience WhatsApp is the dominant chat channel (>95% of users
-// on iOS have it installed) and it's zero backend + zero cost. If we later
-// want in-app chat, swap to Crisp (free tier, has RN SDK).
 const PHONES = ['+90 538 540 21 61', '+90 553 024 26 25'];
-const WHATSAPP_NUMBER = '905385402161'; // first phone as primary WA handler
+const WHATSAPP_NUMBER = '905385402161';
 const SUPPORT_EMAIL = 'destek@playbox.app';
 
 type Faq = { q: string; a: string };
@@ -44,12 +27,12 @@ const FAQ_ITEMS: Faq[] = [
     a: 'dakika başı ücretlendirme. planladığın sürenin üstüne geçersen her ek dakika otomatik eklenir. kartın bittiğinde toplam tutar tek seferde tahsil edilir.',
   },
   {
-    q: 'ekipman bozuk/eksik. ne yapmam lazım?',
-    a: 'hemen whatsapp veya telefon ile bize ulaş. kendini mağdur hissetmemen için hızlıca çözüyoruz.',
+    q: 'ekipman bozuk/eksik, ne yapmam lazım?',
+    a: 'hemen whatsapp veya telefon ile bize ulaş. mağdur kalmaman için hızlıca çözüyoruz.',
   },
   {
     q: 'rezervasyonumu iptal edebilir miyim?',
-    a: 'evet. rezervasyonlar sekmesinden istediğin zaman iptal edebilirsin. kilit süresi dolmadan iptal etsen ücret yok.',
+    a: 'evet. rezervasyonlar sekmesinden istediğin zaman iptal edebilirsin. ilk 2 dakika içinde iptal ücretsizdir.',
   },
 ];
 
@@ -57,16 +40,15 @@ function ChannelButton({
   icon,
   label,
   sub,
-  color,
+  accent,
   onPress,
 }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
   sub: string;
-  color: string;
+  accent: string;
   onPress: () => void;
 }) {
-  const theme = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -75,31 +57,31 @@ function ChannelButton({
         alignItems: 'center',
         gap: 14,
         paddingVertical: 16,
-        paddingHorizontal: 18,
-        borderRadius: 18,
-        backgroundColor: theme.fg + '06',
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        backgroundColor: palette.paper,
         borderWidth: 1,
-        borderColor: theme.fg + '10',
-        transform: [{ scale: pressed ? 0.985 : 1 }],
+        borderColor: palette.ink + '14',
+        opacity: pressed ? 0.7 : 1,
       })}
     >
       <View
         style={{
-          width: 42,
-          height: 42,
-          borderRadius: 21,
-          backgroundColor: color + '22',
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: accent + '1f',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name={icon} size={20} color={color} />
+        <Feather name={icon} size={20} color={accent} />
       </View>
       <View style={{ flex: 1 }}>
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: theme.fg,
+            color: palette.ink,
             fontSize: 15,
             letterSpacing: 0.2,
           }}
@@ -108,29 +90,35 @@ function ChannelButton({
         </Text>
         <Text
           style={{
-            fontFamily: 'JetBrainsMono_400Regular',
-            color: theme.fg + '88',
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.ink + 'aa',
             fontSize: 12,
-            marginTop: 3,
+            marginTop: 4,
           }}
           numberOfLines={1}
         >
           {sub}
         </Text>
       </View>
-      <Feather name="chevron-right" size={18} color={theme.fg + '66'} />
+      <Feather name="chevron-right" size={18} color={palette.ink + '66'} />
     </Pressable>
   );
 }
 
-function FaqRow({ item, isOpen, onToggle }: { item: Faq; isOpen: boolean; onToggle: () => void }) {
-  const theme = useTheme();
+function FaqRow({
+  item,
+  isOpen,
+  onToggle,
+}: {
+  item: Faq;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   return (
     <Pressable
       onPress={onToggle}
       style={({ pressed }) => ({
         paddingVertical: 14,
-        paddingHorizontal: 2,
         opacity: pressed ? 0.7 : 1,
       })}
     >
@@ -139,7 +127,7 @@ function FaqRow({ item, isOpen, onToggle }: { item: Faq; isOpen: boolean; onTogg
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: theme.fg,
+            color: palette.ink,
             fontSize: 14,
             letterSpacing: 0.1,
             lineHeight: 20,
@@ -150,14 +138,14 @@ function FaqRow({ item, isOpen, onToggle }: { item: Faq; isOpen: boolean; onTogg
         <Feather
           name={isOpen ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color={theme.fg + '99'}
+          color={palette.ink + '99'}
         />
       </View>
       {isOpen ? (
         <Text
           style={{
             fontFamily: 'Inter_400Regular',
-            color: theme.fg + 'b3',
+            color: palette.ink + 'cc',
             fontSize: 13,
             lineHeight: 19,
             marginTop: 8,
@@ -172,9 +160,8 @@ function FaqRow({ item, isOpen, onToggle }: { item: Faq; isOpen: boolean; onTogg
 
 export default function Support() {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const router = useRouter();
-  const { t } = useT();
+  useT();
   const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   const call = async (phone: string) => {
@@ -199,73 +186,81 @@ export default function Support() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <View style={{ flex: 1, backgroundColor: palette.paper }}>
+      {/* Header — round back-pill only, page title lives in the scroll
+          content as a large H1. Same convention as payments.tsx and
+          reservations.tsx so all three screens align visually. */}
       <View
         style={{
-          paddingTop: insets.top + 8,
+          paddingTop: insets.top + 12,
           paddingHorizontal: 20,
-          paddingBottom: 12,
+          paddingBottom: 8,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
-          borderBottomWidth: 1,
-          borderBottomColor: theme.fg + '10',
         }}
       >
-        <Pressable onPress={onBack} hitSlop={14} style={{ padding: 4, marginLeft: -4 }}>
-          <Feather name="chevron-left" size={26} color={theme.fg} />
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: theme.fg,
-            fontSize: 18,
-            letterSpacing: 0.2,
-          }}
+        <Pressable
+          onPress={onBack}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="geri"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          Destek
-        </Text>
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
+        </Pressable>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingHorizontal: 20,
+          paddingHorizontal: 24,
           paddingBottom: insets.bottom + 40,
         }}
       >
-        {/* Hero */}
-        <View style={{ paddingVertical: 24 }}>
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: theme.fg,
-              fontSize: 30,
-              lineHeight: 36,
-            }}
-          >
-            nasıl yardımcı{'\n'}olabiliriz?
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_400Regular',
-              color: theme.fg + '99',
-              fontSize: 14,
-              marginTop: 8,
-              lineHeight: 20,
-            }}
-          >
-            hızlı yanıt için whatsapp, acil durumlar için telefon.
-          </Text>
-        </View>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 38,
+            lineHeight: 42,
+            marginTop: 16,
+          }}
+        >
+          destek
+        </Text>
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 16,
+            lineHeight: 22,
+            marginTop: 8,
+          }}
+        >
+          hızlı yanıt için whatsapp, acil durumlar için telefon.
+        </Text>
 
-        {/* Channel buttons */}
+        <SectionLabel>iletişim</SectionLabel>
+
         <View style={{ gap: 10 }}>
           <ChannelButton
             icon="message-circle"
             label="whatsapp"
             sub="7/24 hızlı yanıt"
-            color={'#25D366'}
+            accent={'#25D366'}
             onPress={whatsApp}
           />
           {PHONES.map((p) => (
@@ -274,7 +269,7 @@ export default function Support() {
               icon="phone"
               label="telefon"
               sub={p}
-              color={palette.coral}
+              accent={palette.coral}
               onPress={() => call(p)}
             />
           ))}
@@ -282,31 +277,18 @@ export default function Support() {
             icon="mail"
             label="e-posta"
             sub={SUPPORT_EMAIL}
-            color={palette.mauve}
+            accent={palette.mauve}
             onPress={email}
           />
         </View>
 
-        {/* FAQ */}
-        <Text
-          style={{
-            fontFamily: 'Inter_500Medium',
-            color: theme.fg + '99',
-            fontSize: 11,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-            marginTop: 36,
-            marginBottom: 6,
-          }}
-        >
-          sık sorulanlar
-        </Text>
+        <SectionLabel>sık sorulanlar</SectionLabel>
+
         <View
           style={{
-            borderRadius: 18,
-            backgroundColor: theme.fg + '06',
+            borderRadius: 16,
+            backgroundColor: palette.ink + '08',
             paddingHorizontal: 16,
-            paddingVertical: 4,
           }}
         >
           {FAQ_ITEMS.map((item, i) => (
@@ -317,12 +299,30 @@ export default function Support() {
                 onToggle={() => setOpenIdx(openIdx === i ? null : i)}
               />
               {i < FAQ_ITEMS.length - 1 ? (
-                <View style={{ height: 1, backgroundColor: theme.fg + '10' }} />
+                <View style={{ height: 1, backgroundColor: palette.ink + '10' }} />
               ) : null}
             </View>
           ))}
         </View>
       </ScrollView>
     </View>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Text
+      style={{
+        fontFamily: 'Unbounded_800ExtraBold',
+        color: palette.ink,
+        fontSize: 13,
+        letterSpacing: 1.6,
+        textTransform: 'uppercase',
+        marginTop: 32,
+        marginBottom: 14,
+      }}
+    >
+      {children}
+    </Text>
   );
 }
