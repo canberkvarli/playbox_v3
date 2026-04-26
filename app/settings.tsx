@@ -277,6 +277,7 @@ export default function Settings() {
   const { displayName, username, phone } = useDisplayUser();
 
   const [editField, setEditField] = useState<'name' | 'username' | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const setNameOverride = useSettingsStore((s) => s.setNameOverride);
   const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
 
@@ -338,21 +339,39 @@ export default function Settings() {
 
   const onDelete = async () => {
     await hx.no();
-    Alert.alert(t('settings.account.delete_title'), t('settings.account.delete_msg'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('settings.account.delete_cta'),
-        style: 'destructive',
-        onPress: async () => {
-          await supabase.auth.signOut();
-          Alert.alert(
-            t('settings.account.delete_title'),
-            t('settings.about.coming_soon')
-          );
-          router.replace('/(onboarding)/welcome');
-        },
-      },
-    ]);
+    setDeleteOpen(true);
+  };
+
+  const onConfirmDelete = async () => {
+    setDeleteOpen(false);
+    // TODO: call supabase Edge Function `delete-account` that runs
+    // admin.deleteUser() server-side. Until that ships, sign the user out
+    // and surface a "we'll process within 24 hours" notice.
+    try {
+      const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+      if (url) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (token) {
+          await fetch(`${url.replace(/\/$/, '')}/functions/v1/delete-account`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({}),
+          }).catch(() => null);
+        }
+      }
+    } finally {
+      await supabase.auth.signOut();
+      Alert.alert(
+        t('settings.account.delete_title'),
+        '24 saat içinde verilerin sistemden silinecek. seninle çalışmak güzeldi 👋',
+        [{ text: 'Tamam' }]
+      );
+      router.replace('/(onboarding)/welcome');
+    }
   };
 
   return (
@@ -482,7 +501,7 @@ export default function Settings() {
           <Pressable
             onPress={async () => {
               await hx.tap();
-              Alert.alert(t('settings.about.privacy'), t('settings.about.coming_soon'));
+              router.push('/legal/privacy');
             }}
             hitSlop={8}
             style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
@@ -512,7 +531,7 @@ export default function Settings() {
           <Pressable
             onPress={async () => {
               await hx.tap();
-              Alert.alert(t('settings.about.terms'), t('settings.about.coming_soon'));
+              router.push('/legal/terms');
             }}
             hitSlop={8}
             style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
@@ -546,6 +565,264 @@ export default function Settings() {
         onSave={saveUsername}
         onClose={() => setEditField(null)}
       />
+      <DeleteAccountModal
+        visible={deleteOpen}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={onConfirmDelete}
+      />
     </View>
+  );
+}
+
+/**
+ * Hard-confirmation sheet for account deletion. User has to type "SİL" to
+ * unlock the destructive button — Apple wants destructive flows that aren't
+ * trivially fat-fingerable.
+ */
+function DeleteAccountModal({
+  visible,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  onCancel: () => void;
+  onConfirm: () => void | Promise<void>;
+}) {
+  const [confirmText, setConfirmText] = useState('');
+  useEffect(() => {
+    if (!visible) setConfirmText('');
+  }, [visible]);
+
+  const matches = confirmText.trim().toLocaleUpperCase('tr-TR') === 'SİL';
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+    >
+      <Pressable
+        onPress={onCancel}
+        style={{
+          flex: 1,
+          backgroundColor: '#00000080',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <Pressable
+          onPress={() => {}}
+          style={{
+            backgroundColor: palette.paper,
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            paddingHorizontal: 24,
+            paddingTop: 12,
+            paddingBottom: 36,
+          }}
+        >
+          <View
+            style={{
+              alignSelf: 'center',
+              width: 44,
+              height: 5,
+              borderRadius: 3,
+              backgroundColor: palette.ink + '22',
+              marginBottom: 18,
+            }}
+          />
+
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: 32,
+              backgroundColor: palette.coral,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <Feather name="alert-triangle" size={28} color={palette.paper} />
+          </View>
+
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 26,
+              lineHeight: 30,
+            }}
+          >
+            hesabını silmek istediğine emin misin?
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 14,
+              lineHeight: 20,
+              marginTop: 10,
+              opacity: 0.85,
+            }}
+          >
+            tüm seans geçmişin, kart bilgilerin, sıralaman silinir. bu işlem geri alınamaz.
+          </Text>
+
+          {/* Bullet list */}
+          <View
+            style={{
+              marginTop: 18,
+              backgroundColor: palette.coral + '14',
+              borderRadius: 14,
+              borderWidth: 1.5,
+              borderColor: palette.coral + '55',
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+            }}
+          >
+            {[
+              'profil ve istatistikler',
+              'kayıtlı kart',
+              'rezervasyon ve seans geçmişi',
+            ].map((line) => (
+              <View
+                key={line}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 4,
+                }}
+              >
+                <Feather
+                  name="x-circle"
+                  size={14}
+                  color={palette.coral}
+                  style={{ marginRight: 10 }}
+                />
+                <Text
+                  style={{
+                    flex: 1,
+                    fontFamily: 'Inter_700Bold',
+                    color: palette.ink,
+                    fontSize: 13,
+                  }}
+                >
+                  {line}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Type-to-confirm */}
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 12,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+              marginTop: 18,
+              marginBottom: 8,
+            }}
+          >
+            onaylamak için "SİL" yaz
+          </Text>
+          <TextInput
+            value={confirmText}
+            onChangeText={setConfirmText}
+            placeholder="SİL"
+            placeholderTextColor={palette.ink + '55'}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            style={{
+              borderWidth: 2,
+              borderColor: matches ? palette.coral : palette.ink + '22',
+              borderRadius: 14,
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 18,
+              color: palette.ink,
+              letterSpacing: 1.2,
+              backgroundColor: palette.paper,
+            }}
+          />
+
+          {/* Destructive CTA */}
+          <Pressable
+            onPress={matches ? onConfirm : undefined}
+            disabled={!matches}
+            accessibilityRole="button"
+            accessibilityLabel="hesabımı sil"
+            style={({ pressed }) => ({
+              marginTop: 22,
+              opacity: !matches ? 0.45 : pressed ? 0.92 : 1,
+            })}
+          >
+            <View
+              style={{
+                backgroundColor: matches ? palette.coral : palette.ink + '33',
+                borderRadius: 18,
+                paddingVertical: 18,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                shadowColor: palette.coral,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: matches ? 0.28 : 0,
+                shadowRadius: 16,
+                elevation: matches ? 10 : 0,
+              }}
+            >
+              <Feather name="trash-2" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.paper,
+                  fontSize: 16,
+                  letterSpacing: 0.4,
+                }}
+              >
+                hesabımı sil
+              </Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={onCancel}
+            accessibilityRole="button"
+            accessibilityLabel="vazgeç"
+            style={({ pressed }) => ({
+              marginTop: 14,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <View
+              style={{
+                paddingVertical: 14,
+                borderRadius: 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: palette.ink + '0d',
+                borderWidth: 1.5,
+                borderColor: palette.ink + '22',
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.ink,
+                  fontSize: 14,
+                }}
+              >
+                vazgeç
+              </Text>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }

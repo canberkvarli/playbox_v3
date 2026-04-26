@@ -63,8 +63,15 @@ export default function Otp() {
       if (err || !data.session) throw err ?? new Error('no session');
 
       await hx.yes();
-      const onboarded = data.user?.user_metadata?.onboarded === true;
-      router.replace(onboarded ? '/(tabs)/map' : '/(onboarding)/handle');
+      // Routing decision lives in one place. KVKK consent gate comes BEFORE
+      // the handle step — without consent we can't legally process anything,
+      // so it has to be the first stop after OTP.
+      const meta = data.user?.user_metadata ?? {};
+      const kvkkOk = !!meta.kvkk_accepted_at;
+      const onboarded = meta.onboarded === true;
+      if (!kvkkOk) router.replace('/(onboarding)/kvkk');
+      else if (!onboarded) router.replace('/(onboarding)/handle');
+      else router.replace('/(tabs)/map');
     } catch (e) {
       console.warn('[auth] verifyOtp failed', e);
       await hx.no();

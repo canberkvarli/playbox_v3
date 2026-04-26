@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { SPORT_LABELS, STATIONS } from '@/data/stations.seed';
@@ -35,7 +34,6 @@ function ActiveReservationCard({
   r: Reservation;
   onCancel: () => void;
 }) {
-  useTheme();
   const { t } = useT();
   const router = useRouter();
   const cacheStation = useMapStore((s) => s.cacheStation);
@@ -160,7 +158,6 @@ function ActiveReservationCard({
 
 export function ReservationsPanel() {
   const { t } = useT();
-  useTheme();
   const { state, refresh } = useReservationState({ pollMs: 15_000 });
   const { cancel } = useReservationsApi();
   const active = state?.active ?? null;

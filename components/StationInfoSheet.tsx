@@ -4,7 +4,6 @@ import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { type Station } from '@/data/stations.seed';
@@ -18,7 +17,6 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
   function StationInfoSheet(_, ref) {
     const sheetRef = useRef<BottomSheet>(null);
     const [station, setStation] = useState<Station | null>(null);
-    const theme = useTheme();
     const { t } = useT();
 
     useImperativeHandle(ref, () => ({
@@ -49,11 +47,11 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
         enablePanDownToClose
         onClose={() => setStation(null)}
         backgroundStyle={{
-          backgroundColor: theme.bg,
+          backgroundColor: palette.paper,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
         }}
-        handleIndicatorStyle={{ backgroundColor: theme.fg + '33', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: palette.ink + '33', width: 40 }}
       >
         <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
           {station ? (
@@ -87,7 +85,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
                     borderRadius: 4,
                     backgroundColor: station.availableNow
                       ? palette.coral
-                      : theme.fg + '44',
+                      : palette.ink + '44',
                   }}
                 />
                 <Text className="font-mono text-ink/70 dark:text-paper/70 text-sm">

@@ -2,7 +2,6 @@ import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { palette } from '@/constants/theme';
 import { SPORT_LABELS, type Station, type Sport } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
@@ -28,7 +27,6 @@ export type StationDetailPanelProps = {
  */
 export function StationDetailPanel({ station, onSportTap, headerSlot }: StationDetailPanelProps) {
   const { t } = useT();
-  const theme = useTheme();
 
   const availableCount = station.sports.filter((s) => (station.stock[s] ?? 0) > 0).length;
 
@@ -111,16 +109,16 @@ export function StationDetailPanel({ station, onSportTap, headerSlot }: StationD
             </Text>
             <View className="flex-row items-center gap-4 mt-3">
               <View className="flex-row items-center gap-1.5">
-                <Feather name="map-pin" size={14} color={theme.fg + '88'} />
+                <Feather name="map-pin" size={14} color={palette.ink + '88'} />
                 <Text className="font-sans text-ink/60 dark:text-paper/60 text-sm">
                   {station.city}
                 </Text>
               </View>
               <View
-                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: theme.fg + '44' }}
+                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: palette.ink + '44' }}
               />
               <View className="flex-row items-center gap-1.5">
-                <Feather name="clock" size={14} color={theme.fg + '88'} />
+                <Feather name="clock" size={14} color={palette.ink + '88'} />
                 <Text className="font-mono text-ink/60 dark:text-paper/60 text-sm">24/7</Text>
               </View>
             </View>
@@ -149,9 +147,9 @@ export function StationDetailPanel({ station, onSportTap, headerSlot }: StationD
                     style={({ pressed }) => ({
                       flexBasis: '47%',
                       flexGrow: 1,
-                      backgroundColor: out ? theme.fg + '0d' : theme.bg,
+                      backgroundColor: out ? palette.ink + '0d' : palette.paper,
                       borderWidth: 1,
-                      borderColor: theme.fg + '1a',
+                      borderColor: palette.ink + '1a',
                       borderRadius: 20,
                       padding: 16,
                       transform: [{ scale: pressed && !out ? 0.98 : 1 }],

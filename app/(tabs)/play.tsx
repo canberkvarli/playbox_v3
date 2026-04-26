@@ -11,6 +11,7 @@ import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore, type ActiveSession } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import { costForMs, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
+import { cancelSessionEndAlerts } from '@/lib/sessionNotifications';
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -242,6 +243,9 @@ export default function Play() {
   }, [active]);
 
   useEffect(() => {
+    // Dev-only fake-session simulator. Hard-gated on __DEV__ so a stale
+    // store value can never trigger this in a production build.
+    if (!__DEV__) return;
     if (fakeActiveSession && !active) {
       startSession({
         stationId: 'ist-kadikoy',
@@ -273,6 +277,9 @@ export default function Play() {
     await hx.yes();
     setEndModalOpen(false);
     if (fakeActiveSession) setFakeActiveSession(false);
+    // Cancel scheduled notifications before tearing down the session so we
+    // don't ping users who already returned the gear.
+    cancelSessionEndAlerts().catch(() => {});
     endSession();
     router.replace('/session-review');
   };
@@ -437,53 +444,46 @@ export default function Play() {
       {/* Live timer hero */}
       <LiveTimer session={active} />
 
-      {/* Station card */}
+      {/* Station context strip — informational only. No card chrome, no
+          rounded surface, no avatar circle, so users don't try to tap it. */}
       <View
         style={{
-          marginTop: 16,
+          marginTop: 18,
           flexDirection: 'row',
           alignItems: 'center',
-          backgroundColor: palette.butter,
-          borderRadius: 22,
-          paddingVertical: 16,
-          paddingHorizontal: 18,
         }}
       >
-        <View
+        <Feather name="map-pin" size={16} color={palette.ink} style={{ marginRight: 8 }} />
+        <Text
+          numberOfLines={1}
           style={{
-            width: 52,
-            height: 52,
-            borderRadius: 26,
-            backgroundColor: palette.paper,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: 1.5,
-            borderColor: palette.ink + '14',
-            marginRight: 14,
+            flex: 1,
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.ink,
+            fontSize: 15,
+            letterSpacing: 0.2,
           }}
         >
-          <Text style={{ fontSize: 26 }}>{SPORT_EMOJI[active.sport]}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
+          {active.stationName}
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: palette.ink + '0d',
+            paddingHorizontal: 10,
+            paddingVertical: 5,
+            borderRadius: 999,
+          }}
+        >
+          <Text style={{ fontSize: 14, marginRight: 5 }}>{SPORT_EMOJI[active.sport]}</Text>
           <Text
-            numberOfLines={1}
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
-              fontSize: 19,
-              lineHeight: 23,
-            }}
-          >
-            {active.stationName}
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
-              fontSize: 12,
-              letterSpacing: 1,
+              fontSize: 11,
+              letterSpacing: 0.5,
               textTransform: 'uppercase',
-              marginTop: 5,
             }}
           >
             {SPORT_LABELS[active.sport] ?? active.sport}

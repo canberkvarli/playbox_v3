@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,7 +12,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import {
@@ -28,6 +27,7 @@ import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { CardRequiredSheet } from '@/components/CardRequiredSheet';
 import { RiseIn } from '@/components/RiseIn';
+import { scheduleSessionEndAlerts } from '@/lib/sessionNotifications';
 
 const PREAUTH_HOLD_TRY = 150;
 
@@ -53,7 +53,6 @@ const STEPS: StepConfig[] = [
 
 export default function SessionPrep() {
   const { t } = useT();
-  const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -81,6 +80,10 @@ export default function SessionPrep() {
 
   const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
+  // Synchronous lock — React state updates are async, so a fast double-tap
+  // can fire onOyna twice before unlocking flips. The ref blocks the second
+  // call inside the same tick, preventing duplicate preauth holds.
+  const unlockingRef = useRef(false);
   // Last-slide agreement gate (start mode only). User has to tick every rule
   // individually before "oyna" enables — captures granular, auditable consent.
   const [agreedRules, setAgreedRules] = useState<boolean[]>([
@@ -94,8 +97,14 @@ export default function SessionPrep() {
   if (!station) {
     return (
       <View
-        className="flex-1 bg-paper dark:bg-ink items-center justify-center px-6"
-        style={{ paddingTop: insets.top }}
+        style={{
+          flex: 1,
+          backgroundColor: palette.paper,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingTop: insets.top,
+        }}
       >
         <Pressable
           onPress={() => router.back()}
@@ -104,12 +113,28 @@ export default function SessionPrep() {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
         >
-          <Feather name="x" size={24} color={theme.fg} />
+          <Feather name="x" size={24} color={palette.ink} />
         </Pressable>
-        <Text className="font-display-x text-ink dark:text-paper text-3xl text-center">
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 28,
+            textAlign: 'center',
+          }}
+        >
           {t('station.not_found')}
         </Text>
-        <Text className="font-sans text-ink/60 dark:text-paper/60 text-center mt-3">
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 14,
+            textAlign: 'center',
+            marginTop: 12,
+            opacity: 0.7,
+          }}
+        >
           {t('station.not_found_sub')}
         </Text>
       </View>
@@ -155,6 +180,8 @@ export default function SessionPrep() {
   const ctaDisabled = unlocking || (isLast && !isHowto && !agreed);
 
   const onOyna = async () => {
+    if (unlockingRef.current) return;
+    unlockingRef.current = true;
     setUnlocking(true);
     await hx.tap();
 
@@ -164,6 +191,7 @@ export default function SessionPrep() {
       const res = await preauthorize(PREAUTH_HOLD_TRY, conversationId);
       if (!res.ok) {
         setUnlocking(false);
+        unlockingRef.current = false;
         await hx.punch();
         Alert.alert(t('card.preauth_failed.title'), t('card.preauth_failed.sub'), [
           { text: t('card.preauth_failed.cta_secondary'), style: 'cancel' },
@@ -185,10 +213,11 @@ export default function SessionPrep() {
     if (!preflight.ok) {
       await hx.no();
       if (holdId) {
-        // Best-effort release — don't block the user on a network error.
         releaseHold(holdId).catch(() => {});
         setHold(null);
       }
+      setUnlocking(false);
+      unlockingRef.current = false;
       Alert.alert(
         t('common.error_generic'),
         preflight.reason === 'same_station_active'
@@ -221,9 +250,18 @@ export default function SessionPrep() {
         releaseHold(holdId).catch(() => {});
         setHold(null);
       }
+      setUnlocking(false);
+      unlockingRef.current = false;
       router.replace('/(tabs)/play');
       return;
     }
+    // Fire-and-forget local notification scheduling. Two alerts: 5 minutes
+    // before the planned end + at the planned end. Cancelled on endSession.
+    scheduleSessionEndAlerts({
+      stationName: station.name,
+      durationMinutes: 30,
+      startedAt: Date.now(),
+    }).catch(() => {});
     router.replace('/(tabs)/play');
   };
 

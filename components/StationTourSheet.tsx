@@ -7,7 +7,6 @@ import BottomSheet, {
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 
@@ -39,7 +38,6 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
   function StationTourSheet({ onDismiss }, ref) {
     const sheetRef = useRef<BottomSheet>(null);
     const { t } = useT();
-    const theme = useTheme();
 
     useImperativeHandle(ref, () => ({
       open: () => sheetRef.current?.snapToIndex(0),
@@ -73,8 +71,8 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         onClose={onDismiss}
-        backgroundStyle={{ backgroundColor: theme.bg }}
-        handleIndicatorStyle={{ backgroundColor: theme.fg + '44', width: 40, height: 4 }}
+        backgroundStyle={{ backgroundColor: palette.paper }}
+        handleIndicatorStyle={{ backgroundColor: palette.ink + '44', width: 40, height: 4 }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{
@@ -129,7 +127,7 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
                     {t(`tour.steps.${step.key}.desc`)}
                   </Text>
                 </View>
-                <Feather name={step.icon} size={22} color={theme.fg + '99'} />
+                <Feather name={step.icon} size={22} color={palette.ink + '99'} />
               </View>
             ))}
           </View>

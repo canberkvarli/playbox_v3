@@ -24,7 +24,6 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
@@ -224,7 +223,6 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
 
 function CommandBar() {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { t } = useT();
   const {
     viewMode,
@@ -262,9 +260,9 @@ function CommandBar() {
         style={{
           borderRadius: 28,
           overflow: 'hidden',
-          backgroundColor: theme.bg + 'e6',
+          backgroundColor: palette.paper + 'e6',
           borderWidth: 1,
-          borderColor: theme.fg + '14',
+          borderColor: palette.ink + '14',
           flexDirection: 'row',
           alignItems: 'center',
           paddingLeft: 16,
@@ -292,10 +290,10 @@ function CommandBar() {
         />
         {searchQuery.length > 0 ? (
           <Pressable onPress={onClear} hitSlop={8}>
-            <Feather name="x" size={16} color={theme.fg + '99'} />
+            <Feather name="x" size={16} color={palette.ink + '99'} />
           </Pressable>
         ) : null}
-        <View style={{ width: 1, height: 22, backgroundColor: theme.fg + '1a' }} />
+        <View style={{ width: 1, height: 22, backgroundColor: palette.ink + '1a' }} />
         <View style={{ flexDirection: 'row', gap: 2 }}>
           {(['map', 'list'] as const).map((m) => (
             <Pressable
@@ -307,13 +305,13 @@ function CommandBar() {
                 borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: viewMode === m ? theme.fg : 'transparent',
+                backgroundColor: viewMode === m ? palette.ink : 'transparent',
               }}
             >
               <Feather
                 name={m === 'map' ? 'map' : 'list'}
                 size={15}
-                color={viewMode === m ? theme.bg : theme.fg + '99'}
+                color={viewMode === m ? palette.paper : palette.ink + '99'}
               />
             </Pressable>
           ))}
@@ -333,7 +331,6 @@ function SearchSuggestions({
   onPickStation: (s: Station) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { t } = useT();
   const searchFocused = useMapStore((s) => s.searchFocused);
   const searchQuery = useMapStore((s) => s.searchQuery);
@@ -371,9 +368,9 @@ function SearchSuggestions({
         style={{
           borderRadius: 24,
           overflow: 'hidden',
-          backgroundColor: theme.bg + 'f0',
+          backgroundColor: palette.paper + 'f0',
           borderWidth: 1,
-          borderColor: theme.fg + '14',
+          borderColor: palette.ink + '14',
           padding: 16,
           gap: 16,
         }}
@@ -396,7 +393,7 @@ function SearchSuggestions({
                   key={q}
                   onPress={() => setSearchQuery(q)}
                   style={{
-                    backgroundColor: theme.fg + '0d',
+                    backgroundColor: palette.ink + '0d',
                     paddingHorizontal: 12,
                     paddingVertical: 7,
                     borderRadius: 999,
@@ -405,7 +402,7 @@ function SearchSuggestions({
                     gap: 6,
                   }}
                 >
-                  <Feather name="clock" size={12} color={theme.fg + '88'} />
+                  <Feather name="clock" size={12} color={palette.ink + '88'} />
                   <Text className="font-sans text-ink dark:text-paper text-sm">{q}</Text>
                 </Pressable>
               ))}
@@ -457,7 +454,6 @@ function SearchSuggestions({
 
 function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   return (
     <View
       pointerEvents="none"
@@ -465,7 +461,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
         position: 'absolute',
         top: insets.top + 76,
         left: 20,
-        backgroundColor: theme.fg,
+        backgroundColor: palette.ink,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 999,
@@ -474,7 +470,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
     >
       <Text
         style={{
-          color: theme.bg,
+          color: palette.paper,
           fontFamily: 'Inter_500Medium',
           fontSize: 11,
           letterSpacing: 0.3,
@@ -499,7 +495,6 @@ function SportChip({
   onPress: () => void;
   label: string;
 }) {
-  const theme = useTheme();
   const scale = useSharedValue(active ? 1.04 : 1);
 
   useEffect(() => {
@@ -519,9 +514,9 @@ function SportChip({
         paddingVertical: 8,
         gap: 6,
         borderRadius: 999,
-        backgroundColor: active ? theme.butter : theme.bg + 'cc',
+        backgroundColor: active ? theme.butter : palette.paper + 'cc',
         borderWidth: 1,
-        borderColor: active ? theme.fg + '1a' : theme.fg + '14',
+        borderColor: active ? palette.ink + '1a' : palette.ink + '14',
         opacity: disabled ? 0.3 : 1,
         overflow: 'hidden',
       }}
@@ -638,7 +633,6 @@ function StationListView({
 }) {
   const { t } = useT();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
   const sorted = useMemo(() => {
     if (!userLoc) return stations;
@@ -666,8 +660,8 @@ function StationListView({
             key={s.id}
             onPress={() => onStationPress(s)}
             style={({ pressed }) => ({
-              backgroundColor: theme.bg,
-              borderColor: theme.fg + '1a',
+              backgroundColor: palette.paper,
+              borderColor: palette.ink + '1a',
               borderWidth: 1,
               borderRadius: 20,
               padding: 16,
@@ -688,7 +682,7 @@ function StationListView({
                   <View
                     key={sport}
                     style={{
-                      backgroundColor: out ? theme.fg + '14' : palette.butter,
+                      backgroundColor: out ? palette.ink + '14' : palette.butter,
                       borderRadius: 10,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
@@ -852,7 +846,6 @@ function HomeBottomSheet({
   onPickStation: (s: Station) => void;
   animatedIndex?: SharedValue<number>;
 }) {
-  const theme = useTheme();
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const sheetRef = useRef<BottomSheet>(null);
@@ -888,11 +881,11 @@ function HomeBottomSheet({
       // search row and filters pill butt up against the Dynamic Island.
       topInset={insets.top}
       backgroundStyle={{
-        backgroundColor: theme.bg,
+        backgroundColor: palette.paper,
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
       }}
-      handleIndicatorStyle={{ backgroundColor: theme.fg + '26', width: 44, height: 5 }}
+      handleIndicatorStyle={{ backgroundColor: palette.ink + '26', width: 44, height: 5 }}
     >
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
@@ -906,7 +899,7 @@ function HomeBottomSheet({
           <View
             style={{
               flex: 1,
-              backgroundColor: theme.fg + '08',
+              backgroundColor: palette.ink + '08',
               borderRadius: 18,
               paddingHorizontal: 16,
               paddingVertical: 14,
@@ -926,13 +919,13 @@ function HomeBottomSheet({
               style={{
                 flex: 1,
                 fontSize: 15,
-                color: theme.fg,
+                color: palette.ink,
                 padding: 0,
               }}
             />
             {searchQuery.length > 0 ? (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={6}>
-                <Feather name="x" size={16} color={theme.fg + '88'} />
+                <Feather name="x" size={16} color={palette.ink + '88'} />
               </Pressable>
             ) : null}
           </View>
@@ -946,7 +939,7 @@ function HomeBottomSheet({
               height: 50,
               borderRadius: 18,
               backgroundColor:
-                showFilters || filter !== 'all' ? palette.ink : theme.fg + '08',
+                showFilters || filter !== 'all' ? palette.ink : palette.ink + '08',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -954,7 +947,7 @@ function HomeBottomSheet({
             <Feather
               name="sliders"
               size={18}
-              color={showFilters || filter !== 'all' ? palette.paper : theme.fg}
+              color={showFilters || filter !== 'all' ? palette.paper : palette.ink}
             />
             {filter !== 'all' ? (
               <View
@@ -967,7 +960,7 @@ function HomeBottomSheet({
                   borderRadius: 4,
                   backgroundColor: palette.coral,
                   borderWidth: 1.5,
-                  borderColor: theme.bg,
+                  borderColor: palette.paper,
                 }}
               />
             ) : null}
@@ -992,7 +985,7 @@ function HomeBottomSheet({
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 999,
-                    backgroundColor: active ? palette.coral : theme.fg + '08',
+                    backgroundColor: active ? palette.coral : palette.ink + '08',
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 8,
@@ -1002,7 +995,7 @@ function HomeBottomSheet({
                   <Text
                     style={{
                       fontSize: 13,
-                      color: active ? palette.paper : theme.fg,
+                      color: active ? palette.paper : palette.ink,
                       fontWeight: '600',
                       letterSpacing: 0.2,
                     }}
@@ -1019,7 +1012,7 @@ function HomeBottomSheet({
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: theme.fg + '08',
+            backgroundColor: palette.ink + '08',
             borderRadius: 18,
             padding: 5,
             marginTop: 4,
@@ -1039,7 +1032,7 @@ function HomeBottomSheet({
                   flex: 1,
                   paddingVertical: 14,
                   borderRadius: 14,
-                  backgroundColor: active ? theme.bg : 'transparent',
+                  backgroundColor: active ? palette.paper : 'transparent',
                   alignItems: 'center',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: active ? 2 : 0 },
@@ -1069,7 +1062,7 @@ function HomeBottomSheet({
           <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
             <Text
               className="font-display-x"
-              style={{ color: theme.fg, fontSize: 22, lineHeight: 26, letterSpacing: 0.2 }}
+              style={{ color: palette.ink, fontSize: 22, lineHeight: 26, letterSpacing: 0.2 }}
             >
               {t('map.section.nearby')}
             </Text>
@@ -1112,8 +1105,8 @@ function HomeBottomSheet({
                   key={s.id}
                   onPress={() => onPickStation(s)}
                   style={({ pressed }) => ({
-                    backgroundColor: theme.bg,
-                    borderColor: theme.fg + '12',
+                    backgroundColor: palette.paper,
+                    borderColor: palette.ink + '12',
                     borderWidth: 1,
                     borderRadius: 20,
                     paddingHorizontal: 14,
@@ -1148,7 +1141,7 @@ function HomeBottomSheet({
                       style={{
                         fontSize: 16,
                         lineHeight: 20,
-                        color: theme.fg,
+                        color: palette.ink,
                       }}
                       numberOfLines={1}
                     >
@@ -1174,14 +1167,14 @@ function HomeBottomSheet({
                         className="font-mono"
                         style={{
                           fontSize: 13,
-                          color: theme.fg,
+                          color: palette.ink,
                           fontWeight: '600',
                         }}
                       >
                         {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
                       </Text>
                     ) : null}
-                    <Feather name="chevron-right" size={16} color={theme.fg + '55'} />
+                    <Feather name="chevron-right" size={16} color={palette.ink + '55'} />
                   </View>
                 </Pressable>
               );

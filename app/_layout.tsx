@@ -12,8 +12,14 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { supabase } from '@/lib/supabase';
+import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
+import { initTelemetry } from '@/lib/telemetry';
 
 export { ErrorBoundary } from 'expo-router';
+
+// One-shot telemetry init at module evaluation. Idempotent — safe to call
+// on every reload during dev.
+initTelemetry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -48,54 +54,64 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(onboarding)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="station/[id]"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="session-prep/[stationId]/[sport]"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen
-            name="scan"
-            options={{ headerShown: false, presentation: 'modal' }}
-          />
-          <Stack.Screen
-            name="settings"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="session-review"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
-          />
-          <Stack.Screen
-            name="card-add"
-            options={{ headerShown: false, presentation: 'modal' }}
-          />
-          <Stack.Screen
-            name="payments"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="support"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="reservations"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="reserve/[stationId]/[sport]/[gateId]"
-            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
-          />
-        </Stack>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <AppErrorBoundary>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(onboarding)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen
+              name="station/[id]"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="session-prep/[stationId]/[sport]"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="scan"
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="settings"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="session-review"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="card-add"
+              options={{ headerShown: false, presentation: 'modal' }}
+            />
+            <Stack.Screen
+              name="payments"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="support"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="reservations"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="reserve/[stationId]/[sport]/[gateId]"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+            />
+            <Stack.Screen
+              name="legal/privacy"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+            <Stack.Screen
+              name="legal/terms"
+              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+            />
+          </Stack>
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AppErrorBoundary>
     </GestureHandlerRootView>
   );
 }

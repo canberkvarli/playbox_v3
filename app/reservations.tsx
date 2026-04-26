@@ -23,8 +23,8 @@ import {
 
 const BG = palette.paper;
 const TEXT = palette.ink;
-const TEXT_MUTED = palette.ink + 'aa';
-const DIVIDER = palette.ink + '10';
+const TEXT_MUTED = palette.ink;
+const DIVIDER = palette.ink + '14';
 
 function stationName(stationId: string): string {
   return STATIONS.find((s) => s.id === stationId)?.name ?? stationId;
@@ -371,23 +371,42 @@ export default function Reservations() {
           paddingBottom: 12,
           flexDirection: 'row',
           alignItems: 'center',
-          gap: 10,
           borderBottomWidth: 1,
           borderBottomColor: DIVIDER,
         }}
       >
-        <Pressable onPress={onBack} hitSlop={14} style={{ padding: 4, marginLeft: -4 }}>
-          <Feather name="chevron-left" size={26} color={TEXT} />
+        <Pressable
+          onPress={onBack}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel="geri"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 12 })}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
+            fontFamily: 'Unbounded_800ExtraBold',
             color: TEXT,
-            fontSize: 18,
-            letterSpacing: 0.2,
+            fontSize: 14,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
           }}
         >
-          Rezervasyonlar
+          rezervasyonlar
         </Text>
       </View>
 
@@ -439,25 +458,32 @@ export default function Reservations() {
                 await hx.tap();
                 router.replace('/(tabs)/map');
               }}
-              style={({ pressed }) => ({
-                backgroundColor: palette.coral,
-                borderRadius: 16,
-                paddingVertical: 14,
-                paddingHorizontal: 28,
-                marginTop: 6,
-                opacity: pressed ? 0.85 : 1,
-              })}
+              style={({ pressed }) => ({ marginTop: 6, opacity: pressed ? 0.92 : 1 })}
             >
-              <Text
+              <View
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.paper,
-                  fontSize: 14,
-                  letterSpacing: 0.5,
+                  backgroundColor: palette.coral,
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  shadowColor: palette.coral,
+                  shadowOffset: { width: 0, height: 8 },
+                  shadowOpacity: 0.28,
+                  shadowRadius: 14,
+                  elevation: 8,
                 }}
               >
-                haritayı aç
-              </Text>
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    color: palette.paper,
+                    fontSize: 15,
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  haritayı aç
+                </Text>
+              </View>
             </Pressable>
           </View>
         ) : null}

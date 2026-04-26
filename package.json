@@ -7,7 +7,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "test": "jest --watchAll"
+    "test": "jest --watchAll",
+    "_pinned-versions-note": "react-native-reanimated and @react-native-async-storage/async-storage are EXACT-pinned (no ~ or ^). Drift between JS and native binary causes silent runtime breakage (see April 2026 incident). If you bump either, do a full `npx expo prebuild --clean && npx expo run:ios` to rebuild the native side in lockstep.",
+    "verify-native-versions": "node -e \"const p=require('./package.json').dependencies;const exact=k=>!/^[~^]/.test(p[k]);['react-native-reanimated','react-native-worklets','@react-native-async-storage/async-storage'].forEach(k=>{if(!exact(k))throw new Error(k+' must be exact-pinned, got '+p[k])});console.log('native deps OK')\""
   },
   "jest": {
     "preset": "jest-expo"
@@ -18,7 +20,7 @@
     "@expo-google-fonts/unbounded": "^0.4.1",
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.9",
-    "@react-native-async-storage/async-storage": "^3.0.2",
+    "@react-native-async-storage/async-storage": "3.0.2",
     "@react-native-community/slider": "5.0.1",
     "@react-navigation/native": "^7.0.14",
     "@supabase/supabase-js": "^2.103.0",
@@ -54,7 +56,7 @@
     "react-native-ble-plx": "^3.5.1",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-maps": "1.20.1",
-    "react-native-reanimated": "~4.1.1",
+    "react-native-reanimated": "4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",

@@ -3,14 +3,12 @@ import { Feather } from '@expo/vector-icons';
 import { Platform, View } from 'react-native';
 
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { useT } from '@/hooks/useT';
 import { ActiveSessionBanner } from '@/components/ActiveSessionBanner';
 import { MenuDrawer } from '@/components/MenuDrawer';
 
 export default function TabLayout() {
   const { t } = useT();
-  const theme = useTheme();
   return (
     <View style={{ flex: 1 }}>
       <Tabs

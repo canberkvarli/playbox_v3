@@ -14,8 +14,8 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
+import { palette } from '@/constants/theme';
 import type { Station, Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { StationDetailPanel } from './StationDetailPanel';
@@ -36,7 +36,6 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
   const sheetRef = useRef<BottomSheet>(null);
   const tourRef = useRef<StationTourSheetHandle>(null);
   const [station, setStation] = useState<Station | null>(null);
-  const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setStationSheetOpen = useMapStore((s) => s.setStationSheetOpen);
@@ -103,12 +102,12 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: theme.fg + '0d',
+          backgroundColor: palette.ink + '0d',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="x" size={20} color={theme.fg} />
+        <Feather name="x" size={20} color={palette.ink} />
       </Pressable>
       <Pressable
         onPress={onHelp}
@@ -119,12 +118,12 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: theme.fg + '0d',
+          backgroundColor: palette.ink + '0d',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="help-circle" size={20} color={theme.fg} />
+        <Feather name="help-circle" size={20} color={palette.ink} />
       </Pressable>
     </View>
   );
@@ -138,8 +137,8 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         onClose={() => setStationSheetOpen(false)}
-        backgroundStyle={{ backgroundColor: theme.bg }}
-        handleIndicatorStyle={{ backgroundColor: theme.fg + '44', width: 40, height: 4 }}
+        backgroundStyle={{ backgroundColor: palette.paper }}
+        handleIndicatorStyle={{ backgroundColor: palette.ink + '44', width: 40, height: 4 }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
