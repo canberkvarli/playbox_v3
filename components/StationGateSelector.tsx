@@ -27,9 +27,9 @@ import { SPORT_EMOJI } from '@/data/sports';
 import { SPORT_LABELS, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import {
-  useReservationStore,
   RESERVATION_LOCK_MIN,
 } from '@/stores/reservationStore';
+import { useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
 
 const DURATION_MIN = 10;
@@ -281,12 +281,11 @@ export function StationGateSelector({
   const router = useRouter();
   const { inRange } = useStationInRange(station.id);
 
-  const reserve = useReservationStore((s) => s.reserve);
-  const activeReservation = useReservationStore((s) =>
-    s.reservations.find(
-      (r) => r.status === 'active' && r.expiresAt > Date.now()
-    ) ?? null
-  );
+  // Server-state hook — drives the disabled state if user has an active
+  // reservation elsewhere. Polling is off here (not a long-lived screen);
+  // the /reserve flow re-fetches on its own when the user navigates.
+  const { state: reservationState } = useReservationState({ pollMs: 0, sweepBeforeFetch: false });
+  const activeReservation = reservationState?.active ?? null;
 
   // One active session per account. If the user already has a session open,
   // we either send them to /play (same station) or hard-block them (different
@@ -309,7 +308,7 @@ export function StationGateSelector({
   // Reservation flow trigger: not in range + selected + station available
   const reserveMode = !!selected && stockOk && !inRange && !activeReservation;
   const blockedByOtherReservation =
-    !!activeReservation && activeReservation.stationId !== station.id;
+    !!activeReservation && activeReservation.station_id !== station.id;
 
   // "Continue" short-circuits all start-flow checks: the button becomes a
   // one-tap jump to /play and stays visually active.
@@ -357,29 +356,20 @@ export function StationGateSelector({
     }
     if (!ctaEnabled || !selected) return;
     if (reserveMode) {
-      setReserving(true);
       await hx.press();
-      const result = reserve({
-        stationId: station.id,
-        stationName: station.name,
-        sport: selected,
+      // Hand off to the new reserve flow — slides on first reservation,
+      // mini-confirm thereafter. The server validates everything (card,
+      // lock, terms, capacity, velocity) and surfaces clean errors.
+      // gate_id is synthesized as `${sport}-1` for v1; full per-gate
+      // selection lands when station data exposes named gates.
+      router.push({
+        pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
+        params: {
+          stationId: station.id,
+          sport: selected,
+          gateId: `${selected}-1`,
+        },
       });
-      setReserving(false);
-      if ('error' in result) {
-        const msg =
-          result.error === 'has_active'
-            ? t('station.reserve_err_has_active')
-            : t('station.reserve_err_cooldown');
-        Alert.alert(t('common.error_generic'), msg);
-        return;
-      }
-      Alert.alert(
-        t('station.reserved_title'),
-        t('station.reserved_msg', {
-          name: station.name,
-          min: result.lockMinutes,
-        })
-      );
       return;
     }
     await hx.press();
