@@ -17,6 +17,7 @@ import { palette } from '@/constants/theme';
 import { STATIONS } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useReservationsApi } from '@/lib/reservations';
 
 export default function Scan() {
   const { t } = useT();
@@ -26,6 +27,7 @@ export default function Scan() {
   const [scanned, setScanned] = useState(false);
   const cacheStation = useMapStore((s) => s.cacheStation);
   const setPendingSheetStationId = useMapStore((s) => s.setPendingSheetStationId);
+  const { fetchState, consume } = useReservationsApi();
 
   useEffect(() => {
     if (!permission?.granted && permission?.canAskAgain) requestPermission();
@@ -45,7 +47,7 @@ export default function Scan() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const onResult = (id: string) => {
+  const onResult = async (id: string) => {
     // Race guard: a session might have started on another surface between the
     // mount check and a successful scan. Hard-stop rather than double-book.
     if (useSessionStore.getState().active) {
@@ -62,6 +64,32 @@ export default function Scan() {
       setScanned(false);
       return;
     }
+
+    // Reservation handoff: if the scanned station matches an active reservation,
+    // consume it now. Releases the iyzico hold; the upcoming session's own
+    // pre-auth takes over. Mismatched-station scans are *not* consumed — that
+    // reservation stays active and continues counting down toward expiry.
+    const state = await fetchState();
+    const active = state?.active ?? null;
+    if (active && active.station_id === station.id) {
+      const res = await consume({
+        reservation_id: active.id,
+        station_id: active.station_id,
+        gate_id: active.gate_id,
+      });
+      if (!res.ok && res.error === 'gate_mismatch') {
+        Alert.alert(
+          t('reservations.locked'),
+          t('reservations.errors.gate_mismatch'),
+        );
+        setScanned(false);
+        return;
+      }
+      // Other consume errors (expired, network) fall through to the normal
+      // station-sheet flow; the reservation will sweep on its own and the
+      // user can still start a fresh session.
+    }
+
     cacheStation(station);
     setPendingSheetStationId(station.id);
     router.replace('/(tabs)/map');
