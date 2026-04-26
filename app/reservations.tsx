@@ -1,57 +1,71 @@
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useT } from '@/hooks/useT';
 import { useMapStore } from '@/stores/mapStore';
-import {
-  useReservationStore,
-  type Reservation,
-} from '@/stores/reservationStore';
 import { STATIONS, SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
+import {
+  isLockActive,
+  lockSecondsRemaining,
+  reservationSecondsRemaining,
+  useReservationState,
+  useReservationsApi,
+  type Reservation,
+  type ReservationLock,
+  type ReservationStatus,
+} from '@/lib/reservations';
 
-// Everything locked to light theme for guaranteed readability.
 const BG = palette.paper;
 const TEXT = palette.ink;
 const TEXT_MUTED = palette.ink + 'aa';
 const DIVIDER = palette.ink + '10';
 
-function formatRemaining(ms: number): string {
-  if (ms <= 0) return 'süresi doldu';
-  const mins = Math.floor(ms / 60_000);
-  const secs = Math.floor((ms % 60_000) / 1000);
+function stationName(stationId: string): string {
+  return STATIONS.find((s) => s.id === stationId)?.name ?? stationId;
+}
+
+function formatRemaining(seconds: number): string {
+  if (seconds <= 0) return '';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
   if (mins >= 1) return `${mins} dk ${secs} sn`;
   return `${secs} sn`;
+}
+
+function formatLockRemaining(seconds: number): string {
+  if (!Number.isFinite(seconds)) return '';
+  if (seconds <= 0) return '';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours >= 1) return `${hours}sa ${minutes}dk`;
+  return `${minutes} dk`;
 }
 
 function ReservationCard({
   r,
   onCancel,
   onOpenStation,
+  cancelling,
 }: {
   r: Reservation;
   onCancel: () => void;
   onOpenStation: () => void;
+  cancelling: boolean;
 }) {
-  const [now, setNow] = useState(() => Date.now());
+  const [secondsLeft, setSecondsLeft] = useState(() => reservationSecondsRemaining(r));
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setSecondsLeft(reservationSecondsRemaining(r)), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [r]);
 
-  const remainingMs = r.expiresAt - now;
-  const expired = remainingMs <= 0;
+  const expired = secondsLeft <= 0;
 
   return (
     <View
@@ -87,7 +101,7 @@ function ReservationCard({
               letterSpacing: 0.2,
             }}
           >
-            {r.stationName}
+            {stationName(r.station_id)}
           </Text>
           <Text
             style={{
@@ -99,12 +113,11 @@ function ReservationCard({
               marginTop: 4,
             }}
           >
-            {SPORT_LABELS[r.sport]}
+            {SPORT_LABELS[r.sport]} · KAPI {r.gate_id}
           </Text>
         </View>
       </View>
 
-      {/* Countdown chip */}
       <View
         style={{
           flexDirection: 'row',
@@ -130,11 +143,10 @@ function ReservationCard({
             letterSpacing: 0.3,
           }}
         >
-          {expired ? 'süresi doldu' : `${formatRemaining(remainingMs)} kaldı`}
+          {expired ? 'süresi doldu' : `${formatRemaining(secondsLeft)} kaldı`}
         </Text>
       </View>
 
-      {/* Actions */}
       <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
         <Pressable
           onPress={onOpenStation}
@@ -161,6 +173,7 @@ function ReservationCard({
         </Pressable>
         <Pressable
           onPress={onCancel}
+          disabled={cancelling}
           style={({ pressed }) => ({
             paddingHorizontal: 16,
             borderRadius: 14,
@@ -168,7 +181,7 @@ function ReservationCard({
             borderColor: TEXT + '22',
             alignItems: 'center',
             justifyContent: 'center',
-            opacity: pressed ? 0.5 : 1,
+            opacity: cancelling ? 0.4 : pressed ? 0.5 : 1,
           })}
         >
           <Text
@@ -187,26 +200,118 @@ function ReservationCard({
   );
 }
 
+function LockBanner({
+  lock,
+  onPressCta,
+}: {
+  lock: ReservationLock;
+  onPressCta: (reason: ReservationLock['reason']) => void;
+}) {
+  const { t } = useT();
+  const [secondsLeft, setSecondsLeft] = useState(() => lockSecondsRemaining(lock));
+
+  useEffect(() => {
+    if (!Number.isFinite(secondsLeft)) return;
+    const id = setInterval(() => setSecondsLeft(lockSecondsRemaining(lock)), 1000);
+    return () => clearInterval(id);
+  }, [lock, secondsLeft]);
+
+  const titleKey = `reservations.lock_banner.${lock.reason}_title`;
+  const subKey = `reservations.lock_banner.${lock.reason}_sub`;
+  const ctaKey = `reservations.lock_banner.${lock.reason}_cta`;
+  const remaining = formatLockRemaining(secondsLeft);
+
+  const showCta = lock.reason === 'manual_review' || lock.reason === 'payment_failed';
+
+  return (
+    <View
+      style={{
+        backgroundColor: palette.coral + '14',
+        borderColor: palette.coral + '44',
+        borderWidth: 1.5,
+        borderRadius: 16,
+        padding: 16,
+        gap: 8,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Feather name="lock" size={16} color={palette.coral} />
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.coral,
+            fontSize: 13,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+          }}
+        >
+          {t(titleKey)}
+        </Text>
+      </View>
+      <Text
+        style={{
+          fontFamily: 'Inter_600SemiBold',
+          color: TEXT,
+          fontSize: 14,
+          lineHeight: 20,
+        }}
+      >
+        {t(subKey, { remaining })}
+      </Text>
+      {showCta && (
+        <Pressable
+          onPress={() => onPressCta(lock.reason)}
+          style={({ pressed }) => ({
+            marginTop: 4,
+            backgroundColor: palette.coral,
+            borderRadius: 12,
+            paddingVertical: 12,
+            alignItems: 'center',
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.paper,
+              fontSize: 13,
+              letterSpacing: 0.5,
+            }}
+          >
+            {t(ctaKey)}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+const STATUS_LABEL: Record<Exclude<ReservationStatus, 'active'>, string> = {
+  consumed: 'reservations.status.consumed',
+  cancelled: 'reservations.status.cancelled',
+  expired_captured: 'reservations.status.expired_captured',
+  expired_released: 'reservations.status.expired_released',
+};
+
 export default function Reservations() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const reservations = useReservationStore((s) => s.reservations);
-  const cancel = useReservationStore((s) => s.cancel);
+  const { t } = useT();
+  const { state, refresh } = useReservationState({ pollMs: 15_000 });
+  const { cancel } = useReservationsApi();
   const cacheStation = useMapStore((s) => s.cacheStation);
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
-  const active = reservations.filter(
-    (r) => r.status === 'active' && r.expiresAt > Date.now()
-  );
-  const past = reservations.filter(
-    (r) => r.status !== 'active' || r.expiresAt <= Date.now()
-  );
+  const active = state?.active ?? null;
+  const recent = state?.recent ?? [];
+  const lock = state?.lock && isLockActive(state.lock) ? state.lock : null;
 
   const onBack = async () => {
     await hx.tap();
     router.back();
   };
 
-  const onCancel = (id: string) => {
+  const onCancel = (r: Reservation) => {
     hx.tap();
     Alert.alert(
       'Rezervasyonu iptal et?',
@@ -216,25 +321,49 @@ export default function Reservations() {
         {
           text: 'İptal et',
           style: 'destructive',
-          onPress: () => {
-            cancel(id);
-            hx.no();
+          onPress: async () => {
+            setCancelling(r.id);
+            const res = await cancel(r.id);
+            setCancelling(null);
+            if (res.ok) {
+              hx.no();
+              await refresh();
+              if (res.status === 'expired_captured') {
+                Alert.alert(
+                  t('reservations.status.expired_captured'),
+                  t('reservations.notif.captured_body'),
+                );
+              }
+            } else {
+              const errKey = `reservations.errors.${res.error}`;
+              Alert.alert(
+                t('reservations.cancel_short'),
+                t(errKey, { defaultValue: t('reservations.errors.bad_response') }),
+              );
+            }
           },
         },
-      ]
+      ],
     );
   };
 
   const onOpenStation = (r: Reservation) => {
     hx.tap();
-    const station = STATIONS.find((s) => s.id === r.stationId);
+    const station = STATIONS.find((s) => s.id === r.station_id);
     if (station) cacheStation(station);
-    router.push({ pathname: '/station/[id]', params: { id: r.stationId } });
+    router.push({ pathname: '/station/[id]', params: { id: r.station_id } });
   };
+
+  const onPressLockCta = (reason: ReservationLock['reason']) => {
+    hx.tap();
+    if (reason === 'payment_failed') router.push('/card-add');
+    else if (reason === 'manual_review') router.push('/support');
+  };
+
+  const empty = !lock && !active && recent.length === 0;
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      {/* Header */}
       <View
         style={{
           paddingTop: insets.top + 8,
@@ -271,7 +400,9 @@ export default function Reservations() {
           gap: 14,
         }}
       >
-        {active.length === 0 && past.length === 0 ? (
+        {lock ? <LockBanner lock={lock} onPressCta={onPressLockCta} /> : null}
+
+        {empty ? (
           <View
             style={{
               alignItems: 'center',
@@ -301,7 +432,7 @@ export default function Reservations() {
                 lineHeight: 19,
               }}
             >
-              bir istasyon seç, kilitlе, oyuna başlamak için 30 dk süren var.
+              bir istasyon seç, kilitle, oyuna başlamak için 30 dk süren var.
             </Text>
             <Pressable
               onPress={async () => {
@@ -331,7 +462,7 @@ export default function Reservations() {
           </View>
         ) : null}
 
-        {active.length > 0 ? (
+        {active ? (
           <>
             <Text
               style={{
@@ -345,18 +476,16 @@ export default function Reservations() {
             >
               aktif
             </Text>
-            {active.map((r) => (
-              <ReservationCard
-                key={r.id}
-                r={r}
-                onCancel={() => onCancel(r.id)}
-                onOpenStation={() => onOpenStation(r)}
-              />
-            ))}
+            <ReservationCard
+              r={active}
+              onCancel={() => onCancel(active)}
+              onOpenStation={() => onOpenStation(active)}
+              cancelling={cancelling === active.id}
+            />
           </>
         ) : null}
 
-        {past.length > 0 ? (
+        {recent.length > 0 ? (
           <>
             <Text
               style={{
@@ -371,7 +500,7 @@ export default function Reservations() {
             >
               geçmiş
             </Text>
-            {past.slice(0, 10).map((r) => (
+            {recent.map((r) => (
               <View
                 key={r.id}
                 style={{
@@ -396,7 +525,7 @@ export default function Reservations() {
                       fontSize: 14,
                     }}
                   >
-                    {r.stationName}
+                    {stationName(r.station_id)}
                   </Text>
                   <Text
                     style={{
@@ -406,13 +535,22 @@ export default function Reservations() {
                       marginTop: 2,
                     }}
                   >
-                    {r.status === 'used'
-                      ? 'kullanıldı'
-                      : r.status === 'cancelled'
-                      ? 'iptal edildi'
-                      : 'süresi doldu'}
+                    {r.status === 'active'
+                      ? ''
+                      : t(STATUS_LABEL[r.status as Exclude<ReservationStatus, 'active'>])}
                   </Text>
                 </View>
+                {r.status === 'expired_captured' && (
+                  <Text
+                    style={{
+                      fontFamily: 'JetBrainsMono_500Medium',
+                      color: palette.coral,
+                      fontSize: 12,
+                    }}
+                  >
+                    -₺{r.hold_amount_try}
+                  </Text>
+                )}
               </View>
             ))}
           </>
