@@ -14,7 +14,6 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -46,33 +45,99 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
 
   return (
     <Animated.View
-      style={style}
-      className="bg-butter rounded-2xl px-4 py-3 flex-row items-center gap-3 border border-ink/5"
+      style={[
+        {
+          backgroundColor: palette.butter,
+          borderRadius: 18,
+          paddingHorizontal: 14,
+          paddingVertical: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: palette.ink + '14',
+          marginBottom: 10,
+        },
+        style,
+      ]}
     >
-      <Text className="font-display text-ink text-2xl w-8 text-center">{rank}</Text>
+      <Text
+        style={{
+          fontFamily: 'Unbounded_800ExtraBold',
+          color: palette.ink,
+          fontSize: 22,
+          width: 32,
+          textAlign: 'center',
+          marginRight: 10,
+        }}
+      >
+        {rank}
+      </Text>
       <View
         style={{
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.mauve,
+          backgroundColor: palette.ink,
           alignItems: 'center',
           justifyContent: 'center',
+          marginRight: 12,
         }}
       >
-        <Text className="font-semibold text-paper text-base">{initial}</Text>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.paper,
+            fontSize: 16,
+          }}
+        >
+          {initial}
+        </Text>
       </View>
-      <View className="flex-1">
-        <Text className="font-medium text-ink text-base">{name}</Text>
-        <Text className="font-sans text-ink/50 text-xs">{handle}</Text>
+      <View style={{ flex: 1 }}>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.ink,
+            fontSize: 15,
+          }}
+        >
+          {name}
+        </Text>
+        <Text
+          numberOfLines={1}
+          style={{
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.ink,
+            fontSize: 11,
+            opacity: 0.7,
+            marginTop: 2,
+          }}
+        >
+          {handle}
+        </Text>
       </View>
-      <View className="flex-row items-center gap-2">
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         {isYou ? (
           <View
-            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: palette.coral }}
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: palette.coral,
+              marginRight: 8,
+            }}
           />
         ) : null}
-        <Text className="font-mono text-ink text-base">{minutes}dk</Text>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 15,
+          }}
+        >
+          {minutes}dk
+        </Text>
       </View>
     </Animated.View>
   );
@@ -88,7 +153,6 @@ export default function IntroSocial() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
   const titleLines = t('onb.intro_social.title').split('\n');
 
@@ -103,28 +167,51 @@ export default function IntroSocial() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="arrow-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <OnboardingProgress total={3} active={2} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           {titleLines.map((line, i) => (
             <Text
               key={i}
-              className="font-display-x text-ink dark:text-paper text-5xl"
-              style={{ lineHeight: 48 }}
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 44,
+                lineHeight: 48,
+              }}
             >
               {line}
             </Text>
@@ -133,12 +220,21 @@ export default function IntroSocial() {
       </RiseIn>
 
       <RiseIn delay={80}>
-        <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-4">
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 16,
+            lineHeight: 24,
+            marginTop: 16,
+            opacity: 0.85,
+          }}
+        >
           {t('onb.intro_social.sub')}
         </Text>
       </RiseIn>
 
-      <View className="flex-1 mt-8 mb-8 justify-center gap-3">
+      <View style={{ flex: 1, marginTop: 28, marginBottom: 24, justifyContent: 'center' }}>
         {ROWS.map((r, i) => (
           <LeaderRow key={r.rank} index={i} {...r} />
         ))}
@@ -149,12 +245,32 @@ export default function IntroSocial() {
           accessibilityRole="button"
           accessibilityLabel={t('onb.intro_social.cta')}
           onPress={onContinue}
-          className="bg-coral rounded-2xl py-5 active:opacity-90"
-          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
-          <Text className="text-paper font-semibold text-lg text-center">
-            {t('onb.intro_social.cta')}
-          </Text>
+          <View
+            style={{
+              backgroundColor: palette.coral,
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 18,
+              elevation: 12,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {t('onb.intro_social.cta')}
+            </Text>
+          </View>
         </Pressable>
       </RiseIn>
     </View>

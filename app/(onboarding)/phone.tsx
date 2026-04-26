@@ -8,7 +8,6 @@ import { parsePhoneNumberFromString, AsYouType } from 'libphonenumber-js';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { useDevStore } from '@/stores/devStore';
@@ -36,7 +35,6 @@ export default function Phone() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const setBypass = useDevStore((s) => s.setBypass);
 
   const [raw, setRaw] = useState('');
@@ -62,8 +60,6 @@ export default function Phone() {
     const clean = raw.startsWith('0') ? raw.slice(1) : raw;
     const phoneNumber = '+90' + clean;
 
-    // Supabase handles sign-in and sign-up in one call: if the user exists,
-    // it sends a login OTP; if not, it creates the account and sends a signup OTP.
     const { error: err } = await supabase.auth.signInWithOtp({
       phone: phoneNumber,
       options: { shouldCreateUser: true },
@@ -92,56 +88,88 @@ export default function Phone() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="arrow-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <OnboardingProgress total={5} active={4} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           <Text
-            className="font-display-x text-ink dark:text-paper text-5xl"
-            style={{ lineHeight: 48 }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 44,
+              lineHeight: 48,
+            }}
           >
             {t('onb.phone.title')}
           </Text>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              marginTop: 12,
+              opacity: 0.85,
+            }}
+          >
             {t('onb.phone.sub')}
           </Text>
         </View>
       </RiseIn>
 
       <RiseIn delay={120}>
-        <View className="mt-10 flex-row gap-3 items-center">
+        <View style={{ marginTop: 32, flexDirection: 'row', alignItems: 'center' }}>
           <View
             style={{
               backgroundColor: palette.ink,
-              borderRadius: 18,
+              borderRadius: 16,
               paddingHorizontal: 18,
               paddingVertical: 22,
               alignItems: 'center',
               justifyContent: 'center',
               minWidth: 84,
-              minHeight: 76,
+              minHeight: 70,
+              marginRight: 12,
             }}
           >
             <Text
               style={{
                 color: palette.paper,
-                fontFamily: 'JetBrainsMono_400Regular',
-                fontSize: 24,
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 22,
                 letterSpacing: 0.5,
-                fontWeight: '600',
               }}
             >
               +90
@@ -151,30 +179,68 @@ export default function Phone() {
             value={formatted}
             onChangeText={onChange}
             placeholder={t('onb.phone.placeholder')}
-            placeholderTextColor={theme.fg + '4d'}
+            placeholderTextColor={palette.ink + '66'}
             keyboardType="phone-pad"
             autoFocus
             textContentType="telephoneNumber"
             maxLength={14}
-            className="flex-1 bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-5 font-mono text-ink dark:text-paper"
-            style={{ minHeight: 76, fontSize: 26, letterSpacing: 0.5 }}
+            style={{
+              flex: 1,
+              backgroundColor: palette.paper,
+              borderWidth: 2,
+              borderColor: palette.ink + '22',
+              borderRadius: 16,
+              paddingHorizontal: 18,
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.ink,
+              minHeight: 70,
+              fontSize: 22,
+              letterSpacing: 0.5,
+            }}
           />
         </View>
       </RiseIn>
 
       {error ? (
-        <Text className="font-sans text-coral text-xs mt-2 ml-1">{error}</Text>
+        <Text
+          style={{
+            color: palette.coral,
+            fontSize: 12,
+            marginTop: 8,
+            marginLeft: 4,
+            fontFamily: 'Unbounded_700Bold',
+          }}
+        >
+          {error}
+        </Text>
       ) : raw.length >= 10 && !valid ? (
-        <Text className="font-sans text-coral text-xs mt-2 ml-1">
+        <Text
+          style={{
+            color: palette.coral,
+            fontSize: 12,
+            marginTop: 8,
+            marginLeft: 4,
+            fontFamily: 'Unbounded_700Bold',
+          }}
+        >
           {t('onb.phone.invalid')}
         </Text>
       ) : (
-        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-2 ml-1">
+        <Text
+          style={{
+            color: palette.ink,
+            fontSize: 12,
+            marginTop: 8,
+            marginLeft: 4,
+            fontFamily: 'Inter_600SemiBold',
+            opacity: 0.7,
+          }}
+        >
           türkiye mobil numarası
         </Text>
       )}
 
-      <View className="flex-1" />
+      <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
         <Pressable
@@ -183,16 +249,34 @@ export default function Phone() {
           accessibilityState={{ disabled: !ctaEnabled }}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
-            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+            opacity: !ctaEnabled ? 0.45 : pressed ? 0.92 : 1,
           })}
         >
-          <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
+          <View
+            style={{
+              backgroundColor: ctaEnabled ? palette.coral : palette.ink + '33',
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: ctaEnabled ? 0.32 : 0,
+              shadowRadius: 18,
+              elevation: ctaEnabled ? 12 : 0,
+            }}
           >
-            {busy ? '...' : t('onb.phone.cta')}
-          </Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {busy ? '...' : t('onb.phone.cta')}
+            </Text>
+          </View>
         </Pressable>
       </RiseIn>
 
@@ -203,10 +287,19 @@ export default function Phone() {
             setBypass(true);
             router.replace('/(tabs)/map');
           }}
-          className="mt-4"
+          style={{ marginTop: 14 }}
           hitSlop={8}
         >
-          <Text className="font-mono text-xs text-ink/40 dark:text-paper/40 underline text-center">
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_400Regular',
+              fontSize: 12,
+              color: palette.ink,
+              opacity: 0.55,
+              textDecorationLine: 'underline',
+              textAlign: 'center',
+            }}
+          >
             dev: admin ol
           </Text>
         </Pressable>

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
+import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
 
 export default function Welcome() {
@@ -20,16 +21,25 @@ export default function Welcome() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 32, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 32,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
       <RiseIn delay={0}>
-        <View className="mt-3">
+        <View style={{ marginTop: 12 }}>
           {titleLines.map((line, i) => (
             <Text
               key={i}
-              className="font-display-x text-ink dark:text-paper text-6xl"
-              style={{ lineHeight: 56 }}
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 56,
+                lineHeight: 60,
+              }}
             >
               {line}
             </Text>
@@ -38,24 +48,54 @@ export default function Welcome() {
       </RiseIn>
 
       <RiseIn delay={120}>
-        <Text className="font-sans text-lg text-ink/70 dark:text-paper/70 mt-6 leading-6">
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 17,
+            lineHeight: 24,
+            marginTop: 22,
+            opacity: 0.85,
+          }}
+        >
           {t('onb.welcome.sub')}
         </Text>
       </RiseIn>
 
-      <View className="flex-1" />
+      <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('onb.welcome.cta')}
           onPress={onStart}
-          className="bg-coral rounded-2xl py-5 active:opacity-90"
-          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
-          <Text className="text-paper font-semibold text-lg text-center">
-            {t('onb.welcome.cta')}
-          </Text>
+          <View
+            style={{
+              backgroundColor: palette.coral,
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 18,
+              elevation: 12,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {t('onb.welcome.cta')}
+            </Text>
+          </View>
         </Pressable>
       </RiseIn>
     </View>

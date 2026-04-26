@@ -15,7 +15,6 @@ import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
@@ -35,34 +34,77 @@ function SettingRow({
   onPress?: () => void;
   destructive?: boolean;
 }) {
-  const theme = useTheme();
   return (
     <Pressable
       disabled={!onPress}
       onPress={onPress}
       style={({ pressed }) => ({
-        transform: [{ scale: pressed ? 0.99 : 1 }],
+        opacity: pressed && onPress ? 0.6 : 1,
+        marginBottom: 10,
       })}
-      className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl px-4 py-4 flex-row items-center gap-3"
     >
-      <Text
-        className={
-          destructive
-            ? 'flex-1 font-medium text-coral text-base'
-            : 'flex-1 font-medium text-ink dark:text-paper text-base'
-        }
+      <View
+        style={{
+          backgroundColor: palette.paper,
+          borderWidth: 1.5,
+          borderColor: palette.ink + '22',
+          borderRadius: 14,
+          paddingHorizontal: 16,
+          paddingVertical: 16,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
       >
-        {label}
-      </Text>
-      {value !== undefined ? (
-        <Text className="font-sans text-ink/55 dark:text-paper/55 text-sm">
-          {value}
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: 'Unbounded_700Bold',
+            color: destructive ? palette.coral : palette.ink,
+            fontSize: 15,
+            letterSpacing: 0.2,
+            marginRight: 12,
+          }}
+        >
+          {label}
         </Text>
-      ) : null}
-      {onPress ? (
-        <Feather name="chevron-right" size={16} color={theme.fg + '55'} />
-      ) : null}
+        {value !== undefined ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'Inter_700Bold',
+              color: palette.ink,
+              fontSize: 13,
+              maxWidth: 160,
+              opacity: 0.7,
+              marginRight: onPress ? 8 : 0,
+            }}
+          >
+            {value}
+          </Text>
+        ) : null}
+        {onPress ? (
+          <Feather name="chevron-right" size={18} color={palette.ink} />
+        ) : null}
+      </View>
     </Pressable>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Text
+      style={{
+        fontFamily: 'Unbounded_800ExtraBold',
+        color: palette.ink,
+        fontSize: 12,
+        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+        marginTop: 28,
+        marginBottom: 12,
+      }}
+    >
+      {children}
+    </Text>
   );
 }
 
@@ -81,15 +123,10 @@ function EditModal({
   onSave: (v: string) => Promise<void> | void;
   onClose: () => void;
 }) {
-  const theme = useTheme();
   const { t } = useT();
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
 
-  // Initial (displayName / username) hydrates asynchronously from Supabase —
-  // if the modal opens before auth has loaded, the input would briefly show
-  // the fallback ("Oyuncu"). Sync `value` whenever the modal becomes visible
-  // OR the initial prop changes so the user only ever sees the real value.
   useEffect(() => {
     if (visible) setValue(initial);
   }, [visible, initial]);
@@ -127,56 +164,103 @@ function EditModal({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: theme.bg,
-            borderRadius: 20,
-            padding: 20,
+            backgroundColor: palette.paper,
+            borderRadius: 22,
+            padding: 22,
           }}
         >
-          <Text className="font-display text-ink dark:text-paper text-lg">
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 22,
+              lineHeight: 26,
+            }}
+          >
             {title}
           </Text>
           <TextInput
             value={value}
             onChangeText={setValue}
             placeholder={placeholder}
-            placeholderTextColor={theme.fg + '66'}
+            placeholderTextColor={palette.ink + 'aa'}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
             style={{
-              marginTop: 14,
-              borderWidth: 1,
-              borderColor: theme.fg + '22',
-              borderRadius: 12,
+              marginTop: 16,
+              borderWidth: 2,
+              borderColor: palette.ink + '22',
+              borderRadius: 14,
               paddingHorizontal: 14,
-              paddingVertical: 12,
-              color: theme.fg,
-              fontSize: 16,
+              paddingVertical: 14,
+              color: palette.ink,
+              fontFamily: 'Inter_600SemiBold',
+              fontSize: 17,
+              backgroundColor: palette.paper,
             }}
           />
-          <View className="flex-row gap-2 mt-4">
+          <View style={{ flexDirection: 'row', marginTop: 18 }}>
             <Pressable
               onPress={onClose}
-              className="flex-1 border border-ink/15 dark:border-paper/15 rounded-xl py-3"
+              style={({ pressed }) => ({
+                flex: 1,
+                marginRight: 10,
+                opacity: pressed ? 0.6 : 1,
+              })}
             >
-              <Text className="font-medium text-ink dark:text-paper text-center">
-                {t('common.cancel')}
-              </Text>
+              <View
+                style={{
+                  paddingVertical: 14,
+                  borderRadius: 14,
+                  borderWidth: 1.5,
+                  borderColor: palette.ink + '22',
+                  backgroundColor: palette.ink + '0d',
+                  alignItems: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_700Bold',
+                    color: palette.ink,
+                    fontSize: 14,
+                  }}
+                >
+                  {t('common.cancel')}
+                </Text>
+              </View>
             </Pressable>
             <Pressable
               onPress={save}
               disabled={saving}
-              style={{
+              style={({ pressed }) => ({
                 flex: 1,
-                backgroundColor: palette.coral,
-                borderRadius: 12,
-                paddingVertical: 12,
-                opacity: saving ? 0.6 : 1,
-              }}
+                opacity: saving ? 0.6 : pressed ? 0.92 : 1,
+              })}
             >
-              <Text className="font-semibold text-paper text-center">
-                {t('common.done')}
-              </Text>
+              <View
+                style={{
+                  backgroundColor: palette.coral,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  shadowColor: palette.coral,
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 12,
+                  elevation: 6,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_700Bold',
+                    color: palette.paper,
+                    fontSize: 14,
+                  }}
+                >
+                  {t('common.done')}
+                </Text>
+              </View>
             </Pressable>
           </View>
         </Pressable>
@@ -188,7 +272,6 @@ function EditModal({
 export default function Settings() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const router = useRouter();
   const { user } = useAuthSession();
   const { displayName, username, phone } = useDisplayUser();
@@ -222,9 +305,6 @@ export default function Settings() {
     await hx.yes();
   };
 
-  // Phone changes require identity re-verification, so we don't let users
-  // edit it inline. Redirect to support for now — post-MVP this becomes an
-  // OTP-gated re-verification flow.
   const onPhonePress = async () => {
     await hx.tap();
     Alert.alert(
@@ -264,10 +344,6 @@ export default function Settings() {
         text: t('settings.account.delete_cta'),
         style: 'destructive',
         onPress: async () => {
-          // Supabase doesn't expose a client-side account delete; this needs a
-          // server-side Edge Function calling admin.deleteUser(). For now, sign
-          // the user out and surface a support note — wire the Edge Function
-          // before launch.
           await supabase.auth.signOut();
           Alert.alert(
             t('settings.account.delete_title'),
@@ -280,21 +356,50 @@ export default function Settings() {
   };
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
-      {/* Sticky header — identical to profile.tsx */}
+    <View style={{ flex: 1, backgroundColor: palette.paper }}>
+      {/* Header */}
       <View
-        style={{ paddingTop: insets.top + 8 }}
-        className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink flex-row items-center gap-2"
+        style={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 20,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: palette.ink + '14',
+          backgroundColor: palette.paper,
+          flexDirection: 'row',
+          alignItems: 'center',
+        }}
       >
         <Pressable
           onPress={() => router.back()}
           hitSlop={14}
           accessibilityLabel={t('common.back')}
-          style={{ marginLeft: -6, padding: 4 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 12 })}
         >
-          <Feather name="chevron-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
-        <Text className="font-display text-ink dark:text-paper text-lg">
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 14,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
+          }}
+        >
           {t('settings.title')}
         </Text>
       </View>
@@ -303,53 +408,41 @@ export default function Settings() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 24,
-          paddingBottom: insets.bottom + 120, // leave room for pinned footer
+          paddingBottom: insets.bottom + 140,
         }}
       >
         {/* Profil section */}
         <RiseIn delay={0}>
-          <View className="mt-6">
-            <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
-              {t('settings.profile.section')}
-            </Text>
-            <View className="gap-3">
-              <SettingRow
-                label={t('settings.profile.name')}
-                value={displayName}
-                onPress={() => setEditField('name')}
-              />
-              <SettingRow
-                label={t('settings.profile.username')}
-                value={`@${username}`}
-                onPress={() => setEditField('username')}
-              />
-            </View>
-          </View>
+          <SectionLabel>{t('settings.profile.section')}</SectionLabel>
+          <SettingRow
+            label={t('settings.profile.name')}
+            value={displayName}
+            onPress={() => setEditField('name')}
+          />
+          <SettingRow
+            label={t('settings.profile.username')}
+            value={`@${username}`}
+            onPress={() => setEditField('username')}
+          />
         </RiseIn>
 
         {/* Hesap section */}
         <RiseIn delay={80}>
-          <View className="mt-6">
-            <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
-              {t('settings.account.section')}
-            </Text>
-            <View className="gap-3">
-              <SettingRow
-                label={t('settings.account.phone')}
-                value={phone}
-                onPress={onPhonePress}
-              />
-              <SettingRow
-                label={t('settings.account.signout')}
-                onPress={onSignOut}
-              />
-              <SettingRow
-                label={t('settings.account.delete')}
-                onPress={onDelete}
-                destructive
-              />
-            </View>
-          </View>
+          <SectionLabel>{t('settings.account.section')}</SectionLabel>
+          <SettingRow
+            label={t('settings.account.phone')}
+            value={phone}
+            onPress={onPhonePress}
+          />
+          <SettingRow
+            label={t('settings.account.signout')}
+            onPress={onSignOut}
+          />
+          <SettingRow
+            label={t('settings.account.delete')}
+            onPress={onDelete}
+            destructive
+          />
         </RiseIn>
       </ScrollView>
 
@@ -364,33 +457,74 @@ export default function Settings() {
           alignItems: 'center',
         }}
       >
-        <Text className="font-display text-butter text-xs tracking-[4px] mb-2">
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 12,
+            letterSpacing: 4,
+            marginBottom: 6,
+          }}
+        >
           PLAYBOX
         </Text>
-        <Text className="font-mono text-ink/40 dark:text-paper/40 text-xs">
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.ink,
+            fontSize: 11,
+            opacity: 0.7,
+          }}
+        >
           {t('settings.about.version')} {version}
         </Text>
-        <View className="flex-row items-center gap-2 mt-2">
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
           <Pressable
             onPress={async () => {
               await hx.tap();
               Alert.alert(t('settings.about.privacy'), t('settings.about.coming_soon'));
             }}
             hitSlop={8}
+            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
           >
-            <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs">
+            <Text
+              style={{
+                fontFamily: 'Inter_700Bold',
+                color: palette.ink,
+                fontSize: 12,
+                opacity: 0.85,
+              }}
+            >
               {t('settings.about.privacy')}
             </Text>
           </Pressable>
-          <Text className="font-sans text-ink/25 dark:text-paper/25 text-xs">·</Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_700Bold',
+              color: palette.ink,
+              fontSize: 12,
+              marginHorizontal: 8,
+              opacity: 0.4,
+            }}
+          >
+            ·
+          </Text>
           <Pressable
             onPress={async () => {
               await hx.tap();
               Alert.alert(t('settings.about.terms'), t('settings.about.coming_soon'));
             }}
             hitSlop={8}
+            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
           >
-            <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs">
+            <Text
+              style={{
+                fontFamily: 'Inter_700Bold',
+                color: palette.ink,
+                fontSize: 12,
+                opacity: 0.85,
+              }}
+            >
               {t('settings.about.terms')}
             </Text>
           </Pressable>

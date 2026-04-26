@@ -6,14 +6,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 
-// Deterministic unique handle derived from the user's Supabase UUID.
-// UUIDs are globally unique → the last 6 hex chars are effectively collision-free.
 function defaultUsername(userId: string): string {
   return `oyuncu_${userId.slice(-6)}`;
 }
@@ -22,7 +19,6 @@ export default function Handle() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { user, loading } = useAuthSession();
 
   const [name, setName] = useState('');
@@ -65,42 +61,77 @@ export default function Handle() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View
           style={{
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: palette.mauve,
+            backgroundColor: palette.ink,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Text className="font-semibold text-paper text-base">{initial}</Text>
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.paper,
+              fontSize: 16,
+            }}
+          >
+            {initial}
+          </Text>
         </View>
         <OnboardingProgress total={5} active={5} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           <Text
-            className="font-display-x text-ink dark:text-paper text-5xl"
-            style={{ lineHeight: 48 }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 44,
+              lineHeight: 48,
+            }}
           >
             {t('onb.handle.title')}
           </Text>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              marginTop: 12,
+              opacity: 0.85,
+            }}
+          >
             {t('onb.handle.sub')}
           </Text>
         </View>
       </RiseIn>
 
       <RiseIn delay={120}>
-        <View className="mt-10">
-          <Text className="font-medium text-ink/70 dark:text-paper/70 text-sm uppercase tracking-wider mb-2">
+        <View style={{ marginTop: 32 }}>
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 12,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}
+          >
             {t('onb.handle.name_label')}
           </Text>
           <TextInput
@@ -110,22 +141,41 @@ export default function Handle() {
               setName(s.slice(0, 30));
             }}
             placeholder={t('onb.handle.name_placeholder')}
-            placeholderTextColor={theme.fg + '4d'}
+            placeholderTextColor={palette.ink + '66'}
             autoFocus
             autoCapitalize="words"
             autoCorrect={false}
             textContentType="givenName"
             maxLength={30}
-            className="bg-paper dark:bg-ink border border-ink/15 dark:border-paper/15 rounded-2xl px-4 font-sans text-ink dark:text-paper"
-            style={{ minHeight: 60, fontSize: 18 }}
+            style={{
+              backgroundColor: palette.paper,
+              borderWidth: 2,
+              borderColor: palette.ink + '22',
+              borderRadius: 16,
+              paddingHorizontal: 16,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              minHeight: 60,
+              fontSize: 18,
+            }}
           />
           {error ? (
-            <Text className="font-sans text-coral text-xs mt-2 ml-1">{error}</Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.coral,
+                fontSize: 12,
+                marginTop: 8,
+                marginLeft: 4,
+              }}
+            >
+              {error}
+            </Text>
           ) : null}
         </View>
       </RiseIn>
 
-      <View className="flex-1" />
+      <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
         <Pressable
@@ -134,25 +184,52 @@ export default function Handle() {
           accessibilityState={{ disabled: !primaryEnabled }}
           onPress={onSubmit}
           disabled={!primaryEnabled}
-          className={`${primaryEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
-            transform: [{ scale: pressed && primaryEnabled ? 0.98 : 1 }],
+            opacity: !primaryEnabled ? 0.45 : pressed ? 0.92 : 1,
           })}
         >
-          <Text
-            className={`${primaryEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
+          <View
+            style={{
+              backgroundColor: palette.coral,
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 18,
+              elevation: 12,
+            }}
           >
-            {busy ? '...' : t('onb.handle.cta')}
-          </Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {busy ? '...' : t('onb.handle.cta')}
+            </Text>
+          </View>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onSkip}
           disabled={!primaryEnabled}
           hitSlop={8}
-          className="mt-4"
+          style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.55 : 1 })}
         >
-          <Text className="font-sans text-ink/55 dark:text-paper/55 text-sm text-center underline">
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 13,
+              textAlign: 'center',
+              textDecorationLine: 'underline',
+              opacity: 0.7,
+            }}
+          >
             {t('onb.handle.skip')}
           </Text>
         </Pressable>

@@ -10,7 +10,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-let ViewShot: any = View; // fallback to View when native module missing
+let ViewShot: any = View;
 let captureRef: any = async () => '';
 try {
   const mod = require('react-native-view-shot');
@@ -23,7 +23,6 @@ let FileSystem: any = null;
 try { FileSystem = require('expo-file-system'); } catch {}
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
@@ -57,7 +56,6 @@ function nextMilestone(streak: number) {
 // --- Streak ring ------------------------------------------------------------
 
 function StreakRing({ streak, milestone }: { streak: number; milestone: number }) {
-  // Streak card is always butter (light accent), so ink track still works in both modes.
   const size = 100;
   const strokeWidth = 10;
   const r = (size - strokeWidth) / 2;
@@ -92,7 +90,7 @@ function StreakRing({ streak, milestone }: { streak: number; milestone: number }
           cx={cx}
           cy={cy}
           r={r}
-          stroke={palette.ink + '14'}
+          stroke={palette.ink + '22'}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -110,7 +108,14 @@ function StreakRing({ streak, milestone }: { streak: number; milestone: number }
         />
       </Svg>
       <View style={{ position: 'absolute', alignItems: 'center' }}>
-        <Text className="font-mono text-ink/50 text-xs">
+        <Text
+          style={{
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.ink,
+            fontSize: 13,
+            letterSpacing: 0.4,
+          }}
+        >
           {streak}/{milestone}
         </Text>
       </View>
@@ -130,14 +135,50 @@ function StatCard({
   unit?: string;
 }) {
   return (
-    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl p-4 flex-1">
-      <Text className="font-medium text-ink/50 dark:text-paper/50 uppercase tracking-wider text-xs mb-2">
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        borderWidth: 1.5,
+        borderColor: palette.ink + '22',
+        borderRadius: 18,
+        padding: 16,
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: 'Unbounded_700Bold',
+          color: palette.ink,
+          fontSize: 11,
+          letterSpacing: 1.4,
+          textTransform: 'uppercase',
+          marginBottom: 8,
+        }}
+      >
         {label}
       </Text>
-      <View className="flex-row items-baseline">
-        <Text className="font-display-x text-ink dark:text-paper text-3xl">{value}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 32,
+            lineHeight: 36,
+          }}
+        >
+          {value}
+        </Text>
         {unit ? (
-          <Text className="font-sans text-ink/50 dark:text-paper/50 text-sm ml-1">{unit}</Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_700Bold',
+              color: palette.ink,
+              fontSize: 14,
+              marginLeft: 6,
+            }}
+          >
+            {unit}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -149,7 +190,6 @@ function StatCard({
 export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const router = useRouter();
   const { displayName, username, initial } = useDisplayUser();
   const [capturing, setCapturing] = useState(false);
@@ -174,17 +214,11 @@ export default function Profile() {
         result: 'tmpfile',
       });
 
-      // Copy the temp capture to a human-friendly filename before sharing so
-      // the share sheet/recipient sees "playbox-haftalik-2026-04-23.png"
-      // instead of "0b24cafb.png". If expo-file-system isn't available we
-      // just share the tmp file directly.
       let shareUri = tmpUri;
       if (FileSystem?.cacheDirectory && FileSystem?.copyAsync) {
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const today = new Date().toISOString().slice(0, 10);
         const named = `${FileSystem.cacheDirectory}playbox-haftalik-${today}.png`;
         try {
-          // deleteAsync with idempotent: true is supported from SDK 51+;
-          // in older SDKs this line is a no-op catch.
           await FileSystem.deleteAsync(named, { idempotent: true });
           await FileSystem.copyAsync({ from: tmpUri, to: named });
           shareUri = named;
@@ -212,83 +246,216 @@ export default function Profile() {
   };
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
+    <View style={{ flex: 1, backgroundColor: palette.paper }}>
       {/* Sticky header */}
       <View
-        style={{ paddingTop: insets.top + 8 }}
-        className="px-6 pb-3 border-b border-ink/10 dark:border-paper/10 bg-paper dark:bg-ink"
+        style={{
+          paddingTop: insets.top + 8,
+          paddingHorizontal: 20,
+          paddingBottom: 12,
+          borderBottomWidth: 1,
+          borderBottomColor: palette.ink + '14',
+          backgroundColor: palette.paper,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
       >
-        <View className="flex-row items-center justify-between">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-            onPress={async () => {
-              await hx.tap();
-              router.replace('/(tabs)/map');
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
+          onPress={async () => {
+            await hx.tap();
+            router.replace('/(tabs)/map');
+          }}
+          hitSlop={14}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-            hitSlop={14}
-            style={{ marginLeft: -6, padding: 4 }}
           >
-            <Feather name="chevron-left" size={26} color={theme.fg} />
-          </Pressable>
-          <Text className="font-display text-ink dark:text-paper text-lg">{t('profile.title')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="settings"
-            onPress={onSettings}
-            hitSlop={12}
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
+        </Pressable>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 14,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
+          }}
+        >
+          {t('profile.title')}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="settings"
+          onPress={onSettings}
+          hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
           >
-            <Feather name="settings" size={22} color={theme.fg} />
-          </Pressable>
-        </View>
+            <Feather name="settings" size={20} color={palette.ink} />
+          </View>
+        </Pressable>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
-          paddingBottom: insets.bottom + 120,
+          paddingBottom: insets.bottom + 40,
           paddingHorizontal: 24,
         }}
       >
-        {/* Hero identity */}
+        {/* Hero identity — tap routes to settings where the name + username
+            overrides live (and persist via zustand-persist + AsyncStorage). */}
         <RiseIn delay={0}>
-          <View className="flex-row items-center mt-6">
+          <Pressable
+            onPress={async () => {
+              await hx.tap();
+              router.push('/settings');
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="adı düzenle"
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 24,
+              opacity: pressed ? 0.65 : 1,
+            })}
+          >
             <View
               style={{
                 width: 88,
                 height: 88,
                 borderRadius: 44,
-                backgroundColor: palette.mauve,
+                backgroundColor: palette.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
+                marginRight: 16,
               }}
             >
-              <Text className="font-display-x text-paper text-4xl">{initial}</Text>
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.paper,
+                  fontSize: 36,
+                }}
+              >
+                {initial}
+              </Text>
             </View>
-            <View className="flex-1 pl-4">
-              <Text className="font-display-x text-ink dark:text-paper text-3xl">{displayName}</Text>
-              <Text className="font-mono text-ink/60 dark:text-paper/60 text-base">@{username}</Text>
-              <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs mt-1">
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flexShrink: 1,
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    color: palette.ink,
+                    fontSize: 28,
+                    lineHeight: 32,
+                    marginRight: 8,
+                  }}
+                >
+                  {displayName}
+                </Text>
+                <Feather name="edit-2" size={16} color={palette.ink} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'Inter_700Bold',
+                  color: palette.ink,
+                  fontSize: 14,
+                  marginTop: 4,
+                }}
+              >
+                @{username}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'Inter_600SemiBold',
+                  color: palette.ink,
+                  fontSize: 12,
+                  marginTop: 6,
+                  opacity: 0.7,
+                }}
+              >
                 {t('profile.joined_since', {
                   city: ME.city,
                   month: ME.joinedMonth,
                 })}
               </Text>
             </View>
-          </View>
+          </Pressable>
         </RiseIn>
 
         {/* Streak card */}
         <RiseIn delay={80}>
-          <View className="bg-butter rounded-3xl p-6 mt-6 flex-row items-center">
-            <View className="flex-1">
-              <Text className="font-medium text-ink/60 uppercase tracking-wider text-xs mb-2">
+          <View
+            style={{
+              backgroundColor: palette.butter,
+              borderRadius: 24,
+              padding: 22,
+              marginTop: 28,
+              flexDirection: 'row',
+              alignItems: 'center',
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.ink,
+                  fontSize: 11,
+                  letterSpacing: 1.5,
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
                 {t('profile.streak.label')}
               </Text>
-              <Text className="font-display-x text-ink text-7xl">
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.ink,
+                  fontSize: 64,
+                  lineHeight: 68,
+                }}
+              >
                 {ME.streakDays}
               </Text>
-              <Text className="font-sans text-ink/60 text-sm">
+              <Text
+                style={{
+                  fontFamily: 'Inter_700Bold',
+                  color: palette.ink,
+                  fontSize: 14,
+                  marginTop: 2,
+                }}
+              >
                 {t('profile.streak.days_suffix')}
               </Text>
             </View>
@@ -296,20 +463,24 @@ export default function Profile() {
           </View>
         </RiseIn>
 
-        {/* Stats grid (2x2) */}
+        {/* Stats grid (2x1 + 1) */}
         <RiseIn delay={160}>
-          <View className="mt-6 gap-3">
-            <View className="flex-row gap-3">
-              <StatCard
-                label={t('profile.stats.total_minutes_label')}
-                value={String(ME.totalMinutes)}
-                unit="dk"
-              />
-              <StatCard
-                label={t('profile.stats.this_week_label')}
-                value={String(ME.sessionsThisWeek)}
-                unit={t('profile.stats.sessions_unit')}
-              />
+          <View style={{ marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <StatCard
+                  label={t('profile.stats.total_minutes_label')}
+                  value={String(ME.totalMinutes)}
+                  unit="dk"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <StatCard
+                  label={t('profile.stats.this_week_label')}
+                  value={String(ME.sessionsThisWeek)}
+                  unit={t('profile.stats.sessions_unit')}
+                />
+              </View>
             </View>
             <StatCard
               label={t('profile.stats.fav_label')}
@@ -318,50 +489,119 @@ export default function Profile() {
           </View>
         </RiseIn>
 
-        {/* Flex card */}
+        {/* Flex card — keeps the dark surface intentionally; it's a shareable
+            asset, not part of the page chrome. Inner copy is white-on-ink so
+            it reads cleanly when exported as a PNG. */}
         <RiseIn delay={240}>
           <ViewShot
             ref={flexCardRef}
             options={{ format: 'png', quality: 1, result: 'tmpfile' }}
           >
-            <View className="bg-ink dark:bg-paper rounded-3xl p-6 mt-6">
+            <View
+              style={{
+                backgroundColor: palette.ink,
+                borderRadius: 24,
+                padding: 22,
+                marginTop: 24,
+              }}
+            >
               {!capturing ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="share"
                   onPress={onShareFlex}
                   hitSlop={8}
-                  style={{ position: 'absolute', top: 16, right: 16 }}
-                  className="bg-paper/10 dark:bg-ink/10 rounded-full p-2"
+                  style={({ pressed }) => ({
+                    position: 'absolute',
+                    top: 16,
+                    right: 16,
+                    opacity: pressed ? 0.6 : 1,
+                  })}
                 >
-                  <Feather name="share-2" size={20} color={palette.paper} />
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: palette.paper + '1f',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Feather name="share-2" size={18} color={palette.paper} />
+                  </View>
                 </Pressable>
               ) : null}
-              <Text className="font-mono text-paper/60 dark:text-ink/60 text-xs uppercase tracking-wider">
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.butter,
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                  textTransform: 'uppercase',
+                  paddingRight: 56, // reserved for the absolute share button
+                }}
+              >
                 {t('profile.flex.header', { city: ME.city })}
               </Text>
-              <Text className="font-display-x text-butter text-6xl mt-2">
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.butter,
+                  fontSize: 56,
+                  lineHeight: 60,
+                  marginTop: 6,
+                }}
+              >
                 {ME.sessionsThisWeek}
               </Text>
-              <Text className="font-sans text-paper/80 dark:text-ink/80 text-base">
+              <Text
+                style={{
+                  fontFamily: 'Inter_700Bold',
+                  color: palette.paper,
+                  fontSize: 16,
+                  marginTop: 2,
+                }}
+              >
                 {t('profile.flex.played_suffix')}
               </Text>
-              <View className="h-px bg-paper/15 dark:bg-ink/15 my-4" />
-              <Text className="font-mono text-paper/70 dark:text-ink/70 text-sm">
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: palette.paper + '22',
+                  marginVertical: 16,
+                }}
+              />
+              <Text
+                style={{
+                  fontFamily: 'JetBrainsMono_500Medium',
+                  color: palette.paper,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  opacity: 0.85,
+                }}
+              >
                 {t('profile.flex.summary', {
                   minutes: ME.totalMinutes,
                   streak: ME.streakDays,
                 })}
               </Text>
-              <View className="mt-3 items-center">
-                <Text className="font-display text-butter/80 text-xs tracking-[4px]">
+              <View style={{ marginTop: 12, alignItems: 'center' }}>
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    color: palette.butter,
+                    fontSize: 11,
+                    letterSpacing: 4,
+                  }}
+                >
                   PLAYBOX
                 </Text>
               </View>
             </View>
           </ViewShot>
         </RiseIn>
-
       </ScrollView>
     </View>
   );

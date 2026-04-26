@@ -614,6 +614,16 @@ function EndSessionModal({
   onConfirm: () => void | Promise<void>;
   accruedTry: number;
 }) {
+  // Three required confirmations before the user can end. State resets each
+  // time the modal opens so they can't carry stale checks across attempts.
+  const [checks, setChecks] = useState<boolean[]>([false, false, false]);
+  useEffect(() => {
+    if (visible) setChecks([false, false, false]);
+  }, [visible]);
+
+  const allChecked = checks.every(Boolean);
+  const items = ['ekipman istasyonda', 'kapı kapalı', 'aldığım parça eksiksiz'];
+
   return (
     <Modal
       visible={visible}
@@ -630,8 +640,6 @@ function EndSessionModal({
           justifyContent: 'flex-end',
         }}
       >
-        {/* Inner Pressable swallows taps so the sheet doesn't dismiss when
-            the user taps inside it — only the dim backdrop dismisses. */}
         <Pressable
           onPress={() => {}}
           style={{
@@ -690,22 +698,75 @@ function EndSessionModal({
               opacity: 0.85,
             }}
           >
-            ekipmanı yerine bırak ve kapıyı kapat. kapatmadıysan ek ücret kesilir.
+            her birini onayla. eksik onay olursa kapatma kaydedilmez.
           </Text>
 
-          {/* Checklist summary */}
-          <View
-            style={{
-              marginTop: 18,
-              backgroundColor: palette.butter,
-              borderRadius: 16,
-              paddingVertical: 14,
-              paddingHorizontal: 14,
-            }}
-          >
-            <ChecklistRow text="ekipman istasyonda" />
-            <ChecklistRow text="kapı kapalı" />
-            <ChecklistRow text="aldığım parça eksiksiz" />
+          {/* Tappable checklist — must all be checked before evet kapattım enables */}
+          <View style={{ marginTop: 18 }}>
+            {items.map((line, idx) => {
+              const checked = checks[idx];
+              return (
+                <Pressable
+                  key={line}
+                  onPress={async () => {
+                    await hx.tap();
+                    setChecks((prev) => {
+                      const next = [...prev];
+                      next[idx] = !next[idx];
+                      return next;
+                    });
+                  }}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked }}
+                  style={({ pressed }) => ({
+                    marginBottom: 10,
+                    opacity: pressed ? 0.65 : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      backgroundColor: checked ? palette.ink : palette.butter,
+                      borderRadius: 14,
+                      paddingVertical: 14,
+                      paddingHorizontal: 14,
+                      borderWidth: 1.5,
+                      borderColor: checked ? palette.ink : palette.ink + '14',
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 8,
+                        backgroundColor: checked ? palette.coral : 'transparent',
+                        borderWidth: 2,
+                        borderColor: checked ? palette.coral : palette.ink + '55',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginRight: 12,
+                      }}
+                    >
+                      {checked ? (
+                        <Feather name="check" size={16} color={palette.paper} />
+                      ) : null}
+                    </View>
+                    <Text
+                      style={{
+                        flex: 1,
+                        fontFamily: 'Unbounded_700Bold',
+                        color: checked ? palette.paper : palette.ink,
+                        fontSize: 14,
+                        letterSpacing: 0.2,
+                      }}
+                    >
+                      {line}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
 
           {/* Cost line */}
@@ -714,7 +775,7 @@ function EndSessionModal({
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
-              marginTop: 18,
+              marginTop: 14,
               paddingTop: 14,
               borderTopWidth: 1,
               borderTopColor: palette.ink + '14',
@@ -729,7 +790,7 @@ function EndSessionModal({
                 textTransform: 'uppercase',
               }}
             >
-              tahmini toplam
+              toplam
             </Text>
             <Text
               style={{
@@ -743,53 +804,67 @@ function EndSessionModal({
             </Text>
           </View>
 
-          {/* CTA pair */}
-          <View style={{ marginTop: 22 }}>
-            <Pressable
-              onPress={onConfirm}
-              accessibilityRole="button"
-              accessibilityLabel="evet, kapattım"
-              style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
+          {/* Primary CTA — gated until all 3 are checked */}
+          <Pressable
+            onPress={allChecked ? onConfirm : undefined}
+            disabled={!allChecked}
+            accessibilityRole="button"
+            accessibilityLabel="evet, kapattım"
+            style={({ pressed }) => ({
+              marginTop: 22,
+              opacity: !allChecked ? 0.45 : pressed ? 0.92 : 1,
+            })}
+          >
+            <View
+              style={{
+                backgroundColor: allChecked ? palette.coral : palette.ink + '33',
+                borderRadius: 18,
+                paddingVertical: 18,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                shadowColor: palette.coral,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: allChecked ? 0.3 : 0,
+                shadowRadius: 16,
+                elevation: allChecked ? 10 : 0,
+              }}
             >
-              <View
+              <Feather name="check" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+              <Text
                 style={{
-                  backgroundColor: palette.coral,
-                  borderRadius: 18,
-                  paddingVertical: 18,
-                  alignItems: 'center',
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  shadowColor: palette.coral,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 16,
-                  elevation: 10,
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.paper,
+                  fontSize: 17,
+                  letterSpacing: 0.4,
                 }}
               >
-                <Feather name="check" size={20} color={palette.paper} style={{ marginRight: 10 }} />
-                <Text
-                  style={{
-                    fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.paper,
-                    fontSize: 17,
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  evet, kapattım
-                </Text>
-              </View>
-            </Pressable>
+                evet, kapattım
+              </Text>
+            </View>
+          </Pressable>
 
-            <Pressable
-              onPress={onCancel}
-              accessibilityRole="button"
-              accessibilityLabel="henüz değil"
-              style={({ pressed }) => ({
-                marginTop: 10,
+          {/* Secondary action — outlined ink pill, sits well below the
+              primary so the two CTAs can't visually overlap. */}
+          <Pressable
+            onPress={onCancel}
+            accessibilityRole="button"
+            accessibilityLabel="henüz değil"
+            style={({ pressed }) => ({
+              marginTop: 14,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <View
+              style={{
                 paddingVertical: 14,
+                borderRadius: 18,
                 alignItems: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
+                justifyContent: 'center',
+                backgroundColor: palette.ink + '0d',
+                borderWidth: 1.5,
+                borderColor: palette.ink + '22',
+              }}
             >
               <Text
                 style={{
@@ -801,40 +876,11 @@ function EndSessionModal({
               >
                 henüz değil
               </Text>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
         </Pressable>
       </Pressable>
     </Modal>
-  );
-}
-
-function ChecklistRow({ text }: { text: string }) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 4,
-      }}
-    >
-      <Feather
-        name="check-circle"
-        size={16}
-        color={palette.ink}
-        style={{ marginRight: 10 }}
-      />
-      <Text
-        style={{
-          flex: 1,
-          fontFamily: 'Inter_700Bold',
-          color: palette.ink,
-          fontSize: 14,
-        }}
-      >
-        {text}
-      </Text>
-    </View>
   );
 }
 

@@ -15,7 +15,6 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -72,7 +71,6 @@ export default function IntroMap() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
   const titleLines = t('onb.intro_map.title').split('\n');
 
@@ -87,28 +85,51 @@ export default function IntroMap() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="arrow-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <OnboardingProgress total={3} active={1} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           {titleLines.map((line, i) => (
             <Text
               key={i}
-              className="font-display-x text-ink dark:text-paper text-5xl"
-              style={{ lineHeight: 48 }}
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 44,
+                lineHeight: 48,
+              }}
             >
               {line}
             </Text>
@@ -117,13 +138,31 @@ export default function IntroMap() {
       </RiseIn>
 
       <RiseIn delay={80}>
-        <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-4">
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 16,
+            lineHeight: 24,
+            marginTop: 16,
+            opacity: 0.85,
+          }}
+        >
           {t('onb.intro_map.sub')}
         </Text>
       </RiseIn>
 
       <RiseIn delay={160} style={{ flex: 1, marginTop: 32, marginBottom: 32 }}>
-        <View className="flex-1 rounded-2xl bg-butter overflow-hidden border border-ink/10">
+        <View
+          style={{
+            flex: 1,
+            borderRadius: 18,
+            backgroundColor: palette.butter,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: palette.ink + '14',
+          }}
+        >
           {[0.25, 0.5, 0.75].map((p) => (
             <View
               key={`h-${p}`}
@@ -161,12 +200,32 @@ export default function IntroMap() {
           accessibilityRole="button"
           accessibilityLabel={t('onb.intro_map.cta')}
           onPress={onContinue}
-          className="bg-coral rounded-2xl py-5 active:opacity-90"
-          style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.98 : 1 }] })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
-          <Text className="text-paper font-semibold text-lg text-center">
-            {t('onb.intro_map.cta')}
-          </Text>
+          <View
+            style={{
+              backgroundColor: palette.coral,
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 18,
+              elevation: 12,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {t('onb.intro_map.cta')}
+            </Text>
+          </View>
         </Pressable>
       </RiseIn>
     </View>

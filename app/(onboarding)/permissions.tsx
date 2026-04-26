@@ -5,20 +5,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
-// expo-camera 17 (SDK 53+) replaced the Camera class methods with top-level
-// named exports. Prefer those; fall back to legacy class methods for older SDKs.
 let CameraPerms: {
   get?: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
   request?: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
 } = {};
 try {
   const mod = require('expo-camera');
-  CameraPerms.get =
-    mod.getCameraPermissionsAsync ??
-    mod.Camera?.getCameraPermissionsAsync;
-  CameraPerms.request =
-    mod.requestCameraPermissionsAsync ??
-    mod.Camera?.requestCameraPermissionsAsync;
+  CameraPerms.get = mod.getCameraPermissionsAsync ?? mod.Camera?.getCameraPermissionsAsync;
+  CameraPerms.request = mod.requestCameraPermissionsAsync ?? mod.Camera?.requestCameraPermissionsAsync;
 } catch {}
 
 let Notifications: any = null;
@@ -27,7 +21,6 @@ try { Notifications = require('expo-notifications'); } catch {}
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 
@@ -42,9 +35,9 @@ const ICONS: Record<PermKey, keyof typeof Feather.glyphMap> = {
 };
 
 const REQUIRED: Record<PermKey, boolean> = {
-  location: true,   // nearby stations, in-range unlock, reservation lock
-  notif: false,     // reservation / session reminders — nice to have
-  camera: false,    // QR scan shortcut; map-tap flow works without it
+  location: true,
+  notif: false,
+  camera: false,
 };
 
 async function readInitial(): Promise<PermsState> {
@@ -73,31 +66,19 @@ async function request(key: PermKey): Promise<PermStatus> {
     return r.granted ? 'granted' : 'denied';
   }
   if (key === 'notif') {
-    if (!Notifications?.requestPermissionsAsync) {
-      console.warn('expo-notifications not linked');
-      return 'denied';
-    }
+    if (!Notifications?.requestPermissionsAsync) return 'denied';
     try {
       const r = await Notifications.requestPermissionsAsync({
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
       });
       return r.granted || r.status === 'granted' ? 'granted' : 'denied';
-    } catch (e) {
-      console.warn('notif request failed', e);
-      return 'denied';
-    }
+    } catch { return 'denied'; }
   }
-  if (!CameraPerms.request) {
-    console.warn('expo-camera request API missing');
-    return 'denied';
-  }
+  if (!CameraPerms.request) return 'denied';
   try {
     const r = await CameraPerms.request();
     return r.granted ? 'granted' : 'denied';
-  } catch (e) {
-    console.warn('cam request failed', e);
-    return 'denied';
-  }
+  } catch { return 'denied'; }
 }
 
 function PermissionCard({
@@ -111,82 +92,114 @@ function PermissionCard({
   onPress: () => void;
   t: (key: string) => string;
 }) {
-  const theme = useTheme();
   const granted = status === 'granted';
-  const denied  = status === 'denied';
+  const denied = status === 'denied';
 
-  const cardCls =
-    granted ? 'bg-butter border-ink/10' :
-    denied  ? 'bg-paper dark:bg-ink border-coral/30' :
-              'bg-paper dark:bg-ink border-ink/15 dark:border-paper/15';
-
-  const iconBg =
-    granted ? palette.ink + '1a' :
-    denied  ? palette.coral + '26' :
-              palette.mauve + '26';
-
-  // On butter (granted) the ink icon stays ink. Otherwise invert with theme.
-  const iconColor = granted ? palette.ink : theme.fg;
+  const cardBg = granted ? palette.butter : palette.paper;
+  const cardBorder = denied ? palette.coral + '55' : palette.ink + '22';
+  const iconBg = granted ? palette.ink : denied ? palette.coral + '22' : palette.ink + '0d';
+  const iconColor = granted ? palette.paper : denied ? palette.coral : palette.ink;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t(`onb.perms.${k}.title`)}
       onPress={onPress}
-      className={`${cardCls} border rounded-2xl px-4 py-4 flex-row items-center gap-4`}
-      style={({ pressed }) => ({ transform: [{ scale: pressed ? 0.99 : 1 }] })}
+      style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1, marginBottom: 12 })}
     >
       <View
         style={{
-          width: 48,
-          height: 48,
+          backgroundColor: cardBg,
           borderRadius: 16,
-          backgroundColor: iconBg,
+          paddingHorizontal: 14,
+          paddingVertical: 14,
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
+          borderWidth: 1.5,
+          borderColor: cardBorder,
         }}
       >
-        <Feather name={ICONS[k]} size={24} color={granted ? palette.ink : theme.fg} />
-      </View>
-      <View className="flex-1">
-        <View className="flex-row items-center gap-2">
-          <Text className={`font-medium text-base ${granted ? 'text-ink' : 'text-ink dark:text-paper'}`}>{t(`onb.perms.${k}.title`)}</Text>
-          <View
-            style={{
-              paddingHorizontal: 7,
-              paddingVertical: 2,
-              borderRadius: 999,
-              backgroundColor: REQUIRED[k] ? palette.coral + '26' : theme.fg + '14',
-            }}
-          >
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 14,
+            backgroundColor: iconBg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 14,
+          }}
+        >
+          <Feather name={ICONS[k]} size={22} color={iconColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text
-              className="font-mono"
               style={{
-                fontSize: 9,
-                color: REQUIRED[k] ? palette.coral : theme.fg + '99',
-                letterSpacing: 0.6,
-                textTransform: 'uppercase',
-                fontWeight: '700',
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.ink,
+                fontSize: 15,
+                marginRight: 8,
               }}
             >
-              {t(REQUIRED[k] ? 'onb.perms.required' : 'onb.perms.optional')}
+              {t(`onb.perms.${k}.title`)}
             </Text>
+            <View
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 999,
+                backgroundColor: REQUIRED[k] ? palette.coral + '26' : palette.ink + '14',
+              }}
+            >
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  fontSize: 9,
+                  color: REQUIRED[k] ? palette.coral : palette.ink,
+                  letterSpacing: 0.6,
+                  textTransform: 'uppercase',
+                }}
+              >
+                {t(REQUIRED[k] ? 'onb.perms.required' : 'onb.perms.optional')}
+              </Text>
+            </View>
           </View>
-        </View>
-        <Text className={`font-sans text-sm mt-0.5 ${granted ? 'text-ink/60' : 'text-ink/60 dark:text-paper/60'}`}>{t(`onb.perms.${k}.why`)}</Text>
-        {denied && (
-          <Text className="text-coral/80 text-xs mt-1 font-sans">
-            {REQUIRED[k] ? t('onb.perms.denied_required') : t('onb.perms.denied_optional')}
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 13,
+              lineHeight: 18,
+              marginTop: 4,
+              opacity: 0.8,
+            }}
+          >
+            {t(`onb.perms.${k}.why`)}
           </Text>
+          {denied && (
+            <Text
+              style={{
+                color: palette.coral,
+                fontSize: 12,
+                marginTop: 4,
+                fontFamily: 'Unbounded_700Bold',
+              }}
+            >
+              {REQUIRED[k] ? t('onb.perms.denied_required') : t('onb.perms.denied_optional')}
+            </Text>
+          )}
+        </View>
+        {granted ? (
+          <Feather name="check" size={22} color={palette.ink} />
+        ) : denied ? (
+          <Text style={{ color: palette.coral, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
+            {t('onb.perms.retry')}
+          </Text>
+        ) : (
+          <Feather name="chevron-right" size={20} color={palette.ink} />
         )}
       </View>
-      {granted ? (
-        <Feather name="check" size={22} color={palette.ink} />
-      ) : denied ? (
-        <Text className="text-coral text-sm font-medium">{t('onb.perms.retry')}</Text>
-      ) : (
-        <Feather name="chevron-right" size={20} color={theme.fg + '66'} />
-      )}
     </Pressable>
   );
 }
@@ -195,7 +208,6 @@ export default function Permissions() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
 
   const [perms, setPerms] = useState<PermsState>({
     location: 'idle',
@@ -228,26 +240,49 @@ export default function Permissions() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="arrow-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <OnboardingProgress total={4} active={3} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           <Text
-            className="font-display-x text-ink dark:text-paper text-5xl"
-            style={{ lineHeight: 48 }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 44,
+              lineHeight: 48,
+            }}
           >
             {t('onb.perms.title')}
           </Text>
@@ -255,14 +290,14 @@ export default function Permissions() {
       </RiseIn>
 
       <RiseIn delay={120}>
-        <View className="mt-8 gap-3">
+        <View style={{ marginTop: 28 }}>
           <PermissionCard k="location" status={perms.location} onPress={handle('location')} t={t} />
           <PermissionCard k="notif"    status={perms.notif}    onPress={handle('notif')}    t={t} />
           <PermissionCard k="camera"   status={perms.camera}   onPress={handle('camera')}   t={t} />
         </View>
       </RiseIn>
 
-      <View className="flex-1" />
+      <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
         <Pressable
@@ -271,18 +306,45 @@ export default function Permissions() {
           accessibilityState={{ disabled: !ctaEnabled }}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          className={`${ctaEnabled ? 'bg-coral active:opacity-90' : 'bg-ink/20 dark:bg-paper/20'} rounded-2xl py-5`}
           style={({ pressed }) => ({
-            transform: [{ scale: pressed && ctaEnabled ? 0.98 : 1 }],
+            opacity: !ctaEnabled ? 0.45 : pressed ? 0.92 : 1,
           })}
         >
-          <Text
-            className={`${ctaEnabled ? 'text-paper' : 'text-ink/50 dark:text-paper/50'} font-semibold text-lg text-center`}
+          <View
+            style={{
+              backgroundColor: ctaEnabled ? palette.coral : palette.ink + '33',
+              borderRadius: 20,
+              paddingVertical: 20,
+              alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: ctaEnabled ? 0.32 : 0,
+              shadowRadius: 18,
+              elevation: ctaEnabled ? 12 : 0,
+            }}
           >
-            {t('onb.perms.cta')}
-          </Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 18,
+                letterSpacing: 0.5,
+              }}
+            >
+              {t('onb.perms.cta')}
+            </Text>
+          </View>
         </Pressable>
-        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs text-center mt-3">
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 12,
+            textAlign: 'center',
+            marginTop: 12,
+            opacity: 0.7,
+          }}
+        >
           {t('onb.perms.optional_hint')}
         </Text>
       </RiseIn>

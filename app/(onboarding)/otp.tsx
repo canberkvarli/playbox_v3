@@ -7,7 +7,6 @@ import { Feather } from '@expo/vector-icons';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { useTheme } from '@/hooks/useTheme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
@@ -18,7 +17,6 @@ export default function Otp() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { phone } = useLocalSearchParams<{ phone?: string }>();
 
   const [code, setCode] = useState('');
@@ -46,9 +44,6 @@ export default function Otp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  // Re-focus the hidden input after a verify error so the keyboard pops back up
-  // immediately instead of waiting for another tap. Deferred via rAF so React
-  // has time to re-render with editable=true (busy flipped back off in finally).
   useEffect(() => {
     if (!error || busy) return;
     const id = requestAnimationFrame(() => inputRef.current?.focus());
@@ -68,8 +63,6 @@ export default function Otp() {
       if (err || !data.session) throw err ?? new Error('no session');
 
       await hx.yes();
-      // Users who finished the name step carry `onboarded: true`. Everyone else
-      // lands on the optional name screen (which they can skip).
       const onboarded = data.user?.user_metadata?.onboarded === true;
       router.replace(onboarded ? '/(tabs)/map' : '/(onboarding)/handle');
     } catch (e) {
@@ -115,104 +108,156 @@ export default function Otp() {
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
-      <View className="flex-row items-center justify-between">
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="arrow-left" size={24} color={theme.fg} />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather name="arrow-left" size={20} color={palette.ink} />
+          </View>
         </Pressable>
         <OnboardingProgress total={5} active={4} />
       </View>
 
       <RiseIn delay={0}>
-        <View className="mt-12">
+        <View style={{ marginTop: 40 }}>
           <Text
-            className="font-display-x text-ink dark:text-paper text-5xl"
-            style={{ lineHeight: 48 }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 44,
+              lineHeight: 48,
+            }}
           >
             {t('onb.otp.title')}
           </Text>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-3">
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              marginTop: 12,
+              opacity: 0.85,
+            }}
+          >
             {t('onb.otp.sub', { phone: phone ?? '' })}
           </Text>
         </View>
       </RiseIn>
 
       <RiseIn delay={140}>
-       <Pressable className="mt-12" onPress={focusInput}>
-        <View className="flex-row justify-center" style={{ gap: 10 }}>
-          {cells.map((digit, i) => {
-            const filled = digit !== '';
-            const errored = error !== null;
-            const borderColor = errored
-              ? palette.coral
-              : filled
-                ? theme.fg
-                : theme.fg + '26';
-            const borderWidth = errored || filled ? 2 : 1.5;
-            return (
-              <View
-                key={i}
-                style={{
-                  width: 52,
-                  height: 72,
-                  borderRadius: 16,
-                  borderWidth,
-                  borderColor,
-                  backgroundColor: theme.bg,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text
-                  className="font-mono text-ink dark:text-paper"
-                  style={{ fontSize: 36, lineHeight: 40, includeFontPadding: false }}
+        <Pressable style={{ marginTop: 40 }} onPress={focusInput}>
+          <View style={{ flexDirection: 'row', justifyContent: 'center' }}>
+            {cells.map((digit, i) => {
+              const filled = digit !== '';
+              const errored = error !== null;
+              const borderColor = errored
+                ? palette.coral
+                : filled
+                ? palette.ink
+                : palette.ink + '33';
+              const borderWidth = errored || filled ? 2 : 1.5;
+              return (
+                <View
+                  key={i}
+                  style={{
+                    width: 50,
+                    height: 70,
+                    borderRadius: 14,
+                    borderWidth,
+                    borderColor,
+                    backgroundColor: palette.paper,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginHorizontal: 4,
+                  }}
                 >
-                  {digit}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-        <TextInput
-          ref={inputRef}
-          value={code}
-          onChangeText={onChangeText}
-          autoFocus
-          keyboardType="number-pad"
-          textContentType="oneTimeCode"
-          autoComplete="sms-otp"
-          maxLength={6}
-          editable={!busy}
-          caretHidden
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 0,
-            opacity: 0,
-            color: 'transparent',
-          }}
-        />
-       </Pressable>
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_800ExtraBold',
+                      color: palette.ink,
+                      fontSize: 30,
+                      lineHeight: 34,
+                      includeFontPadding: false,
+                    }}
+                  >
+                    {digit}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+          <TextInput
+            ref={inputRef}
+            value={code}
+            onChangeText={onChangeText}
+            autoFocus
+            keyboardType="number-pad"
+            textContentType="oneTimeCode"
+            autoComplete="sms-otp"
+            maxLength={6}
+            editable={!busy}
+            caretHidden
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+              opacity: 0,
+              color: 'transparent',
+            }}
+          />
+        </Pressable>
       </RiseIn>
 
       <RiseIn delay={220}>
-        <View className="mt-8 items-center">
+        <View style={{ marginTop: 28, alignItems: 'center' }}>
           {secondsLeft > 0 ? (
-            <Text className="font-mono text-ink/50 dark:text-paper/50 text-sm">
+            <Text
+              style={{
+                fontFamily: 'JetBrainsMono_500Medium',
+                color: palette.ink,
+                fontSize: 14,
+                opacity: 0.7,
+              }}
+            >
               {t('onb.otp.resend_in', { s: secondsLeft })}
             </Text>
           ) : (
-            <Pressable onPress={onResend} hitSlop={8}>
-              <Text className="font-mono text-coral text-sm font-medium underline">
+            <Pressable onPress={onResend} hitSlop={8} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.coral,
+                  fontSize: 14,
+                  textDecorationLine: 'underline',
+                }}
+              >
                 {t('onb.otp.resend')}
               </Text>
             </Pressable>
@@ -221,10 +266,20 @@ export default function Otp() {
       </RiseIn>
 
       {error ? (
-        <Text className="font-sans text-coral text-xs text-center mt-4">{error}</Text>
+        <Text
+          style={{
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.coral,
+            fontSize: 13,
+            textAlign: 'center',
+            marginTop: 16,
+          }}
+        >
+          {error}
+        </Text>
       ) : null}
 
-      <View className="flex-1" />
+      <View style={{ flex: 1 }} />
     </View>
   );
 }
