@@ -26,10 +26,7 @@ import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
 import { gatesForStation, SPORT_LABELS, type Gate, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
-import {
-  RESERVATION_LOCK_MIN,
-} from '@/stores/reservationStore';
-import { useReservationState } from '@/lib/reservations';
+import { RESERVATION_LOCK_MIN, useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
 import { supabase } from '@/lib/supabase';
 

@@ -9,8 +9,13 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { SPORT_LABELS, STATIONS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
-import { useReservationStore, type Reservation } from '@/stores/reservationStore';
 import { useMapStore } from '@/stores/mapStore';
+import {
+  reservationSecondsRemaining,
+  useReservationState,
+  useReservationsApi,
+  type Reservation,
+} from '@/lib/reservations';
 
 function fmt(sec: number) {
   if (sec <= 0) return '0:00';
@@ -19,42 +24,33 @@ function fmt(sec: number) {
   return `${mm}:${ss}`;
 }
 
-function ActiveReservationCard({ r }: { r: Reservation }) {
-  const theme = useTheme();
+function stationName(stationId: string): string {
+  return STATIONS.find((s) => s.id === stationId)?.name ?? stationId;
+}
+
+function ActiveReservationCard({
+  r,
+  onCancel,
+}: {
+  r: Reservation;
+  onCancel: () => void;
+}) {
+  useTheme();
   const { t } = useT();
   const router = useRouter();
-  const cancel = useReservationStore((s) => s.cancel);
   const cacheStation = useMapStore((s) => s.cacheStation);
-  const [, setTick] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState(() => reservationSecondsRemaining(r));
 
   useEffect(() => {
-    const id = setInterval(() => setTick((x) => x + 1), 1000);
+    const id = setInterval(() => setSecondsLeft(reservationSecondsRemaining(r)), 1000);
     return () => clearInterval(id);
-  }, []);
-
-  const remaining = Math.max(0, Math.ceil((r.expiresAt - Date.now()) / 1000));
+  }, [r]);
 
   const onOpen = async () => {
     await hx.tap();
-    const s = STATIONS.find((x) => x.id === r.stationId);
+    const s = STATIONS.find((x) => x.id === r.station_id);
     if (s) cacheStation(s);
-    router.push({ pathname: '/station/[id]', params: { id: r.stationId } });
-  };
-
-  const onCancel = async () => {
-    await hx.tap();
-    Alert.alert(
-      t('reservations.cancel_title'),
-      t('reservations.cancel_msg', { name: r.stationName }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('reservations.cancel_cta'),
-          style: 'destructive',
-          onPress: () => cancel(r.id),
-        },
-      ]
-    );
+    router.push({ pathname: '/station/[id]', params: { id: r.station_id } });
   };
 
   return (
@@ -96,7 +92,7 @@ function ActiveReservationCard({ r }: { r: Reservation }) {
             style={{ color: palette.paper, fontSize: 18 }}
             numberOfLines={1}
           >
-            {r.stationName}
+            {stationName(r.station_id)}
           </Text>
         </View>
         <Text
@@ -107,7 +103,7 @@ function ActiveReservationCard({ r }: { r: Reservation }) {
             letterSpacing: 0.5,
           }}
         >
-          {fmt(remaining)}
+          {fmt(secondsLeft)}
         </Text>
       </View>
 
@@ -164,16 +160,36 @@ function ActiveReservationCard({ r }: { r: Reservation }) {
 
 export function ReservationsPanel() {
   const { t } = useT();
-  const theme = useTheme();
-  const reservations = useReservationStore((s) => s.reservations);
-  const active = reservations.find(
-    (r) => r.status === 'active' && r.expiresAt > Date.now()
-  );
+  useTheme();
+  const { state, refresh } = useReservationState({ pollMs: 15_000 });
+  const { cancel } = useReservationsApi();
+  const active = state?.active ?? null;
+
+  const onCancel = async () => {
+    if (!active) return;
+    await hx.tap();
+    Alert.alert(
+      t('reservations.cancel_title'),
+      t('reservations.cancel_msg', { name: stationName(active.station_id) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('reservations.cancel_cta'),
+          style: 'destructive',
+          onPress: async () => {
+            const res = await cancel(active.id);
+            if (res.ok) hx.no();
+            await refresh();
+          },
+        },
+      ],
+    );
+  };
 
   if (active) {
     return (
       <View style={{ paddingTop: 8, gap: 12 }}>
-        <ActiveReservationCard r={active} />
+        <ActiveReservationCard r={active} onCancel={onCancel} />
       </View>
     );
   }

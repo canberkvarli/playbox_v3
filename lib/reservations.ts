@@ -5,6 +5,10 @@ import type { Sport } from '@/data/stations.seed';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
+/** Default 30-min lock window. Server is authoritative; this is just for
+ *  copy that needs a number before any RPC has resolved. */
+export const RESERVATION_LOCK_MIN = 30;
+
 // ============================================================
 // Types — mirror the server schema in supabase/migrations/...
 // ============================================================

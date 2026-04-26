@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { safeStorage } from '@/lib/safeStorage';
 import type { Sport } from '@/data/stations.seed';
-import { useReservationStore } from './reservationStore';
 
 export type ActiveSession = {
   stationId: string;
@@ -67,13 +66,10 @@ export const useSessionStore = create<SessionStore>()(
         const check = get().canStart(s.stationId);
         if (!check.ok) return check;
 
-        // Consume a matching reservation (if any). Cross-store call via
-        // getState — no subscription, no cycle at import time.
-        const reservations = useReservationStore.getState();
-        const activeRes = reservations.getActive();
-        if (activeRes && activeRes.stationId === s.stationId) {
-          reservations.markUsed(activeRes.id);
-        }
+        // Reservation consumption now happens server-side via the
+        // /reservation-consume Edge Function, triggered from the QR scan
+        // flow (app/scan.tsx). The legacy in-memory markUsed() path was
+        // removed when the reservation system became server-authoritative.
 
         set({
           active: {
