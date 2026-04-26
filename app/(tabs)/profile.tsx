@@ -19,6 +19,8 @@ try {
 } catch {}
 let Sharing: any = { isAvailableAsync: async () => false, shareAsync: async () => {} };
 try { Sharing = require('expo-sharing'); } catch {}
+let FileSystem: any = null;
+try { FileSystem = require('expo-file-system'); } catch {}
 
 import { useT } from '@/hooks/useT';
 import { useTheme } from '@/hooks/useTheme';
@@ -41,14 +43,7 @@ const ME = {
   totalMinutes: 247,
   sessionsThisWeek: 4,
   favoriteSport: 'football' as Sport,
-  cityRank: 1,
 };
-
-const FRIENDS = [
-  { name: 'Zeynep', handle: '@zey', following: true, minutes: 231 },
-  { name: 'Burak', handle: '@brk', following: false, minutes: 198 },
-  { name: 'Ayşe', handle: '@ays', following: true, minutes: 180 },
-];
 
 function nextMilestone(streak: number) {
   if (streak < 7) return 7;
@@ -149,62 +144,6 @@ function StatCard({
   );
 }
 
-function FriendRow({
-  name,
-  handle,
-  following,
-  onToggle,
-}: {
-  name: string;
-  handle: string;
-  following: boolean;
-  onToggle: () => void;
-}) {
-  const { t } = useT();
-  const initial = name.charAt(0).toUpperCase();
-
-  return (
-    <View className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-2xl px-4 py-3 flex-row items-center gap-3">
-      <View
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: palette.mauve,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text className="font-semibold text-paper text-base">{initial}</Text>
-      </View>
-      <View className="flex-1">
-        <Text className="font-medium text-ink dark:text-paper text-base">{name}</Text>
-        <Text className="font-sans text-ink/50 dark:text-paper/50 text-xs">{handle}</Text>
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        onPress={onToggle}
-        hitSlop={8}
-        className={
-          following
-            ? 'border border-ink/20 dark:border-paper/20 rounded-full px-3 py-1.5'
-            : 'bg-coral rounded-full px-3 py-1.5'
-        }
-      >
-        <Text
-          className={
-            following
-              ? 'font-medium text-ink dark:text-paper text-xs'
-              : 'font-medium text-paper text-xs'
-          }
-        >
-          {following ? t('profile.friends.following') : t('profile.friends.follow')}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
 // --- Screen -----------------------------------------------------------------
 
 export default function Profile() {
@@ -213,7 +152,6 @@ export default function Profile() {
   const theme = useTheme();
   const router = useRouter();
   const { displayName, username, initial } = useDisplayUser();
-  const [follows, setFollows] = useState(() => FRIENDS.map((f) => f.following));
   const [capturing, setCapturing] = useState(false);
   const flexCardRef = useRef<ViewShot>(null);
 
@@ -230,17 +168,37 @@ export default function Profile() {
     try {
       await new Promise((r) => requestAnimationFrame(r));
       await new Promise((r) => setTimeout(r, 50));
-      const uri = await captureRef(flexCardRef, {
+      const tmpUri = await captureRef(flexCardRef, {
         format: 'png',
         quality: 1,
         result: 'tmpfile',
       });
+
+      // Copy the temp capture to a human-friendly filename before sharing so
+      // the share sheet/recipient sees "playbox-haftalik-2026-04-23.png"
+      // instead of "0b24cafb.png". If expo-file-system isn't available we
+      // just share the tmp file directly.
+      let shareUri = tmpUri;
+      if (FileSystem?.cacheDirectory && FileSystem?.copyAsync) {
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const named = `${FileSystem.cacheDirectory}playbox-haftalik-${today}.png`;
+        try {
+          // deleteAsync with idempotent: true is supported from SDK 51+;
+          // in older SDKs this line is a no-op catch.
+          await FileSystem.deleteAsync(named, { idempotent: true });
+          await FileSystem.copyAsync({ from: tmpUri, to: named });
+          shareUri = named;
+        } catch (e) {
+          if (__DEV__) console.warn('[playbox] rename capture failed', e);
+        }
+      }
+
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         console.warn('[playbox] Sharing not available on this platform');
         return;
       }
-      await Sharing.shareAsync(uri, {
+      await Sharing.shareAsync(shareUri, {
         mimeType: 'image/png',
         dialogTitle: 'Playbox',
         UTI: 'public.png',
@@ -251,11 +209,6 @@ export default function Profile() {
     } finally {
       setCapturing(false);
     }
-  };
-
-  const onToggleFollow = async (idx: number) => {
-    await hx.tap();
-    setFollows((prev) => prev.map((v, i) => (i === idx ? !v : v)));
   };
 
   return (
@@ -358,16 +311,10 @@ export default function Profile() {
                 unit={t('profile.stats.sessions_unit')}
               />
             </View>
-            <View className="flex-row gap-3">
-              <StatCard
-                label={t('profile.stats.fav_label')}
-                value={`${SPORT_EMOJI[ME.favoriteSport]} ${SPORT_LABELS[ME.favoriteSport]}`}
-              />
-              <StatCard
-                label={t('profile.stats.city_rank_label')}
-                value={`#${ME.cityRank}`}
-              />
-            </View>
+            <StatCard
+              label={t('profile.stats.fav_label')}
+              value={`${SPORT_EMOJI[ME.favoriteSport]} ${SPORT_LABELS[ME.favoriteSport]}`}
+            />
           </View>
         </RiseIn>
 
@@ -402,7 +349,6 @@ export default function Profile() {
               <View className="h-px bg-paper/15 dark:bg-ink/15 my-4" />
               <Text className="font-mono text-paper/70 dark:text-ink/70 text-sm">
                 {t('profile.flex.summary', {
-                  rank: ME.cityRank,
                   minutes: ME.totalMinutes,
                   streak: ME.streakDays,
                 })}
@@ -416,39 +362,6 @@ export default function Profile() {
           </ViewShot>
         </RiseIn>
 
-        {/* Friends section */}
-        <RiseIn delay={320}>
-          <View className="mt-6">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs">
-                {t('profile.friends.label')}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="add friend"
-                onPress={async () => {
-                  await hx.tap();
-                  console.log('add friend');
-                }}
-                hitSlop={8}
-                className="bg-paper dark:bg-ink border border-ink/10 dark:border-paper/10 rounded-full p-2"
-              >
-                <Feather name="user-plus" size={18} color={theme.fg} />
-              </Pressable>
-            </View>
-            <View className="gap-3">
-              {FRIENDS.map((f, i) => (
-                <FriendRow
-                  key={f.handle}
-                  name={f.name}
-                  handle={f.handle}
-                  following={follows[i]}
-                  onToggle={() => onToggleFollow(i)}
-                />
-              ))}
-            </View>
-          </View>
-        </RiseIn>
       </ScrollView>
     </View>
   );

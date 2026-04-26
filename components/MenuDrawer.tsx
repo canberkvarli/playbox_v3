@@ -1,210 +1,214 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
-  Modal,
+  Animated,
+  Dimensions,
+  Easing,
+  Platform,
   Pressable,
   ScrollView,
+  Share,
+  StatusBar,
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { Feather } from '@expo/vector-icons';
-import { Dimensions } from 'react-native';
-import Animated, {
-  Easing,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const DRAWER_WIDTH = SCREEN_WIDTH * 0.88;
-// Spring that settles in ~280ms with no bounce — "silky native" feel.
-const DRAWER_SPRING = { damping: 22, stiffness: 200, mass: 0.7 } as const;
-
-import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { useMenuStore } from '@/stores/menuStore';
 
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const DRAWER_W = Math.round(SCREEN_W * 0.86);
+
+const SAFE_TOP = Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight ?? 24) + 8;
+const SAFE_BOTTOM = Platform.OS === 'ios' ? 28 : 16;
+const ROW_H = 56;
+
 type Item = {
   key: string;
+  label: string;
   icon: React.ComponentProps<typeof Feather>['name'];
-  href?: string;
-  external?: string;
-  soon?: boolean;
+  onPress: () => void | Promise<void>;
 };
-
-const ITEMS: Item[] = [
-  { key: 'map', icon: 'map', href: '/(tabs)/map' },
-  { key: 'profile', icon: 'user', href: '/(tabs)/profile' },
-  { key: 'settings', icon: 'settings', href: '/settings' },
-  { key: 'reservations', icon: 'calendar', soon: true },
-  { key: 'billing', icon: 'credit-card', soon: true },
-  { key: 'safety', icon: 'shield', soon: true },
-];
-
-const SUPPORT_ITEM: Item = { key: 'support', icon: 'life-buoy', soon: true };
 
 export function MenuDrawer() {
   const open = useMenuStore((s) => s.open);
   const setOpen = useMenuStore((s) => s.setOpen);
-  const insets = useSafeAreaInsets();
-  const theme = useTheme();
-  const { t } = useT();
   const router = useRouter();
   const { displayName, username, initial } = useDisplayUser();
 
-  const progress = useSharedValue(0);
-  // Keep the Modal mounted while the spring slides the drawer out — without
-  // this, RN's Modal unmounts as soon as `open` flips and the exit animation
-  // never gets to play. Result: drawer appears to close instantly.
-  const [mounted, setMounted] = useState(false);
-
+  // Plain RN Animated — no reanimated, no worklets, no version-mismatch risk
+  const t = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    if (open) {
-      setMounted(true);
-      progress.value = withSpring(1, DRAWER_SPRING);
-    } else if (mounted) {
-      progress.value = withSpring(0, DRAWER_SPRING, (finished) => {
-        if (finished) runOnJS(setMounted)(false);
-      });
-    }
-  }, [open, mounted, progress]);
-
-  const sheetStyle = useAnimatedStyle(() => ({
-    // Translate by the real drawer width so the edge kisses the screen edge
-    // regardless of device size. Using a hardcoded 420 was sloppy.
-    transform: [{ translateX: (1 - progress.value) * DRAWER_WIDTH }],
-  }));
-
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: progress.value * 0.5,
-  }));
+    Animated.timing(t, {
+      toValue: open ? 1 : 0,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [open, t]);
 
   const close = () => setOpen(false);
-
-  const onPickItem = async (item: Item) => {
-    await hx.tap();
-    if (item.href) {
-      // Navigate immediately; the drawer slides out under the new route.
-      // Feels snappier than "animate then navigate" and avoids a visible pause.
-      router.push(item.href as never);
-      setOpen(false);
-      return;
-    }
-    if (item.external) {
-      close();
-      WebBrowser.openBrowserAsync(item.external).catch(() => {});
-      return;
-    }
-    if (item.soon) {
-      // No-op for now — could surface a toast lib later
-      close();
-    }
-  };
-
-  const onPressHeader = async () => {
-    await hx.tap();
-    router.push('/(tabs)/profile');
+  const go = (href: string) => {
     setOpen(false);
+    setTimeout(() => router.push(href as never), 80);
   };
+
+  const shareApp = async () => {
+    await hx.tap();
+    try {
+      await Share.share({
+        message: 'Playbox — şehrin her yerinde spor ekipmanı. https://playbox.app',
+      });
+    } catch {}
+  };
+
+  const ITEMS: Item[] = [
+    { key: 'map', label: 'harita', icon: 'map', onPress: () => go('/(tabs)/map') },
+    { key: 'profile', label: 'profil', icon: 'user', onPress: () => go('/(tabs)/profile') },
+    { key: 'settings', label: 'ayarlar', icon: 'settings', onPress: () => go('/settings') },
+    { key: 'reservations', label: 'rezervasyonlar', icon: 'calendar', onPress: () => go('/reservations') },
+    { key: 'billing', label: 'ödemeler', icon: 'credit-card', onPress: () => go('/payments') },
+    { key: 'share', label: "playbox'ı paylaş", icon: 'share-2', onPress: shareApp },
+  ];
+
+  const translateX = t.interpolate({
+    inputRange: [0, 1],
+    outputRange: [DRAWER_W, 0],
+  });
+  const backdropOpacity = t.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.5],
+  });
 
   return (
-    <Modal
-      visible={mounted}
-      transparent
-      animationType="none"
-      onRequestClose={close}
-      statusBarTranslucent
+    <View
+      pointerEvents={open ? 'auto' : 'none'}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: SCREEN_W,
+        height: SCREEN_H,
+        zIndex: 9999,
+        elevation: 9999,
+      }}
     >
+      {/* Backdrop */}
       <Animated.View
-        pointerEvents={open ? 'auto' : 'none'}
-        style={[
-          { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: '#000' },
-          backdropStyle,
-        ]}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: SCREEN_W,
+          height: SCREEN_H,
+          backgroundColor: '#000',
+          opacity: backdropOpacity,
+        }}
       >
-        <Pressable style={{ flex: 1 }} onPress={close} />
+        <Pressable style={{ width: '100%', height: '100%' }} onPress={close} />
       </Animated.View>
 
+      {/* Panel */}
       <Animated.View
-        style={[
-          {
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            right: 0,
-            width: '88%',
-            backgroundColor: theme.bg,
-            borderTopLeftRadius: 32,
-            borderBottomLeftRadius: 32,
-            paddingTop: insets.top + 18,
-            paddingBottom: insets.bottom + 16,
-            shadowColor: '#000',
-            shadowOffset: { width: -10, height: 0 },
-            shadowOpacity: 0.18,
-            shadowRadius: 24,
-            elevation: 16,
-          },
-          sheetStyle,
-        ]}
+        style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: DRAWER_W,
+          height: SCREEN_H,
+          backgroundColor: palette.paper,
+          borderTopLeftRadius: 28,
+          borderBottomLeftRadius: 28,
+          shadowColor: '#000',
+          shadowOffset: { width: -8, height: 0 },
+          shadowOpacity: 0.18,
+          shadowRadius: 24,
+          transform: [{ translateX }],
+        }}
       >
-        {/* Top row — avatar, name, close X on one horizontal grid.
-            Uses the same paddingHorizontal (20) as every item row below, so
-            everything lines up on the same left/right gutters. */}
+        {/* Top close-X bar */}
         <View
           style={{
+            width: DRAWER_W,
+            height: SAFE_TOP + 12,
             flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 20,
-            marginBottom: 28,
-            gap: 12,
+            justifyContent: 'flex-end',
+            alignItems: 'flex-end',
+            paddingRight: 16,
+            paddingBottom: 4,
           }}
         >
           <Pressable
-            onPress={onPressHeader}
+            onPress={close}
+            hitSlop={14}
             accessibilityRole="button"
-            accessibilityLabel={displayName}
-            hitSlop={6}
+            accessibilityLabel="kapat"
             style={({ pressed }) => ({
-              flex: 1,
-              flexDirection: 'row',
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: '#572c5712',
               alignItems: 'center',
-              gap: 12,
+              justifyContent: 'center',
               opacity: pressed ? 0.6 : 1,
             })}
           >
+            <Feather name="x" size={20} color={palette.ink} />
+          </Pressable>
+        </View>
+
+        {/* Header — same inner-View pattern as the menu items so the row
+            layout actually applies. */}
+        <Pressable
+          onPress={() => {
+            hx.tap();
+            go('/(tabs)/profile');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={displayName}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <View
+            style={{
+              width: DRAWER_W,
+              height: 84,
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: 20,
+            }}
+          >
             <View
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: palette.mauve,
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                backgroundColor: palette.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
+                marginRight: 14,
               }}
             >
               <Text
-                style={{ fontFamily: 'Unbounded_800ExtraBold', color: palette.paper, fontSize: 20 }}
+                style={{
+                  color: palette.paper,
+                  fontSize: 20,
+                  fontWeight: '800',
+                }}
               >
                 {initial}
               </Text>
             </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
+            <View style={{ flex: 1 }}>
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: theme.fg,
-                  fontSize: 17,
+                  color: palette.ink,
+                  fontSize: 18,
+                  fontWeight: '700',
                   letterSpacing: 0.2,
-                  includeFontPadding: false,
                 }}
               >
                 {displayName}
@@ -212,123 +216,138 @@ export function MenuDrawer() {
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'JetBrainsMono_400Regular',
-                  color: theme.fg + '88',
-                  fontSize: 12,
+                  color: palette.ink,
+                  fontSize: 13,
                   marginTop: 3,
+                  letterSpacing: 0.2,
+                  fontWeight: '700',
                 }}
               >
                 @{username}
               </Text>
             </View>
-          </Pressable>
-          <Pressable
-            onPress={close}
-            hitSlop={10}
-            accessibilityLabel={t('common.cancel')}
-            style={({ pressed }) => ({
-              width: 36,
-              height: 36,
-              borderRadius: 18,
-              backgroundColor: theme.fg + '0d',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transform: [{ scale: pressed ? 0.92 : 1 }],
-            })}
-          >
-            <Feather name="x" size={18} color={theme.fg} />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
 
-        {/* Items — same paddingHorizontal (20) + icon column (32) as the header,
-            so avatar / icons / support all align on one vertical grid. */}
+        <View
+          style={{
+            width: DRAWER_W - 40,
+            marginLeft: 20,
+            height: 1,
+            backgroundColor: '#572c5714',
+          }}
+        />
+
+        {/* Items list — fixed maxHeight so destek footer always fits */}
         <ScrollView
+          style={{
+            width: DRAWER_W,
+            maxHeight:
+              SCREEN_H -
+              (SAFE_TOP + 12) -
+              80 -
+              1 -
+              (1 + ROW_H + SAFE_BOTTOM),
+          }}
+          contentContainerStyle={{ paddingVertical: 6 }}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 16 }}
         >
           {ITEMS.map((item) => (
             <Pressable
               key={item.key}
-              onPress={() => onPickItem(item)}
-              style={({ pressed }) => ({
-                paddingVertical: 14,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 16,
-                opacity: pressed ? 0.5 : item.soon ? 0.55 : 1,
-              })}
+              onPress={async () => {
+                await hx.tap();
+                item.onPress();
+              }}
+              style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
             >
               <View
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: DRAWER_W,
+                  height: ROW_H,
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  justifyContent: 'center',
+                  paddingHorizontal: 22,
                 }}
               >
-                <Feather name={item.icon} size={22} color={theme.fg + 'bb'} />
+                <Feather
+                  name={item.icon}
+                  size={22}
+                  color={palette.ink}
+                  style={{ marginRight: 14 }}
+                />
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    flex: 1,
+                    color: palette.ink,
+                    fontSize: 17,
+                    fontWeight: '600',
+                  }}
+                >
+                  {item.label}
+                </Text>
               </View>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                style={{
-                  flex: 1,
-                  fontFamily: 'Unbounded_700Bold',
-                  color: theme.fg,
-                  fontSize: 19,
-                  lineHeight: 22,
-                  letterSpacing: 0.2,
-                  includeFontPadding: false,
-                  textAlignVertical: 'center',
-                }}
-              >
-                {t(`menu.${item.key}`)}
-              </Text>
             </Pressable>
           ))}
         </ScrollView>
 
-        {/* Pinned footer — same horizontal grid as items */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>
+        {/* Destek footer — absolutely pinned to the bottom of the panel */}
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: SAFE_BOTTOM,
+            width: DRAWER_W,
+          }}
+        >
           <View
             style={{
+              width: DRAWER_W - 40,
+              marginLeft: 20,
               height: 1,
-              backgroundColor: theme.fg + '12',
-              marginBottom: 8,
+              backgroundColor: '#572c5714',
             }}
           />
           <Pressable
-            onPress={() => onPickItem(SUPPORT_ITEM)}
-            style={({ pressed }) => ({
-              paddingVertical: 14,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 16,
-              opacity: pressed ? 0.5 : 1,
-            })}
+            onPress={async () => {
+              await hx.tap();
+              go('/support');
+            }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
           >
-            <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-              <Feather name={SUPPORT_ITEM.icon} size={22} color={palette.coral} />
-            </View>
-            <Text
-              numberOfLines={1}
+            <View
               style={{
-                flex: 1,
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.coral,
-                fontSize: 19,
-                lineHeight: 22,
-                letterSpacing: 0.2,
-                includeFontPadding: false,
-                textAlignVertical: 'center',
+                width: DRAWER_W,
+                height: 72,
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 22,
               }}
             >
-              Destek
-            </Text>
+              <Feather
+                name="phone"
+                size={26}
+                color={palette.coral}
+                style={{ marginRight: 16 }}
+              />
+              <Text
+                numberOfLines={1}
+                style={{
+                  flex: 1,
+                  color: palette.coral,
+                  fontSize: 20,
+                  fontWeight: '800',
+                  letterSpacing: 0.2,
+                }}
+              >
+                destek
+              </Text>
+            </View>
           </Pressable>
         </View>
       </Animated.View>
-    </Modal>
+    </View>
   );
 }

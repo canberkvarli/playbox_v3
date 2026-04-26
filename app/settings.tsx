@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -19,12 +20,9 @@ import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
-import { CITY_LABELS } from '@/data/stations.seed';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
-
-type CityKey = keyof typeof CITY_LABELS;
 
 function SettingRow({
   label,
@@ -87,6 +85,14 @@ function EditModal({
   const { t } = useT();
   const [value, setValue] = useState(initial);
   const [saving, setSaving] = useState(false);
+
+  // Initial (displayName / username) hydrates asynchronously from Supabase —
+  // if the modal opens before auth has loaded, the input would briefly show
+  // the fallback ("Oyuncu"). Sync `value` whenever the modal becomes visible
+  // OR the initial prop changes so the user only ever sees the real value.
+  useEffect(() => {
+    if (visible) setValue(initial);
+  }, [visible, initial]);
 
   const save = async () => {
     if (!value.trim() || saving) return;
@@ -188,11 +194,8 @@ export default function Settings() {
   const { displayName, username, phone } = useDisplayUser();
 
   const [editField, setEditField] = useState<'name' | 'username' | null>(null);
-  const cityOverride = useSettingsStore((s) => s.cityOverride);
-  const setCityOverride = useSettingsStore((s) => s.setCityOverride);
   const setNameOverride = useSettingsStore((s) => s.setNameOverride);
   const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
-  const city: CityKey = cityOverride ?? 'istanbul';
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
 
@@ -219,16 +222,22 @@ export default function Settings() {
     await hx.yes();
   };
 
-  const onPickCity = async () => {
+  // Phone changes require identity re-verification, so we don't let users
+  // edit it inline. Redirect to support for now — post-MVP this becomes an
+  // OTP-gated re-verification flow.
+  const onPhonePress = async () => {
     await hx.tap();
     Alert.alert(
-      t('settings.city.pick_title'),
-      undefined,
-      (Object.keys(CITY_LABELS) as CityKey[]).map((k) => ({
-        text: CITY_LABELS[k],
-        onPress: () => { setCityOverride(k); hx.yes(); },
-      })),
-      { cancelable: true }
+      t('settings.account.phone_change_title'),
+      t('settings.account.phone_change_msg'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.account.phone_change_cta'),
+          onPress: () =>
+            Linking.openURL('mailto:destek@playbox.app?subject=Telefon numarası değişikliği').catch(() => {}),
+        },
+      ]
     );
   };
 
@@ -314,11 +323,6 @@ export default function Settings() {
                 value={`@${username}`}
                 onPress={() => setEditField('username')}
               />
-              <SettingRow
-                label={t('settings.profile.city')}
-                value={CITY_LABELS[city]}
-                onPress={onPickCity}
-              />
             </View>
           </View>
         </RiseIn>
@@ -330,7 +334,11 @@ export default function Settings() {
               {t('settings.account.section')}
             </Text>
             <View className="gap-3">
-              <SettingRow label={t('settings.account.phone')} value={phone} />
+              <SettingRow
+                label={t('settings.account.phone')}
+                value={phone}
+                onPress={onPhonePress}
+              />
               <SettingRow
                 label={t('settings.account.signout')}
                 onPress={onSignOut}

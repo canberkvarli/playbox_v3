@@ -13,8 +13,8 @@ import { useIyzico } from '@/lib/iyzico';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { PostSessionCardPrompt } from '@/components/PostSessionCardPrompt';
+import { costForMinutes } from '@/lib/pricing';
 
-const RATE_PER_MIN = 1.5;
 const FACES = ['😡', '😕', '😐', '🙂', '🤩'] as const;
 
 export default function SessionReview() {
@@ -67,7 +67,7 @@ export default function SessionReview() {
 
   const elapsedMs = lastEnded.endedAt - lastEnded.startedAt;
   const elapsedMin = Math.max(1, Math.ceil(elapsedMs / 60_000));
-  const total = +(elapsedMin * RATE_PER_MIN * 1.18).toFixed(2);
+  const total = costForMinutes(elapsedMin);
 
   return (
     <View
@@ -227,18 +227,25 @@ export default function SessionReview() {
                     setRating(i);
                   }}
                   style={({ pressed }) => ({
-                    width: 52,
-                    height: 52,
-                    borderRadius: 26,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: active ? palette.coral + '22' : 'transparent',
-                    borderWidth: 1.5,
-                    borderColor: active ? palette.coral : palette.ink + '14',
-                    transform: [{ scale: pressed ? 0.9 : active ? 1.1 : 1 }],
+                    opacity: pressed ? 0.8 : 1,
+                    transform: [{ scale: active ? 1.1 : 1 }],
+                    marginHorizontal: 4,
                   })}
                 >
-                  <Text style={{ fontSize: 24 }}>{face}</Text>
+                  <View
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 26,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: active ? palette.coral + '22' : palette.ink + '0d',
+                      borderWidth: 1.5,
+                      borderColor: active ? palette.coral : palette.ink + '22',
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>{face}</Text>
+                  </View>
                 </Pressable>
               );
             })}
@@ -256,24 +263,35 @@ export default function SessionReview() {
       <RiseIn delay={300}>
         <Pressable
           onPress={goHome}
-          style={({ pressed }) => ({
-            backgroundColor: palette.ink,
-            borderRadius: 24,
-            paddingVertical: 22,
-            alignItems: 'center',
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
-          <Text
+          <View
             style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
-              fontSize: 20,
-              letterSpacing: 1,
+              backgroundColor: palette.coral,
+              borderRadius: 24,
+              paddingVertical: 22,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.32,
+              shadowRadius: 18,
+              elevation: 12,
             }}
           >
-            haritaya dön
-          </Text>
+            <Feather name="map" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.paper,
+                fontSize: 20,
+                letterSpacing: 1,
+              }}
+            >
+              haritaya dön
+            </Text>
+          </View>
         </Pressable>
       </RiseIn>
     </View>

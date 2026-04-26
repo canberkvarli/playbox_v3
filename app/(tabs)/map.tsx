@@ -45,7 +45,7 @@ const FALLBACK_REGION: Region = {
   longitudeDelta: 0.04,
 };
 
-const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyball', 'paddle', 'tennis'];
+const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyball', 'tennis'];
 
 type SportCounts = Record<Sport | 'all', number>;
 
@@ -274,7 +274,7 @@ function CommandBar() {
           minHeight: 52,
         }}
       >
-        <Feather name="search" size={18} color={theme.fg + '7f'} />
+        <Feather name="search" size={18} color={palette.ink} />
         <TextInput
           ref={inputRef}
           value={searchQuery}
@@ -283,7 +283,7 @@ function CommandBar() {
           onBlur={() => setSearchFocused(false)}
           onSubmitEditing={onSubmit}
           placeholder={t('map.search.placeholder')}
-          placeholderTextColor={theme.fg + '66'}
+          placeholderTextColor={palette.ink + 'aa'}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -381,11 +381,11 @@ function SearchSuggestions({
         {recentSearches.length > 0 ? (
           <View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text className="font-medium text-ink/55 dark:text-paper/55 uppercase tracking-wider text-[11px]">
+              <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold">
                 {t('map.suggest.recent')}
               </Text>
               <Pressable onPress={clearRecentSearches} hitSlop={6}>
-                <Text className="font-sans text-ink/45 dark:text-paper/45 text-[11px]">
+                <Text className="font-sans text-ink dark:text-paper font-semibold text-[11px]">
                   {t('map.suggest.clear')}
                 </Text>
               </Pressable>
@@ -415,7 +415,7 @@ function SearchSuggestions({
 
         {nearby.length > 0 ? (
           <View>
-            <Text className="font-medium text-ink/55 dark:text-paper/55 uppercase tracking-wider text-[11px] mb-2">
+            <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold mb-2">
               {t('map.suggest.nearby')}
             </Text>
             <View style={{ gap: 2 }}>
@@ -440,7 +440,7 @@ function SearchSuggestions({
                       {s.name}
                     </Text>
                     {km !== null ? (
-                      <Text className="font-mono text-ink/50 dark:text-paper/50 text-xs">
+                      <Text className="font-mono text-ink dark:text-paper font-bold text-xs">
                         {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
                       </Text>
                     ) : null}
@@ -529,11 +529,11 @@ function SportChip({
       <Text style={{ fontSize: 16, opacity: active ? 1 : 0.75 }}>{emoji}</Text>
       <Text
         style={{
-          fontFamily: active ? 'Inter_600SemiBold' : 'Inter_500Medium',
-          fontSize: 12,
-          color: active ? palette.ink : theme.fg + 'cc',
+          fontFamily: 'Unbounded_700Bold',
+          fontSize: 13,
+          color: palette.ink,
           textTransform: 'lowercase',
-          letterSpacing: 0.2,
+          letterSpacing: 0.3,
         }}
       >
         {label}
@@ -541,9 +541,9 @@ function SportChip({
       {!active && count > 0 ? (
         <Text
           style={{
-            fontFamily: 'JetBrainsMono_400Regular',
-            fontSize: 10,
-            color: theme.fg + '7f',
+            fontFamily: 'JetBrainsMono_500Medium',
+            fontSize: 11,
+            color: palette.ink,
           }}
         >
           · {count}
@@ -701,7 +701,7 @@ function StationListView({
                     <Text
                       className={
                         out
-                          ? 'font-sans text-ink/40 dark:text-paper/40 text-xs'
+                          ? 'font-sans text-ink dark:text-paper font-semibold text-xs'
                           : 'font-medium text-ink text-xs'
                       }
                     >
@@ -915,12 +915,12 @@ function HomeBottomSheet({
               gap: 10,
             }}
           >
-            <Feather name="search" size={18} color={theme.fg + '99'} />
+            <Feather name="search" size={18} color={palette.ink} />
             <BottomSheetTextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder={t('map.search.placeholder')}
-              placeholderTextColor={theme.fg + '55'}
+              placeholderTextColor={palette.ink + 'aa'}
               autoCapitalize="none"
               autoCorrect={false}
               style={{
@@ -1050,10 +1050,11 @@ function HomeBottomSheet({
               >
                 <Text
                   style={{
-                    color: active ? theme.fg : theme.fg + '88',
-                    fontWeight: active ? '700' : '500',
+                    color: palette.ink,
+                    fontFamily: active ? 'Unbounded_800ExtraBold' : 'Unbounded_700Bold',
                     fontSize: 14,
                     letterSpacing: 0.3,
+                    opacity: active ? 1 : 0.7,
                   }}
                 >
                   {t(`map.segment.${seg}`)}
@@ -1073,8 +1074,14 @@ function HomeBottomSheet({
               {t('map.section.nearby')}
             </Text>
             <Text
-              className="font-mono"
-              style={{ color: theme.fg + '88', fontSize: 11, letterSpacing: 0.4, marginTop: 4 }}
+              style={{
+                color: palette.ink,
+                fontSize: 12,
+                letterSpacing: 1,
+                marginTop: 4,
+                fontFamily: 'Unbounded_700Bold',
+                textTransform: 'uppercase',
+              }}
             >
               {sorted.length} {t('map.section.station_count')}
             </Text>
@@ -1091,7 +1098,7 @@ function HomeBottomSheet({
       >
         {segment === 'stations' ? (
           sorted.length === 0 ? (
-            <Text className="font-sans text-ink/55 dark:text-paper/55 text-sm text-center mt-8">
+            <Text className="font-sans text-ink dark:text-paper text-base text-center font-semibold mt-8">
               {t('map.empty.no_stations')}
             </Text>
           ) : (
@@ -1230,7 +1237,6 @@ export default function Map() {
       football: 0,
       basketball: 0,
       volleyball: 0,
-      paddle: 0,
       tennis: 0,
     };
     for (const s of allStations) {

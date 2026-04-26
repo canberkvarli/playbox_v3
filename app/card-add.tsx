@@ -101,19 +101,60 @@ export default function CardAdd() {
       <ScrollView
         contentContainerStyle={{
           paddingTop: insets.top + 16,
-          paddingBottom: insets.bottom + 32,
+          // Reserve space at the bottom for the fixed kaydet bar so the trust
+          // text never sits underneath it.
+          paddingBottom: insets.bottom + 120,
           paddingHorizontal: 24,
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingVertical: 6,
+                paddingHorizontal: 4,
+              }}
+            >
+              <Feather name="arrow-left" size={22} color={palette.ink} style={{ marginRight: 6 }} />
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.ink,
+                  fontSize: 14,
+                }}
+              >
+                {t('common.back')}
+              </Text>
+            </View>
+          </Pressable>
           <Pressable
             onPress={onClose}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           >
-            <Feather name="x" size={24} color={palette.ink} />
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: palette.ink + '12',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Feather name="x" size={20} color={palette.ink} />
+            </View>
           </Pressable>
         </View>
 
@@ -122,8 +163,8 @@ export default function CardAdd() {
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
-              fontSize: 32,
-              lineHeight: 36,
+              fontSize: 36,
+              lineHeight: 40,
               marginTop: 8,
             }}
           >
@@ -131,11 +172,11 @@ export default function CardAdd() {
           </Text>
           <Text
             style={{
-              fontFamily: 'Inter_400Regular',
-              color: palette.ink + 'B3',
-              fontSize: 15,
-              lineHeight: 21,
-              marginTop: 10,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              marginTop: 12,
             }}
           >
             {t('card.add.sub')}
@@ -143,24 +184,28 @@ export default function CardAdd() {
         </RiseIn>
 
         <RiseIn delay={100}>
-          <View style={{ marginTop: 28, gap: 14 }}>
-            <Field
-              label={t('card.add.number_label')}
-              value={formatCardNumber(number)}
-              onChangeText={(v) => setNumber(v)}
-              placeholder="4242 4242 4242 4242"
-              keyboardType="number-pad"
-              autoCorrect={false}
-            />
-            <Field
-              label={t('card.add.name_label')}
-              value={name}
-              onChangeText={setName}
-              placeholder={t('card.add.name_placeholder')}
-              autoCapitalize="characters"
-            />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
+          <View style={{ marginTop: 28 }}>
+            <View style={{ marginBottom: 14 }}>
+              <Field
+                label={t('card.add.number_label')}
+                value={formatCardNumber(number)}
+                onChangeText={(v) => setNumber(v)}
+                placeholder="4242 4242 4242 4242"
+                keyboardType="number-pad"
+                autoCorrect={false}
+              />
+            </View>
+            <View style={{ marginBottom: 14 }}>
+              <Field
+                label={t('card.add.name_label')}
+                value={name}
+                onChangeText={setName}
+                placeholder={t('card.add.name_placeholder')}
+                autoCapitalize="characters"
+              />
+            </View>
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
                 <Field
                   label={t('card.add.expiry_label')}
                   value={formatExpiry(expiry)}
@@ -188,55 +233,83 @@ export default function CardAdd() {
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              gap: 8,
-              marginTop: 20,
+              marginTop: 24,
+              backgroundColor: palette.ink + '08',
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
             }}
           >
-            <Feather name="lock" size={14} color={palette.ink + '99'} />
+            <Feather name="lock" size={16} color={palette.ink} style={{ marginRight: 10 }} />
             <Text
               style={{
                 flex: 1,
-                fontFamily: 'JetBrainsMono_400Regular',
-                color: palette.ink + '99',
-                fontSize: 11,
-                lineHeight: 16,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.ink,
+                fontSize: 13,
+                lineHeight: 18,
               }}
             >
               {t('card.add.trust')}
             </Text>
           </View>
         </RiseIn>
+      </ScrollView>
 
-        <RiseIn delay={240}>
-          <Pressable
-            onPress={onSubmit}
-            disabled={!valid || submitting}
-            accessibilityRole="button"
-            accessibilityLabel={t('card.add.cta')}
-            style={({ pressed }) => ({
-              backgroundColor: !valid ? palette.ink + '22' : palette.ink,
-              borderRadius: 20,
-              paddingVertical: 20,
+      {/* Fixed bottom kaydet bar — sits above the home indicator, separate
+          from the scrollable form so it can never overlap the trust text. */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          paddingHorizontal: 24,
+          paddingTop: 12,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: palette.paper,
+          borderTopWidth: 1,
+          borderTopColor: palette.ink + '14',
+        }}
+      >
+        <Pressable
+          onPress={onSubmit}
+          disabled={!valid || submitting}
+          accessibilityRole="button"
+          accessibilityLabel={t('card.add.cta')}
+          style={({ pressed }) => ({
+            opacity: !valid ? 0.55 : pressed ? 0.92 : 1,
+          })}
+        >
+          <View
+            style={{
+              backgroundColor: palette.coral,
+              borderRadius: 18,
+              paddingVertical: 16,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 10,
-              marginTop: 28,
-              transform: [{ scale: pressed && valid ? 0.98 : 1 }],
-            })}
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: valid ? 0.28 : 0.08,
+              shadowRadius: 14,
+              elevation: valid ? 8 : 2,
+            }}
           >
+            <Feather name="check" size={18} color={palette.paper} style={{ marginRight: 8 }} />
             <Text
               style={{
-                fontFamily: 'Unbounded_700Bold',
+                fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.paper,
-                fontSize: 18,
+                fontSize: 17,
+                letterSpacing: 0.4,
               }}
             >
               {submitting ? t('card.add.cta_loading') : t('card.add.cta')}
             </Text>
-          </Pressable>
-        </RiseIn>
-      </ScrollView>
+          </View>
+        </Pressable>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -248,27 +321,28 @@ function Field({ label, style, ...input }: FieldProps) {
     <View>
       <Text
         style={{
-          fontFamily: 'JetBrainsMono_400Regular',
-          color: palette.ink + '99',
-          fontSize: 11,
-          letterSpacing: 0.5,
-          marginBottom: 6,
+          fontFamily: 'Unbounded_700Bold',
+          color: palette.ink,
+          fontSize: 12,
+          letterSpacing: 0.8,
+          textTransform: 'uppercase',
+          marginBottom: 8,
         }}
       >
         {label.toLowerCase()}
       </Text>
       <TextInput
         {...input}
-        placeholderTextColor={palette.ink + '33'}
+        placeholderTextColor={palette.ink + '55'}
         style={[
           {
-            borderWidth: 1.5,
-            borderColor: palette.ink + '14',
+            borderWidth: 2,
+            borderColor: palette.ink + '22',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 14,
-            fontFamily: 'Inter_400Regular',
-            fontSize: 16,
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 17,
             color: palette.ink,
             backgroundColor: palette.paper,
           },

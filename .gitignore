@@ -43,3 +43,4 @@ android/
 # Supabase CLI local cache
 supabase/.temp/
 supabase/.branches/
+.firecrawl/

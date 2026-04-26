@@ -17,10 +17,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useRouter } from 'expo-router';
+
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
 import { SPORT_LABELS, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
@@ -28,6 +30,7 @@ import {
   useReservationStore,
   RESERVATION_LOCK_MIN,
 } from '@/stores/reservationStore';
+import { useSessionStore } from '@/stores/sessionStore';
 
 const DURATION_MIN = 10;
 const DURATION_MAX = 180;
@@ -171,7 +174,6 @@ function GateCard({
   disabled: boolean;
   onPress: () => void;
 }) {
-  const theme = useTheme();
   const press = useSharedValue(0);
   const sel = useSharedValue(selected ? 1 : 0);
 
@@ -181,9 +183,9 @@ function GateCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + sel.value * 0.05 - press.value * 0.04 }],
-    borderColor: selected ? palette.coral : theme.fg + '14',
+    borderColor: selected ? palette.coral : palette.ink + '14',
     borderWidth: 1.5,
-    backgroundColor: selected ? palette.butter : theme.bg,
+    backgroundColor: selected ? palette.butter : palette.paper,
   }));
 
   const ringStyle = useAnimatedStyle(() => ({
@@ -232,10 +234,10 @@ function GateCard({
           <Feather name="check" size={11} color={palette.paper} />
         </Animated.View>
         <Text
-          className="font-mono"
           style={{
+            fontFamily: 'JetBrainsMono_400Regular',
             fontSize: 11,
-            color: palette.ink + 'aa',
+            color: palette.ink,
             letterSpacing: 0.6,
             marginBottom: 6,
           }}
@@ -244,13 +246,16 @@ function GateCard({
         </Text>
         <Text style={{ fontSize: 40 }}>{SPORT_EMOJI[sport]}</Text>
         <Text
-          className="font-display"
+          numberOfLines={1}
           style={{
+            fontFamily: 'Unbounded_700Bold',
             fontSize: 14,
             color: palette.ink,
             marginTop: 6,
             textTransform: 'lowercase',
             letterSpacing: 0.2,
+            width: '100%',
+            textAlign: 'center',
           }}
         >
           {SPORT_LABELS[sport]}
@@ -273,7 +278,7 @@ export function StationGateSelector({
   unlocking,
 }: StationGateSelectorProps) {
   const { t } = useT();
-  const theme = useTheme();
+  const router = useRouter();
   const { inRange } = useStationInRange(station.id);
 
   const reserve = useReservationStore((s) => s.reserve);
@@ -282,6 +287,13 @@ export function StationGateSelector({
       (r) => r.status === 'active' && r.expiresAt > Date.now()
     ) ?? null
   );
+
+  // One active session per account. If the user already has a session open,
+  // we either send them to /play (same station) or hard-block them (different
+  // station) — no silent "overwrite" of the current session.
+  const activeSession = useSessionStore((s) => s.active);
+  const sessionAtThisStation = !!activeSession && activeSession.stationId === station.id;
+  const sessionAtOtherStation = !!activeSession && activeSession.stationId !== station.id;
 
   const [selected, setSelected] = useState<Sport | null>(null);
   const [duration, setDuration] = useState(DURATION_DEFAULT);
@@ -299,12 +311,27 @@ export function StationGateSelector({
   const blockedByOtherReservation =
     !!activeReservation && activeReservation.stationId !== station.id;
 
-  const ctaEnabled = !!selected && stockOk && !unlocking && !reserving && !blockedByOtherReservation;
+  // "Continue" short-circuits all start-flow checks: the button becomes a
+  // one-tap jump to /play and stays visually active.
+  const canContinueSession = sessionAtThisStation;
+  const canStartFresh =
+    !!selected &&
+    stockOk &&
+    !unlocking &&
+    !reserving &&
+    !blockedByOtherReservation &&
+    !sessionAtOtherStation &&
+    !sessionAtThisStation;
+  const ctaEnabled = canContinueSession || canStartFresh;
 
   const ctaLabel = unlocking
     ? t('station.unlocking')
     : reserving
     ? t('station.reserving')
+    : sessionAtThisStation
+    ? t('station.cta_continue_session')
+    : sessionAtOtherStation
+    ? t('station.cta_session_elsewhere')
     : !selected
     ? t('station.cta_pick_gate')
     : blockedByOtherReservation
@@ -321,6 +348,13 @@ export function StationGateSelector({
   };
 
   const onPress = async () => {
+    // Session-active override: if a session is open here, the CTA should just
+    // take them to the Play tab. Different station → hard stop (no CTA tap).
+    if (sessionAtThisStation) {
+      await hx.tap();
+      router.replace('/(tabs)/play');
+      return;
+    }
     if (!ctaEnabled || !selected) return;
     if (reserveMode) {
       setReserving(true);
@@ -355,7 +389,16 @@ export function StationGateSelector({
   return (
     <View>
       {/* Gates */}
-      <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
+      <Text
+        style={{
+          color: palette.ink,
+          fontSize: 11,
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+          fontWeight: '600',
+          marginBottom: 12,
+        }}
+      >
         {t('station.gates_label')}
       </Text>
       <View
@@ -382,39 +425,88 @@ export function StationGateSelector({
         pointerEvents={selected ? 'auto' : 'none'}
       >
         <Text
-          className="font-display"
           style={{
             fontSize: 15,
-            color: theme.fg,
+            color: palette.ink,
             letterSpacing: 0.2,
             textAlign: 'center',
+            fontWeight: '600',
           }}
         >
           {t('station.duration_question')}
         </Text>
 
         {/* Big number showing the current value */}
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 16, gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 16 }}>
           <Text
-            className="font-display-x"
             style={{
+              fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 64,
               lineHeight: 68,
-              color: theme.fg,
+              color: palette.ink,
               includeFontPadding: false,
+              marginRight: 6,
             }}
           >
             {durationDisplay.big}
           </Text>
           <Text
-            className="font-mono"
             style={{
               fontSize: 16,
-              color: theme.fg + 'aa',
+              color: palette.ink,
               letterSpacing: 0.4,
+              fontWeight: '500',
             }}
           >
             {durationDisplay.unit}
+          </Text>
+        </View>
+
+        {/* Cost preview chip — total estimated charge for the chosen
+            duration, KDV included. Live updates as the slider moves. */}
+        <View
+          style={{
+            marginTop: 10,
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: palette.ink,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+            borderRadius: 999,
+          }}
+        >
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.butter,
+              fontSize: 11,
+              letterSpacing: 0.6,
+              marginRight: 8,
+              textTransform: 'uppercase',
+            }}
+          >
+            tahmini
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.paper,
+              fontSize: 16,
+              letterSpacing: 0.3,
+              marginRight: 8,
+            }}
+          >
+            {formatTry(costForMinutes(duration))}
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.paper + 'aa',
+              fontSize: 10,
+              letterSpacing: 0.5,
+            }}
+          >
+            {formatTry(RATE_PER_MIN_GROSS)}/dk
           </Text>
         </View>
 
@@ -423,88 +515,97 @@ export function StationGateSelector({
           <DurationSlider
             value={duration}
             onChange={(v) => {
-              if (v !== duration) {
-                hx.tap();
-                setDuration(v);
-              }
+              if (v === duration) return;
+              if (v % 15 === 0) hx.tap();
+              setDuration(v);
             }}
             accent={palette.coral}
-            trackColor={theme.fg + '1f'}
-            thumbLabelColor={theme.bg}
+            trackColor={palette.ink + '1f'}
+            thumbLabelColor={palette.paper}
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 6 }}>
-            <Text className="font-mono" style={{ fontSize: 11, color: theme.fg + '88' }}>
+            <Text style={{ fontSize: 11, color: palette.ink, fontWeight: '500' }}>
               {DURATION_MIN} dk
             </Text>
-            <Text className="font-mono" style={{ fontSize: 11, color: theme.fg + '88' }}>
+            <Text style={{ fontSize: 11, color: palette.ink, fontWeight: '500' }}>
               3 sa
             </Text>
-          </View>
-          {/* Quick preset chips — lets users snap to common durations without dragging */}
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            {[30, 60, 90, 120, 180].map((m) => {
-              const active = duration === m;
-              return (
-                <Pressable
-                  key={m}
-                  onPress={async () => {
-                    await hx.tap();
-                    setDuration(m);
-                  }}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 7,
-                    borderRadius: 999,
-                    backgroundColor: active ? palette.ink : theme.fg + '0d',
-                    borderWidth: 1,
-                    borderColor: active ? palette.ink : theme.fg + '14',
-                  }}
-                >
-                  <Text
-                    className="font-mono"
-                    style={{
-                      fontSize: 11,
-                      color: active ? palette.paper : theme.fg + 'aa',
-                      letterSpacing: 0.3,
-                      fontWeight: '600',
-                    }}
-                  >
-                    {m < 60 ? `${m} dk` : m % 60 === 0 ? `${m / 60} sa` : `${Math.floor(m / 60)}s ${m % 60}d`}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
         </View>
 
         <Text
-          className="font-mono"
           style={{
             fontSize: 11,
-            color: theme.fg + '77',
+            color: palette.ink,
             letterSpacing: 0.4,
             marginTop: 8,
             textAlign: 'center',
+            fontWeight: '500',
           }}
         >
           {t('station.duration_hint')}
         </Text>
       </View>
 
-      {/* Status hint banner — explains why CTA is what it is */}
-      {selected && !inRange && !blockedByOtherReservation ? (
+      {/* Active-session banner — highest priority, shown regardless of
+          selection so the user understands why they can't start a new flow. */}
+      {sessionAtThisStation ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
-          className="flex-row items-center gap-2 mt-6"
           style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 24,
+            backgroundColor: palette.coral + '22',
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+          }}
+        >
+          <Feather name="play-circle" size={14} color={palette.coral} style={{ marginRight: 8 }} />
+          <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
+            {t('station.blocked_session_here')}
+          </Text>
+        </Animated.View>
+      ) : null}
+      {sessionAtOtherStation ? (
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 24,
+            backgroundColor: palette.coral + '22',
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+          }}
+        >
+          <Feather name="alert-circle" size={14} color={palette.coral} style={{ marginRight: 8 }} />
+          <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
+            {t('station.blocked_session_elsewhere', {
+              name: activeSession?.stationName ?? '',
+            })}
+          </Text>
+        </Animated.View>
+      ) : null}
+
+      {/* Status hint banner — explains why CTA is what it is */}
+      {selected && !inRange && !blockedByOtherReservation && !activeSession ? (
+        <Animated.View
+          entering={FadeInDown.duration(220)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 24,
             backgroundColor: palette.butter,
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
           }}
         >
-          <Feather name="bluetooth" size={14} color={palette.ink} />
-          <Text className="font-mono text-ink text-xs flex-1">
+          <Feather name="bluetooth" size={14} color={palette.ink} style={{ marginRight: 8 }} />
+          <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
             {reserveMode ? t('station.range_hint_reserve') : t('station.range_hint')}
           </Text>
         </Animated.View>
@@ -513,16 +614,18 @@ export function StationGateSelector({
       {blockedByOtherReservation ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
-          className="flex-row items-center gap-2 mt-6"
           style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginTop: 24,
             backgroundColor: palette.coral + '22',
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 10,
           }}
         >
-          <Feather name="alert-circle" size={14} color={palette.coral} />
-          <Text className="font-mono text-ink text-xs flex-1">
+          <Feather name="alert-circle" size={14} color={palette.coral} style={{ marginRight: 8 }} />
+          <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
             {t('station.blocked_by_reservation', {
               name: activeReservation?.stationName ?? '',
             })}
@@ -530,54 +633,96 @@ export function StationGateSelector({
         </Animated.View>
       ) : null}
 
-      {/* CTA — OYNA or REZERVE ET depending on range/state. Animates in with the duration row. */}
-      <View
-        style={{ alignItems: 'center', marginTop: 32, opacity: selected ? 1 : 0.35 }}
-        pointerEvents={selected ? 'auto' : 'none'}
+      <CTAButton
+        label={ctaLabel}
+        bg={reserveMode ? palette.ink : palette.coral}
+        enabled={ctaEnabled}
+        hardBlocked={sessionAtOtherStation}
+        onPress={onPress}
+      />
+    </View>
+  );
+}
+
+/**
+ * Animated CTA button. Springs in scale and shadow when it becomes actionable
+ * (e.g. user picks a gate and "bir kapı seç" turns into "oyna"). The bg colour
+ * lives on an inner View — Pressable function-style props were dropping the
+ * backgroundColor on this RN build, leaving the button as white-on-white.
+ */
+function CTAButton({
+  label,
+  bg,
+  enabled,
+  hardBlocked,
+  onPress,
+}: {
+  label: string;
+  bg: string;
+  enabled: boolean;
+  hardBlocked: boolean;
+  onPress: () => void;
+}) {
+  const activate = useSharedValue(enabled ? 1 : 0);
+  const press = useSharedValue(0);
+
+  useEffect(() => {
+    activate.value = withSpring(enabled ? 1 : 0, { damping: 14, stiffness: 180 });
+  }, [enabled, activate]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + activate.value * 0.02 - press.value * 0.04 }],
+    opacity: hardBlocked ? 0.5 : 0.7 + activate.value * 0.3,
+  }));
+
+  return (
+    <View
+      style={{ marginTop: 32 }}
+      pointerEvents={hardBlocked ? 'none' : 'auto'}
+    >
+      <Pressable
+        onPress={onPress}
+        disabled={!enabled}
+        onPressIn={() => (press.value = withTiming(1, { duration: 80 }))}
+        onPressOut={() => (press.value = withTiming(0, { duration: 120, easing: Easing.out(Easing.cubic) }))}
       >
-        <Pressable
-          onPress={onPress}
-          disabled={!ctaEnabled}
-          style={({ pressed }) => ({
-            width: '100%',
-            backgroundColor: ctaEnabled
-              ? reserveMode
-                ? palette.ink
-                : palette.coral
-              : palette.mauve + '33',
-            borderRadius: 28,
-            paddingVertical: 24,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderWidth: ctaEnabled ? 0 : 2,
-            borderColor: ctaEnabled ? 'transparent' : theme.fg + '33',
-            shadowColor: ctaEnabled
-              ? reserveMode
-                ? palette.ink
-                : palette.coral
-              : 'transparent',
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: ctaEnabled ? 0.35 : 0,
-            shadowRadius: 20,
-            elevation: ctaEnabled ? 12 : 0,
-            transform: [{ scale: pressed && ctaEnabled ? 0.97 : 1 }],
-          })}
+        <Animated.View
+          style={[
+            {
+              width: '100%',
+              backgroundColor: bg,
+              borderRadius: 28,
+              paddingVertical: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: bg,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: enabled ? 0.35 : 0.15,
+              shadowRadius: 20,
+              elevation: enabled ? 12 : 4,
+            },
+            animatedStyle,
+          ]}
         >
-          <Text
-            className="font-display-x"
+          <Animated.Text
+            // Re-mount on label change so FadeIn re-runs and the label
+            // crossfades when state flips (e.g. "bir kapı seç" → "oyna").
+            key={label}
+            entering={FadeInDown.duration(180)}
             style={{
-              color: ctaEnabled ? palette.paper : theme.fg + 'cc',
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.paper,
               letterSpacing: 2,
-              fontSize: 28,
-              lineHeight: 32,
+              fontSize: 26,
+              lineHeight: 30,
               textAlign: 'center',
               includeFontPadding: false,
             }}
           >
-            {ctaLabel}
-          </Text>
-        </Pressable>
-      </View>
+            {label}
+          </Animated.Text>
+        </Animated.View>
+      </Pressable>
     </View>
   );
 }

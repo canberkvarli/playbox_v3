@@ -1,8 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
 import { useTheme } from '@/hooks/useTheme';
@@ -24,7 +31,7 @@ import { RiseIn } from '@/components/RiseIn';
 
 const PREAUTH_HOLD_TRY = 150;
 
-type StepKey = 'pick' | 'scan' | 'play' | 'return';
+type StepKey = 'grab' | 'play' | 'ping' | 'return';
 
 type StepConfig = {
   key: StepKey;
@@ -32,11 +39,16 @@ type StepConfig = {
   bg: string;
 };
 
+// Slides focus on the rules of the rental, not the unlock flow:
+// 1. grab — take the gear
+// 2. play — timer's running
+// 3. ping — we'll remind you before time runs out
+// 4. return — bring it back on time, intact, or pay extra
 const STEPS: StepConfig[] = [
-  { key: 'pick', icon: 'grid', bg: palette.mauve },
-  { key: 'scan', icon: 'unlock', bg: palette.coral },
-  { key: 'play', icon: 'play-circle', bg: palette.butter },
-  { key: 'return', icon: 'check-circle', bg: palette.ink },
+  { key: 'grab', icon: 'package', bg: palette.mauve },
+  { key: 'play', icon: 'zap', bg: palette.coral },
+  { key: 'ping', icon: 'bell', bg: palette.butter },
+  { key: 'return', icon: 'rotate-ccw', bg: palette.ink },
 ];
 
 export default function SessionPrep() {
@@ -45,10 +57,12 @@ export default function SessionPrep() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { stationId, sport } = useLocalSearchParams<{
+  const { stationId, sport, mode } = useLocalSearchParams<{
     stationId: string;
     sport: Sport;
+    mode?: 'start' | 'howto';
   }>();
+  const isHowto = mode === 'howto';
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
   const startSession = useSessionStore((s) => s.startSession);
@@ -56,7 +70,7 @@ export default function SessionPrep() {
   const cardStatus = usePaymentStore((s) => s.cardStatus);
   const freeFirstUsed = usePaymentStore((s) => s.freeFirstUsed);
   const setHold = usePaymentStore((s) => s.setHold);
-  const { preauthorize } = useIyzico();
+  const { preauthorize, releaseHold } = useIyzico();
 
   const mustAddCardFirst = cardStatus === 'none' && freeFirstUsed;
 
@@ -67,6 +81,15 @@ export default function SessionPrep() {
 
   const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
+  // Last-slide agreement gate (start mode only). User has to tick every rule
+  // individually before "oyna" enables — captures granular, auditable consent.
+  const [agreedRules, setAgreedRules] = useState<boolean[]>([
+    false,
+    false,
+    false,
+    false,
+  ]);
+  const agreed = agreedRules.every(Boolean);
 
   if (!station) {
     return (
@@ -111,10 +134,25 @@ export default function SessionPrep() {
 
   const onContinue = async () => {
     if (unlocking) return;
-    if (isLast) return onOyna();
+    if (isLast) {
+      // Howto mode: this isn't a start-session flow, just an info read.
+      // Tapping the last CTA dismisses the slides back to /play.
+      if (isHowto) {
+        await hx.tap();
+        router.back();
+        return;
+      }
+      // Start mode: agreement gate. The Oyna CTA is disabled until checked,
+      // but guard here too in case state ever drifts.
+      if (!agreed) return;
+      return onOyna();
+    }
     await hx.tap();
     setStep(step + 1);
   };
+
+  // Disable advance on the last slide of start-mode until user agrees
+  const ctaDisabled = unlocking || (isLast && !isHowto && !agreed);
 
   const onOyna = async () => {
     setUnlocking(true);
@@ -140,57 +178,119 @@ export default function SessionPrep() {
       setHold(holdId);
     }
 
+    // Pre-flight the session guard BEFORE the theatrics (haptics, timers).
+    // If the user already has an active session we refuse, release any hold we
+    // just placed, and point them at /play.
+    const preflight = useSessionStore.getState().canStart(station.id);
+    if (!preflight.ok) {
+      await hx.no();
+      if (holdId) {
+        // Best-effort release — don't block the user on a network error.
+        releaseHold(holdId).catch(() => {});
+        setHold(null);
+      }
+      Alert.alert(
+        t('common.error_generic'),
+        preflight.reason === 'same_station_active'
+          ? t('station.blocked_session_here')
+          : t('station.blocked_session_elsewhere', {
+              name: preflight.active.stationName,
+            }),
+        [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/play') }]
+      );
+      return;
+    }
+
     await new Promise((r) => setTimeout(r, 150));
     await hx.tap();
     await new Promise((r) => setTimeout(r, 150));
     await hx.punch();
     await new Promise((r) => setTimeout(r, 250));
     await hx.yes();
-    startSession({
+    const result = startSession({
       stationId: station.id,
       stationName: station.name,
       sport,
       durationMinutes: 30,
       holdId,
     });
+    // Shouldn't fail after the pre-flight, but guard against a race where a
+    // session was started in another surface between preflight and this call.
+    if (!result.ok) {
+      if (holdId) {
+        releaseHold(holdId).catch(() => {});
+        setHold(null);
+      }
+      router.replace('/(tabs)/play');
+      return;
+    }
     router.replace('/(tabs)/play');
   };
 
   return (
     <View
-      className="flex-1 bg-paper dark:bg-ink px-6"
-      style={{ paddingTop: insets.top + 24, paddingBottom: insets.bottom + 16 }}
+      style={{
+        flex: 1,
+        backgroundColor: palette.paper,
+        paddingHorizontal: 24,
+        paddingTop: insets.top + 24,
+        paddingBottom: insets.bottom + 16,
+      }}
     >
       {/* Top row: back + progress */}
-      <View className="flex-row items-center justify-between">
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           onPress={onBack}
           hitSlop={12}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather
-            name={step === 0 ? 'x' : 'arrow-left'}
-            size={24}
-            color={theme.fg}
-          />
+          <View
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Feather
+              name={step === 0 ? 'x' : 'arrow-left'}
+              size={20}
+              color={palette.ink}
+            />
+          </View>
         </Pressable>
         <OnboardingProgress total={STEPS.length} active={step} />
       </View>
 
       {/* Station context pill */}
-      <View className="items-start mt-6">
+      <View style={{ alignItems: 'flex-start', marginTop: 24 }}>
         <View
           style={{
             backgroundColor: palette.ink,
-            paddingHorizontal: 12,
-            paddingVertical: 6,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
             borderRadius: 999,
           }}
         >
           <Text
-            className="font-mono text-paper"
-            style={{ fontSize: 12, letterSpacing: 0.5 }}
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.paper,
+              fontSize: 12,
+              letterSpacing: 0.5,
+            }}
           >
             K{n} · {sportLabel} · {station.name}
           </Text>
@@ -200,30 +300,97 @@ export default function SessionPrep() {
       {/* Step content — key={step} re-triggers RiseIn on each advance */}
       <View key={step} style={{ flex: 1 }}>
         <RiseIn delay={0}>
-          <Text className="font-mono text-ink/45 dark:text-paper/45 text-xs tracking-widest mt-8">
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 13,
+              letterSpacing: 2,
+              marginTop: 32,
+              textTransform: 'uppercase',
+            }}
+          >
             {step + 1} / {STEPS.length}
           </Text>
           <Text
-            className="font-display-x text-ink dark:text-paper text-5xl mt-2"
-            style={{ lineHeight: 52 }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 48,
+              lineHeight: 52,
+              marginTop: 8,
+            }}
           >
             {t(`tour.steps.${current.key}.title`)}
           </Text>
         </RiseIn>
 
-        <RiseIn delay={80}>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base leading-6 mt-4">
-            {t(`tour.steps.${current.key}.desc`)}
-          </Text>
-        </RiseIn>
+        {/* Hide description on the agreement slide so the rules can breathe;
+            the bullets themselves are the message. */}
+        {isLast && !isHowto ? null : (
+          <RiseIn delay={80}>
+            <Text
+              style={{
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.ink,
+                fontSize: 17,
+                lineHeight: 24,
+                marginTop: 16,
+              }}
+            >
+              {t(`tour.steps.${current.key}.desc`)}
+            </Text>
+          </RiseIn>
+        )}
 
+        {/* Last slide in start mode → animated checkbox rows. Each row
+            staggers in on load and springs on tap. Once checked it locks
+            (greys out + can't untoggle) so consent can't be revoked mid-flow. */}
+        {isLast && !isHowto ? (
+          <View style={{ flex: 1, marginTop: 24, marginBottom: 16 }}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: 6 }}
+            >
+              {[
+                'ekipmanı süre dolmadan iade edeceğim',
+                'aldığım parçanın aynısını geri vereceğim',
+                'kapıda hasar varsa hemen destek arayacağım',
+                'gecikme veya eksik parça için ek ücret kesilir',
+              ].map((line, idx) => (
+                <AgreementRow
+                  key={line}
+                  label={line}
+                  checked={agreedRules[idx]}
+                  riseDelay={140 + idx * 90}
+                  onToggle={async () => {
+                    if (agreedRules[idx]) return; // locked once checked
+                    await hx.tap();
+                    setAgreedRules((prev) => {
+                      const next = [...prev];
+                      next[idx] = true;
+                      return next;
+                    });
+                  }}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : (
         <RiseIn
           delay={160}
           style={{ flex: 1, marginTop: 32, marginBottom: 16 }}
         >
           <View
-            className="flex-1 rounded-3xl items-center justify-center border border-ink/10 dark:border-paper/10"
-            style={{ backgroundColor: current.bg + (current.bg === palette.ink ? '' : '40') }}
+            style={{
+              flex: 1,
+              borderRadius: 24,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              backgroundColor: current.bg + (current.bg === palette.ink ? '' : '40'),
+            }}
           >
             <View
               style={{
@@ -243,18 +410,29 @@ export default function SessionPrep() {
             </View>
           </View>
         </RiseIn>
+        )}
       </View>
 
-      {/* Pinned CTA */}
-      <RiseIn delay={240}>
-        <Pressable
-          onPress={onContinue}
-          disabled={unlocking}
-          accessibilityRole="button"
-          accessibilityLabel={isLast ? t('prep.cta') : t('onb.intro_map.cta')}
-          style={({ pressed }) => ({
+      {/* Pinned CTA — bg/shadow on the inner View so the Pressable
+          function-style bug can never drop the colour and leave it white.
+          Disabled state on the last slide of start mode until user agrees. */}
+      <Pressable
+        onPress={onContinue}
+        disabled={ctaDisabled}
+        accessibilityRole="button"
+        accessibilityLabel={isLast ? t('prep.cta') : t('onb.intro_map.cta')}
+        style={({ pressed }) => ({
+          opacity: ctaDisabled ? 0.45 : pressed ? 0.92 : 1,
+        })}
+      >
+        <View
+          style={{
             backgroundColor: unlocking
               ? palette.butter
+              : isLast && !isHowto && !agreed
+              ? palette.ink + '33' // gated grey until all rules are checked
+              : isLast && isHowto
+              ? palette.ink
               : isLast
               ? palette.coral
               : palette.ink,
@@ -263,29 +441,149 @@ export default function SessionPrep() {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 10,
-            transform: [{ scale: pressed && !unlocking ? 0.98 : 1 }],
-          })}
+            shadowColor: isLast && !isHowto ? palette.coral : palette.ink,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.28,
+            shadowRadius: 16,
+            elevation: 10,
+          }}
         >
           <Feather
-            name={unlocking ? 'unlock' : isLast ? 'play' : 'arrow-right'}
-            size={20}
+            name={
+              unlocking
+                ? 'unlock'
+                : isLast && isHowto
+                ? 'check'
+                : isLast
+                ? 'play'
+                : 'arrow-right'
+            }
+            size={22}
             color={unlocking ? palette.ink : palette.paper}
+            style={{ marginRight: 10 }}
           />
           <Text
-            className="font-semibold text-lg"
-            style={{ color: unlocking ? palette.ink : palette.paper }}
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 19,
+              letterSpacing: 0.5,
+              color: unlocking ? palette.ink : palette.paper,
+            }}
           >
             {unlocking
               ? t('prep.opening')
+              : isLast && isHowto
+              ? 'anladım'
               : isLast
               ? t('prep.cta')
               : t('onb.intro_map.cta')}
           </Text>
-        </Pressable>
-      </RiseIn>
+        </View>
+      </Pressable>
 
       {mustAddCardFirst ? <CardRequiredSheet holdAmountTry={PREAUTH_HOLD_TRY} /> : null}
     </View>
+  );
+}
+
+/**
+ * One row of the agreement gate. Animated entry on mount (slide+fade in),
+ * spring scale + check fade on toggle, and locks itself once checked so
+ * consent is one-way only.
+ */
+function AgreementRow({
+  label,
+  checked,
+  riseDelay,
+  onToggle,
+}: {
+  label: string;
+  checked: boolean;
+  riseDelay: number;
+  onToggle: () => void;
+}) {
+  // Entry: 0 → 1 over ~360ms with a stagger delay so rows ladder in.
+  const enter = useSharedValue(0);
+  // Check-mark fade-in: 0 unchecked → 1 checked.
+  const checkV = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    enter.value = withDelay(riseDelay, withTiming(1, { duration: 380 }));
+  }, [enter, riseDelay]);
+
+  useEffect(() => {
+    checkV.value = withSpring(checked ? 1 : 0, { damping: 14, stiffness: 220 });
+  }, [checked, checkV]);
+
+  const rowStyle = useAnimatedStyle(() => ({
+    opacity: enter.value,
+    transform: [{ translateY: (1 - enter.value) * 16 }],
+  }));
+
+  const boxStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 0.85 + checkV.value * 0.15 }],
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkV.value,
+    transform: [{ scale: checkV.value }],
+  }));
+
+  const handlePress = () => {
+    if (checked) return;
+    onToggle();
+  };
+
+  return (
+    <Animated.View style={[{ marginBottom: 18 }, rowStyle]}>
+      <Pressable
+        onPress={handlePress}
+        disabled={checked}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked, disabled: checked }}
+        // No opacity feedback when locked — the locked state has its own visuals.
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            opacity: checked ? 0.55 : 1,
+          }}
+        >
+          <Animated.View
+            style={[
+              {
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                backgroundColor: checked ? palette.ink + '33' : palette.paper,
+                borderWidth: 3,
+                borderColor: checked ? palette.ink + '55' : palette.ink,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 16,
+              },
+              boxStyle,
+            ]}
+          >
+            <Animated.View style={checkStyle}>
+              <Feather name="check" size={26} color={palette.ink} />
+            </Animated.View>
+          </Animated.View>
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              letterSpacing: 0.2,
+            }}
+          >
+            {label}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }

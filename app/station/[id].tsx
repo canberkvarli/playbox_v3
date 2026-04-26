@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
-import { useTheme } from '@/hooks/useTheme';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
@@ -17,7 +16,6 @@ export default function StationDetail() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
@@ -33,20 +31,41 @@ export default function StationDetail() {
   if (!station) {
     return (
       <View
-        className="flex-1 bg-paper dark:bg-ink items-center justify-center px-6"
-        style={{ paddingTop: insets.top }}
+        style={{
+          flex: 1,
+          backgroundColor: palette.paper,
+          alignItems: 'center',
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingTop: insets.top,
+        }}
       >
         <Pressable
           onPress={() => router.back()}
           hitSlop={12}
           style={{ position: 'absolute', top: insets.top + 16, left: 16 }}
         >
-          <Feather name="x" size={24} color={theme.fg} />
+          <Feather name="x" size={24} color={palette.ink} />
         </Pressable>
-        <Text className="font-display-x text-ink dark:text-paper text-3xl text-center">
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 28,
+            lineHeight: 32,
+            textAlign: 'center',
+          }}
+        >
           {t('station.not_found')}
         </Text>
-        <Text className="font-sans text-ink/60 dark:text-paper/60 text-center mt-3">
+        <Text
+          style={{
+            color: palette.ink + '99',
+            textAlign: 'center',
+            marginTop: 12,
+            fontSize: 15,
+          }}
+        >
           {t('station.not_found_sub')}
         </Text>
       </View>
@@ -78,7 +97,7 @@ export default function StationDetail() {
   };
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
+    <View style={{ flex: 1, backgroundColor: palette.paper }}>
       {/* Top chrome — back arrow only (info icon removed; directions inline below) */}
       <View
         style={{
@@ -97,14 +116,14 @@ export default function StationDetail() {
             width: 44,
             height: 44,
             borderRadius: 22,
-            backgroundColor: theme.bg,
+            backgroundColor: palette.paper,
             alignItems: 'center',
             justifyContent: 'center',
             borderWidth: 1.5,
-            borderColor: theme.fg + '1a',
+            borderColor: palette.ink + '1a',
           }}
         >
-          <Feather name="arrow-left" size={22} color={theme.fg} />
+          <Feather name="arrow-left" size={22} color={palette.ink} />
         </Pressable>
       </View>
 
@@ -118,8 +137,13 @@ export default function StationDetail() {
       >
         {/* Title block — name + status dot + hours + directions link */}
         <Text
-          className="font-display-x text-ink dark:text-paper"
-          style={{ fontSize: 44, lineHeight: 46, letterSpacing: 0.2 }}
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 40,
+            lineHeight: 44,
+            letterSpacing: 0.2,
+          }}
         >
           {station.name}
         </Text>
@@ -131,16 +155,24 @@ export default function StationDetail() {
             marginTop: 14,
           }}
         >
-          <View className="flex-row items-center gap-2">
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View
               style={{
                 width: 10,
                 height: 10,
                 borderRadius: 5,
+                marginRight: 8,
                 backgroundColor: station.availableNow ? '#3aaf6a' : palette.coral,
               }}
             />
-            <Text className="font-mono text-ink/70 dark:text-paper/70 text-sm">
+            <Text
+              style={{
+                color: palette.ink,
+                fontSize: 13,
+                fontFamily: 'Unbounded_700Bold',
+                letterSpacing: 0.5,
+              }}
+            >
               {t(
                 station.availableNow
                   ? 'station.status.open'
@@ -156,20 +188,20 @@ export default function StationDetail() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: theme.fg + '0d',
+              backgroundColor: palette.ink + '0d',
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 999,
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Feather name="navigation" size={14} color={theme.fg} />
+            <Feather name="navigation" size={14} color={palette.ink} />
             <Text
               style={{
-                fontSize: 12,
-                color: theme.fg,
-                fontWeight: '600',
-                letterSpacing: 0.2,
+                fontSize: 13,
+                color: palette.ink,
+                fontFamily: 'Unbounded_700Bold',
+                letterSpacing: 0.3,
               }}
             >
               {t('station.directions')}
@@ -177,7 +209,7 @@ export default function StationDetail() {
           </Pressable>
         </View>
 
-        <View className="mt-10">
+        <View style={{ marginTop: 36 }}>
           <StationGateSelector
             station={station}
             onUnlock={onUnlock}

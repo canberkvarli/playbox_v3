@@ -18,7 +18,7 @@
     },
     "intro_map": {
       "title": "stations\nnear you",
-      "sub": "ball, racket, paddle — all within walking distance.",
+      "sub": "ball, racket, net — all within walking distance.",
       "cta": "continue"
     },
     "intro_social": {
@@ -88,27 +88,39 @@
     "error_generic": "something went wrong",
     "help": "help"
   },
+  "payments": {
+    "title": "payments",
+    "cards_label": "my cards",
+    "add": "add a card",
+    "add_sub": "for auto-charging when a session ends",
+    "remove": "remove card",
+    "remove_title": "remove card?",
+    "remove_msg": "this card will be removed. you'll need to add a new one before starting a session.",
+    "remove_cta": "remove",
+    "history_label": "history",
+    "history_empty": "no payments yet.\nyour first session will show up here."
+  },
   "tour": {
     "eyebrow": "getting started",
     "title": "how does it work?",
     "sub": "play and return in four steps — see it once, know it always.",
     "cta": "got it",
     "steps": {
-      "pick": {
-        "title": "pick your sport",
-        "desc": "pick your sport and how long you want to play. football, basketball, volleyball, paddle, tennis."
-      },
-      "scan": {
-        "title": "open the gate",
-        "desc": "get to the station, tap play. the gate opens once — no need to rescan a qr."
+      "grab": {
+        "title": "grab it",
+        "desc": "gate's open. take the gear and head to the court."
       },
       "play": {
         "title": "play",
-        "desc": "your timer starts. grab the gear, sweat it out, have fun. every minute counts automatically."
+        "desc": "your timer's running. every minute counts."
+      },
+      "ping": {
+        "title": "we'll ping you",
+        "desc": "your phone buzzes before time's up. keep an eye on the clock."
       },
       "return": {
-        "title": "close gate & finish",
-        "desc": "put the gear back and close the gate. tap 'end session' in the app and confirm the gate is closed. contact support if anything goes wrong."
+        "title": "return on time",
+        "desc": "drop the gear back, intact, before time's up. late or missing pieces = extra fee."
       }
     }
   },
@@ -129,7 +141,7 @@
     "flex": {
       "header": "this week · {{city}}",
       "played_suffix": "sessions played",
-      "summary": "#{{rank}} · {{minutes}}min · streak {{streak}}"
+      "summary": "{{minutes}}min · streak {{streak}}"
     },
     "friends": {
       "label": "friends",
@@ -144,7 +156,6 @@
       "football": "football",
       "basketball": "basketball",
       "volleyball": "volleyball",
-      "paddle": "paddle",
       "tennis": "tennis"
     },
     "preview": {
@@ -226,6 +237,9 @@
     "account": {
       "section": "account",
       "phone": "phone",
+      "phone_change_title": "change phone number",
+      "phone_change_msg": "to change your number, email our support team. for security, this can't be done in-app.",
+      "phone_change_cta": "email support",
       "signout": "sign out",
       "signout_title": "sign out?",
       "signout_msg": "you'll be logged out — your data stays safe.",
@@ -282,7 +296,11 @@
     "reserved_msg": "{{name}} is locked for you for {{min}} min. don't be late.",
     "reserve_err_has_active": "you already have an active reservation.",
     "reserve_err_cooldown": "you reserved this station recently. wait a bit.",
-    "blocked_by_reservation": "you have an active reservation at {{name}}. use it first."
+    "blocked_by_reservation": "you have an active reservation at {{name}}. use it first.",
+    "blocked_session_here": "you've got an active session at this station. jump to the play tab to continue.",
+    "blocked_session_elsewhere": "you have an active session at {{name}}. end that one first.",
+    "cta_continue_session": "BACK TO SESSION",
+    "cta_session_elsewhere": "SESSION ACTIVE"
   },
   "review": {
     "title": "session complete",

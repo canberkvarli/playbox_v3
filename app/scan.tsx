@@ -16,6 +16,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
+import { useSessionStore } from '@/stores/sessionStore';
 
 export default function Scan() {
   const { t } = useT();
@@ -30,7 +31,31 @@ export default function Scan() {
     if (!permission?.granted && permission?.canAskAgain) requestPermission();
   }, [permission]);
 
+  // Bail out early if a session is already active — no point letting the user
+  // line up a QR they can't use. Redirect to /play so they end the existing
+  // session first (or continue it).
+  useEffect(() => {
+    const active = useSessionStore.getState().active;
+    if (!active) return;
+    Alert.alert(
+      t('common.error_generic'),
+      t('station.blocked_session_here'),
+      [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/play') }]
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onResult = (id: string) => {
+    // Race guard: a session might have started on another surface between the
+    // mount check and a successful scan. Hard-stop rather than double-book.
+    if (useSessionStore.getState().active) {
+      Alert.alert(
+        t('common.error_generic'),
+        t('station.blocked_session_here'),
+        [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/play') }]
+      );
+      return;
+    }
     const station = STATIONS.find((s) => s.id === id);
     if (!station) {
       Alert.alert(t('scan.not_found'));

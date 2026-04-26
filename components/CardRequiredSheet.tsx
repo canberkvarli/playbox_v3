@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -13,10 +14,17 @@ type Props = {
 
 export function CardRequiredSheet({ holdAmountTry }: Props) {
   const { t } = useT();
+  const insets = useSafeAreaInsets();
 
   const onAddCard = async () => {
     await hx.tap();
     router.push('/card-add');
+  };
+
+  const onBack = async () => {
+    await hx.tap();
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)/map');
   };
 
   return (
@@ -29,9 +37,37 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
         bottom: 0,
         backgroundColor: palette.paper,
         paddingHorizontal: 24,
-        justifyContent: 'center',
+        paddingTop: insets.top + 12,
+        paddingBottom: insets.bottom + 20,
       }}
     >
+      {/* Back button — icon-only circle at top-left, no overlap with content */}
+      <Pressable
+        onPress={onBack}
+        hitSlop={14}
+        accessibilityRole="button"
+        accessibilityLabel="geri"
+        style={({ pressed }) => ({
+          opacity: pressed ? 0.6 : 1,
+          marginBottom: 28,
+        })}
+      >
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: palette.ink + '0d',
+            borderWidth: 1,
+            borderColor: palette.ink + '14',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name="arrow-left" size={20} color={palette.ink} />
+        </View>
+      </Pressable>
+
       <RiseIn delay={0}>
         <View
           style={{
@@ -53,8 +89,8 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
-            fontSize: 34,
-            lineHeight: 38,
+            fontSize: 38,
+            lineHeight: 42,
           }}
         >
           {t('card.blocking.title')}
@@ -64,11 +100,11 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
       <RiseIn delay={140}>
         <Text
           style={{
-            fontFamily: 'Inter_400Regular',
-            color: palette.ink + 'B3',
-            fontSize: 16,
-            lineHeight: 22,
-            marginTop: 16,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink,
+            fontSize: 17,
+            lineHeight: 24,
+            marginTop: 18,
           }}
         >
           {t('card.blocking.sub')}
@@ -78,23 +114,22 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
       <RiseIn delay={220}>
         <View
           style={{
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.ink + '10',
             borderRadius: 16,
             padding: 16,
-            marginTop: 20,
+            marginTop: 22,
             flexDirection: 'row',
             alignItems: 'flex-start',
-            gap: 12,
           }}
         >
-          <Feather name="info" size={18} color={palette.ink + '99'} style={{ marginTop: 2 }} />
+          <Feather name="info" size={20} color={palette.ink} style={{ marginTop: 2, marginRight: 12 }} />
           <Text
             style={{
               flex: 1,
-              fontFamily: 'Inter_400Regular',
-              color: palette.ink + 'B3',
-              fontSize: 14,
-              lineHeight: 20,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 15,
+              lineHeight: 21,
             }}
           >
             {t('card.blocking.detail', { amount: holdAmountTry })}
@@ -102,24 +137,30 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
         </View>
       </RiseIn>
 
-      <RiseIn delay={300}>
-        <Pressable
-          onPress={onAddCard}
-          accessibilityRole="button"
-          accessibilityLabel={t('card.blocking.cta')}
-          style={({ pressed }) => ({
+      <View style={{ flex: 1 }} />
+
+      <Pressable
+        onPress={onAddCard}
+        accessibilityRole="button"
+        accessibilityLabel={t('card.blocking.cta')}
+        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
+      >
+        <View
+          style={{
             backgroundColor: palette.coral,
             borderRadius: 20,
             paddingVertical: 20,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 10,
-            marginTop: 28,
-            transform: [{ scale: pressed ? 0.98 : 1 }],
-          })}
+            shadowColor: palette.coral,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.3,
+            shadowRadius: 18,
+            elevation: 10,
+          }}
         >
-          <Feather name="plus" size={20} color={palette.paper} />
+          <Feather name="plus" size={20} color={palette.paper} style={{ marginRight: 10 }} />
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
@@ -129,8 +170,8 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
           >
             {t('card.blocking.cta')}
           </Text>
-        </Pressable>
-      </RiseIn>
+        </View>
+      </Pressable>
     </View>
   );
 }

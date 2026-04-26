@@ -18,7 +18,7 @@
     },
     "intro_map": {
       "title": "yakınındaki\nistasyonlar",
-      "sub": "top, raket, paddle — hepsi cepten görünür mesafede.",
+      "sub": "top, raket, file — hepsi cepten görünür mesafede.",
       "cta": "devam"
     },
     "intro_social": {
@@ -88,27 +88,39 @@
     "error_generic": "bir şeyler ters gitti",
     "help": "yardım"
   },
+  "payments": {
+    "title": "ödemeler",
+    "cards_label": "kartlarım",
+    "add": "kart ekle",
+    "add_sub": "seanslar bitince otomatik ödeme için",
+    "remove": "kartı kaldır",
+    "remove_title": "kartı kaldır?",
+    "remove_msg": "bu kart hesabından silinecek. yeni bir seans başlatmak için tekrar eklemen gerekir.",
+    "remove_cta": "kaldır",
+    "history_label": "geçmiş",
+    "history_empty": "henüz ödeme yok.\nilk seansınla birlikte burada görünecek."
+  },
   "tour": {
     "eyebrow": "başlangıç",
     "title": "nasıl çalışır?",
     "sub": "dört adımda oyna ve iade et — bir kere gör, her zaman bil.",
     "cta": "anladım",
     "steps": {
-      "pick": {
-        "title": "sporunu seç",
-        "desc": "istasyonda istediğin sporu ve ne kadar süre oynayacağını seç. futbol, basket, voleybol, paddle, tenis."
-      },
-      "scan": {
-        "title": "kapıyı aç",
-        "desc": "istasyona yaklaş, oyna butonuna bas. kapı bir kez açılır — qr'ı tekrar okutmaya gerek yok."
+      "grab": {
+        "title": "topu al",
+        "desc": "kapı açılınca ekipmanı kap. sahaya çık."
       },
       "play": {
         "title": "oyna",
-        "desc": "süren başlar. ekipmanı al, ter at, gül. her dakika otomatik sayılır."
+        "desc": "süren başladı. her dakika sayılır."
+      },
+      "ping": {
+        "title": "hatırlatma",
+        "desc": "süre dolmadan telefonun titrer. gözün saatte olsun."
       },
       "return": {
-        "title": "kapıyı kapat & bitir",
-        "desc": "ekipmanı bırak, kapıyı kapat. uygulamadan 'seansı bitir'e dokun, kapının kapalı olduğunu onayla. sorun olursa destek ekibine ulaş."
+        "title": "zamanında iade",
+        "desc": "ekipmanı sağlam ve zamanında bırak. geç kalırsan veya parça eksikse ekstra ücret kesilir."
       }
     }
   },
@@ -129,7 +141,7 @@
     "flex": {
       "header": "bu hafta · {{city}}",
       "played_suffix": "seans oynadın",
-      "summary": "#{{rank}} · {{minutes}}dk · seri {{streak}}"
+      "summary": "{{minutes}}dk · seri {{streak}}"
     },
     "friends": {
       "label": "arkadaşlar",
@@ -144,7 +156,6 @@
       "football": "futbol",
       "basketball": "basket",
       "volleyball": "voleybol",
-      "paddle": "paddle",
       "tennis": "tenis"
     },
     "preview": {
@@ -226,6 +237,9 @@
     "account": {
       "section": "hesap",
       "phone": "telefon",
+      "phone_change_title": "telefon numarası değişikliği",
+      "phone_change_msg": "numaranı değiştirmek için destek ekibine e-posta gönderebilirsin. güvenlik gereği bu işlem uygulama içinden yapılamaz.",
+      "phone_change_cta": "destek'e yaz",
       "signout": "çıkış yap",
       "signout_title": "çıkış yap?",
       "signout_msg": "hesabından çıkacaksın, verilerin korunur.",
@@ -282,7 +296,11 @@
     "reserved_msg": "{{name}} senin için {{min}} dk kilitlendi. zamanında gel.",
     "reserve_err_has_active": "zaten aktif bir rezervasyonun var.",
     "reserve_err_cooldown": "bu istasyonu kısa süre önce rezerve ettin. biraz bekle.",
-    "blocked_by_reservation": "{{name}} için aktif rezervasyonun var. önce onu kullan."
+    "blocked_by_reservation": "{{name}} için aktif rezervasyonun var. önce onu kullan.",
+    "blocked_session_here": "bu istasyonda aktif seansın var. devam etmek için oyna sekmesine geç.",
+    "blocked_session_elsewhere": "{{name}} istasyonunda aktif seansın var. önce onu bitir.",
+    "cta_continue_session": "SEANSA DÖN",
+    "cta_session_elsewhere": "SEANS AÇIK"
   },
   "review": {
     "title": "seans tamamlandı",

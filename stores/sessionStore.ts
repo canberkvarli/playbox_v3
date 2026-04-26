@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { safeStorage } from '@/lib/safeStorage';
 import type { Sport } from '@/data/stations.seed';
+import { useReservationStore } from './reservationStore';
 
 export type ActiveSession = {
   stationId: string;
@@ -14,15 +15,35 @@ export type ActiveSession = {
 
 export type EndedSession = ActiveSession & { endedAt: number };
 
+export type SessionBlockReason =
+  /** A session is already active at this exact station — go to /play. */
+  | 'same_station_active'
+  /** A session is active at a different station — end that first. */
+  | 'other_station_active';
+
+export type StartResult =
+  | { ok: true }
+  | { ok: false; reason: SessionBlockReason; active: ActiveSession };
+
 type SessionStore = {
   active: ActiveSession | null;
   /** Last-ended session, kept until review screen acknowledges it. */
   lastEnded: EndedSession | null;
-  startSession: (s: Omit<ActiveSession, 'startedAt'> & { startedAt?: number }) => void;
+  /**
+   * Starts a session. Refuses if one is already active anywhere — callers must
+   * pre-check with `canStart` and show the appropriate UI. Also auto-consumes
+   * any matching active reservation so the list stays clean.
+   */
+  startSession: (
+    s: Omit<ActiveSession, 'startedAt'> & { startedAt?: number }
+  ) => StartResult;
   /** Closes the active session, stashing it as `lastEnded` for the review page. */
   endSession: () => void;
   /** Called by the review page when the user dismisses; clears `lastEnded`. */
   acknowledgeEnded: () => void;
+  /** Pre-flight check: can the user start a session at this station right now? */
+  canStart: (stationId: string) => StartResult;
+  hasActive: () => boolean;
 };
 
 export const useSessionStore = create<SessionStore>()(
@@ -30,7 +51,30 @@ export const useSessionStore = create<SessionStore>()(
     (set, get) => ({
       active: null,
       lastEnded: null,
-      startSession: (s) =>
+      canStart: (stationId) => {
+        const active = get().active;
+        if (!active) return { ok: true };
+        return {
+          ok: false,
+          reason: active.stationId === stationId
+            ? 'same_station_active'
+            : 'other_station_active',
+          active,
+        };
+      },
+      hasActive: () => get().active !== null,
+      startSession: (s) => {
+        const check = get().canStart(s.stationId);
+        if (!check.ok) return check;
+
+        // Consume a matching reservation (if any). Cross-store call via
+        // getState — no subscription, no cycle at import time.
+        const reservations = useReservationStore.getState();
+        const activeRes = reservations.getActive();
+        if (activeRes && activeRes.stationId === s.stationId) {
+          reservations.markUsed(activeRes.id);
+        }
+
         set({
           active: {
             stationId: s.stationId,
@@ -40,7 +84,9 @@ export const useSessionStore = create<SessionStore>()(
             startedAt: s.startedAt ?? Date.now(),
             holdId: s.holdId ?? null,
           },
-        }),
+        });
+        return { ok: true };
+      },
       endSession: () => {
         const cur = get().active;
         if (!cur) return;

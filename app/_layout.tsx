@@ -72,6 +72,18 @@ export default function RootLayout() {
             name="card-add"
             options={{ headerShown: false, presentation: 'modal' }}
           />
+          <Stack.Screen
+            name="payments"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="support"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="reservations"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

@@ -24,7 +24,7 @@ type ReservationStore = {
     stationName: string;
     sport: Sport;
     lockMinutes?: number;
-  }) => Reservation | { error: 'has_active' | 'on_cooldown' };
+  }) => Reservation | { error: 'has_active' | 'on_cooldown' | 'has_session' };
   cancel: (id: string) => void;
   markUsed: (id: string) => void;
   /** Returns the active (non-expired) reservation, if any. */
@@ -41,6 +41,13 @@ export const useReservationStore = create<ReservationStore>()(
     (set, get) => ({
       reservations: [],
       reserve: ({ stationId, stationName, sport, lockMinutes = RESERVATION_LOCK_MIN }) => {
+        // No reservations while a session is in flight. Lazy require to avoid
+        // a circular import at module load; the getState() call happens only
+        // when the user actually taps reserve.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { useSessionStore } = require('./sessionStore') as typeof import('./sessionStore');
+        if (useSessionStore.getState().active) return { error: 'has_session' };
+
         const all = get().reservations;
         const active = all.find(isActive);
         if (active) return { error: 'has_active' };

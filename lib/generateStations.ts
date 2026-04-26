@@ -15,7 +15,7 @@ const DEMO_NAMES_TR = [
   'Hilal Sahası',
 ];
 
-const ALL_SPORTS: Sport[] = ['football', 'basketball', 'volleyball', 'paddle', 'tennis'];
+const ALL_SPORTS: Sport[] = ['football', 'basketball', 'volleyball', 'tennis'];
 
 /**
  * Convert meters to degrees of latitude/longitude at a given latitude.
