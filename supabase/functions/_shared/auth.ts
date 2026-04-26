@@ -29,3 +29,27 @@ export function getBearerToken(req: Request): string | null {
   if (!auth?.startsWith('Bearer ')) return null;
   return auth.slice('Bearer '.length).trim();
 }
+
+/**
+ * Returns the `role` claim from the bearer JWT, or null. Used by the
+ * sweep function to distinguish service-role (cron) calls from user calls.
+ * Trust here is acceptable because the Edge Functions runtime has already
+ * verified the JWT's signature.
+ */
+export function getRoleFromRequest(req: Request): string | null {
+  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) return null;
+  const token = auth.slice('Bearer '.length).trim();
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  try {
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=');
+    const json = JSON.parse(atob(payload));
+    return typeof json?.role === 'string' ? json.role : null;
+  } catch {
+    return null;
+  }
+}
