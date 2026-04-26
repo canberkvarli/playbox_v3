@@ -11,6 +11,32 @@ export type Station = {
   availableNow: boolean;
 };
 
+export type Gate = {
+  /** Stable, globally unique identifier — used as reservations.gate_id. */
+  id: string;
+  /** User-facing short label (e.g. "1", "2"). */
+  label: string;
+  sport: Sport;
+};
+
+/**
+ * Returns the named gates for a (station, sport) pair, derived from the
+ * `stock` count. Format: `${station.id}-${sport}-${1..stock}`.
+ *
+ * Auto-derivation lets us keep the seed data simple while the reservation
+ * system enforces specific-gate uniqueness server-side. When stations gain
+ * physical-gate metadata (named courts, specific lockers), this helper is
+ * the one place to upgrade — callers will pick it up automatically.
+ */
+export function gatesForStation(station: Station, sport: Sport): Gate[] {
+  const count = station.stock[sport] ?? 0;
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${station.id}-${sport}-${i + 1}`,
+    label: String(i + 1),
+    sport,
+  }));
+}
+
 export const STATIONS: Station[] = [
   // İstanbul (16)
   { id: 'ist-taksim',       name: 'Taksim Spor Kulübü',         city: 'istanbul', lat: 41.0370, lng: 28.9850, sports: ['football', 'basketball'],            stock: { football: 3, basketball: 2 },              availableNow: true  },

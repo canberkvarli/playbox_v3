@@ -24,13 +24,14 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
-import { SPORT_LABELS, type Station, type Sport } from '@/data/stations.seed';
+import { gatesForStation, SPORT_LABELS, type Gate, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import {
   RESERVATION_LOCK_MIN,
 } from '@/stores/reservationStore';
 import { useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
+import { supabase } from '@/lib/supabase';
 
 const DURATION_MIN = 10;
 const DURATION_MAX = 180;
@@ -298,6 +299,47 @@ export function StationGateSelector({
   const [duration, setDuration] = useState(DURATION_DEFAULT);
   const [reserving, setReserving] = useState(false);
 
+  // Gate picker — only meaningful once a sport is chosen.
+  const [selectedGate, setSelectedGate] = useState<Gate | null>(null);
+  const [takenGateIds, setTakenGateIds] = useState<string[]>([]);
+  const allGates = useMemo(
+    () => (selected ? gatesForStation(station, selected) : []),
+    [station, selected],
+  );
+  const availableGates = useMemo(
+    () => allGates.filter((g) => !takenGateIds.includes(g.id)),
+    [allGates, takenGateIds],
+  );
+
+  // When the user picks a different sport, reload taken-gate availability
+  // and auto-select the first free gate. The taken_gates RPC is
+  // security-definer and returns only gate_id strings — no leakage.
+  useEffect(() => {
+    if (!selected) {
+      setTakenGateIds([]);
+      setSelectedGate(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('taken_gates', {
+        p_station_id: station.id,
+        p_sport: selected,
+      });
+      if (cancelled) return;
+      const taken = (data as string[] | null) ?? [];
+      setTakenGateIds(taken);
+      const free = gatesForStation(station, selected).find(
+        (g) => !taken.includes(g.id),
+      );
+      setSelectedGate(free ?? null);
+      if (error && __DEV__) console.warn('[gates] taken_gates rpc error', error);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, station]);
+
   const durationDisplay = formatDuration(duration);
 
   const stockOk = useMemo(() => {
@@ -305,8 +347,9 @@ export function StationGateSelector({
     return (station.stock[selected] ?? 0) > 0;
   }, [selected, station]);
 
-  // Reservation flow trigger: not in range + selected + station available
-  const reserveMode = !!selected && stockOk && !inRange && !activeReservation;
+  // Reservation flow trigger: not in range + selected + station available + at
+  // least one free gate left after subtracting active reservations.
+  const reserveMode = !!selected && stockOk && !inRange && !activeReservation && !!selectedGate;
   const blockedByOtherReservation =
     !!activeReservation && activeReservation.station_id !== station.id;
 
@@ -355,19 +398,17 @@ export function StationGateSelector({
       return;
     }
     if (!ctaEnabled || !selected) return;
-    if (reserveMode) {
+    if (reserveMode && selectedGate) {
       await hx.press();
       // Hand off to the new reserve flow — slides on first reservation,
       // mini-confirm thereafter. The server validates everything (card,
       // lock, terms, capacity, velocity) and surfaces clean errors.
-      // gate_id is synthesized as `${sport}-1` for v1; full per-gate
-      // selection lands when station data exposes named gates.
       router.push({
         pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
         params: {
           stationId: station.id,
           sport: selected,
-          gateId: `${selected}-1`,
+          gateId: selectedGate.id,
         },
       });
       return;
@@ -408,6 +449,91 @@ export function StationGateSelector({
           );
         })}
       </View>
+
+      {/* Gate picker — only when a sport with multiple gates is selected.
+          Single-gate sports skip this UI and just auto-select the gate. */}
+      {selected && allGates.length > 1 ? (
+        <View style={{ marginTop: 18 }}>
+          <Text
+            style={{
+              color: palette.ink + 'aa',
+              fontSize: 11,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
+              fontWeight: '600',
+              marginBottom: 8,
+            }}
+          >
+            kapı
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {allGates.map((g) => {
+              const taken = takenGateIds.includes(g.id);
+              const isSelected = selectedGate?.id === g.id;
+              return (
+                <Pressable
+                  key={g.id}
+                  disabled={taken}
+                  onPress={async () => {
+                    await hx.tap();
+                    setSelectedGate(g);
+                  }}
+                  style={({ pressed }) => ({
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
+                    borderRadius: 12,
+                    backgroundColor: taken
+                      ? palette.ink + '08'
+                      : isSelected
+                      ? palette.ink
+                      : palette.ink + '0d',
+                    borderWidth: 1,
+                    borderColor: isSelected ? palette.ink : palette.ink + '14',
+                    opacity: taken ? 0.5 : pressed ? 0.7 : 1,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_700Bold',
+                      color: isSelected ? palette.paper : palette.ink,
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {g.label}
+                  </Text>
+                  {taken ? (
+                    <Text
+                      style={{
+                        fontFamily: 'Inter_600SemiBold',
+                        color: palette.ink + '88',
+                        fontSize: 11,
+                      }}
+                    >
+                      dolu
+                    </Text>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+          {availableGates.length === 0 ? (
+            <Text
+              style={{
+                marginTop: 8,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.coral,
+                fontSize: 12,
+              }}
+            >
+              tüm kapılar dolu
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Duration slider — always visible, grayed when no gate selected */}
       <View
