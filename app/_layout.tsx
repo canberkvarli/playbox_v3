@@ -10,6 +10,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
+import { usePushToken } from '@/hooks/usePushToken';
 import { supabase } from '@/lib/supabase';
 
 export { ErrorBoundary } from 'expo-router';
@@ -26,6 +27,10 @@ AppState.addEventListener('change', (state) => {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { loaded, error } = useLoadedFonts();
+
+  // Register the Expo push token once permissions land. Best-effort,
+  // skipped on simulators and non-granted permissions.
+  usePushToken();
 
   useEffect(() => {
     if (loaded || error) {

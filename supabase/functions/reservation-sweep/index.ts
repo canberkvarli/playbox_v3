@@ -20,6 +20,7 @@ import { handleOptions, json } from '../_shared/cors.ts';
 import { getRoleFromRequest, getUserIdFromRequest } from '../_shared/auth.ts';
 import { checkEnv, postauth as iyzicoCapture } from '../_shared/iyzico.ts';
 import { applyTierLockIfNeeded, getAppConfig, logEvent } from '../_shared/reservations.ts';
+import { sendPush } from '../_shared/push.ts';
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -101,7 +102,19 @@ Deno.serve(async (req) => {
       await logEvent(supabaseAdmin, r.id, 'expired_capture_ok', {
         hold_amount_try: r.hold_amount_try,
       });
-      await applyTierLockIfNeeded(supabaseAdmin, r.user_id, cfg, r.id);
+      const lockReason = await applyTierLockIfNeeded(supabaseAdmin, r.user_id, cfg, r.id);
+      await sendPush(supabaseAdmin, r.user_id, {
+        title: `₺${r.hold_amount_try} tahsil edildi`,
+        body: 'vaktinde gelmedin, bloke edilen tutar çekildi.',
+        data: { kind: 'reservation_captured', reservation_id: r.id },
+      });
+      if (lockReason === 'tier_24h' || lockReason === 'tier_7d') {
+        await sendPush(supabaseAdmin, r.user_id, {
+          title: 'rezervasyon kilidi',
+          body: 'birkaç rezervasyonunu kaçırdın. yeni rezervasyon bir süre açılmayacak.',
+          data: { kind: 'reservation_tier_lock', reason: lockReason },
+        });
+      }
       captured++;
     } else {
       await supabaseAdmin
@@ -122,6 +135,11 @@ Deno.serve(async (req) => {
         },
         { onConflict: 'user_id' },
       );
+      await sendPush(supabaseAdmin, r.user_id, {
+        title: 'ücret çekilemedi',
+        body: 'geçmiş rezervasyon ücreti kartından alınamadı. kartını güncelle.',
+        data: { kind: 'reservation_capture_failed', reservation_id: r.id },
+      });
       captureFailed++;
     }
   }
