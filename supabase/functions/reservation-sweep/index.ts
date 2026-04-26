@@ -45,6 +45,37 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
+  // ----- T-5 reminder pass -----
+  // Find active reservations expiring in the next 5 minutes that haven't
+  // already been reminded. Cheap loop — just sends a push, no iyzico.
+  const fiveMinFromNow = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  let t5Query = supabaseAdmin
+    .from('reservations')
+    .select('id, user_id, hold_amount_try, expires_at')
+    .eq('status', 'active')
+    .is('t5_notified_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .lte('expires_at', fiveMinFromNow)
+    .limit(isServiceRole ? 200 : 5);
+  if (!isServiceRole) {
+    t5Query = t5Query.eq('user_id', userId);
+  }
+  const { data: t5Rows } = await t5Query;
+  let t5Sent = 0;
+  for (const r of t5Rows ?? []) {
+    await supabaseAdmin
+      .from('reservations')
+      .update({ t5_notified_at: new Date().toISOString() })
+      .eq('id', r.id);
+    await sendPush(supabaseAdmin, r.user_id, {
+      title: '5 dakikan kaldı',
+      body: 'rezervasyonun yakında düşecek. istasyona geldin mi?',
+      data: { kind: 'reservation_t5', reservation_id: r.id },
+    });
+    t5Sent++;
+  }
+
+  // ----- Expired-capture pass -----
   let query = supabaseAdmin
     .from('reservations')
     .select('*')
@@ -62,7 +93,12 @@ Deno.serve(async (req) => {
   }
 
   if (!rows || rows.length === 0) {
-    return json({ ok: true, swept: 0, mode: isServiceRole ? 'cron' : 'user' });
+    return json({
+      ok: true,
+      swept: 0,
+      t5_sent: t5Sent,
+      mode: isServiceRole ? 'cron' : 'user',
+    });
   }
 
   const cfg = await getAppConfig(supabaseAdmin);
@@ -150,6 +186,7 @@ Deno.serve(async (req) => {
     captured,
     capture_failed: captureFailed,
     system_fault: systemFault,
+    t5_sent: t5Sent,
     mode: isServiceRole ? 'cron' : 'user',
   });
 });
