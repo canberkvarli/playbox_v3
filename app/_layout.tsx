@@ -84,6 +84,10 @@ export default function RootLayout() {
             name="reservations"
             options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
           />
+          <Stack.Screen
+            name="reserve/[stationId]/[sport]/[gateId]"
+            options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
+          />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
