@@ -63,7 +63,11 @@ export default function ReserveFlow() {
   const lockMin = 30; // canonical app_config value; UI doesn't need server round-trip for this
 
   const [pageIdx, setPageIdx] = useState(0);
-  const [agreed, setAgreed] = useState(false);
+  // Three explicit consent rules — user must tick each one before confirm
+  // enables. Mirrors the session-prep agreement pattern so users see one
+  // consistent UI for "I read this, I agree."
+  const [agreedRules, setAgreedRules] = useState<boolean[]>([false, false, false]);
+  const agreed = agreedRules.every(Boolean);
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -228,65 +232,103 @@ export default function ReserveFlow() {
         ))}
       </ScrollView>
 
-      <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-        {SLIDES.map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: i === pageIdx ? 18 : 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: i === pageIdx ? palette.ink : palette.ink + '33',
-            }}
-          />
-        ))}
-      </View>
+      {!isLast ? (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
+          {SLIDES.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: i === pageIdx ? 18 : 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: i === pageIdx ? palette.ink : palette.ink + '33',
+              }}
+            />
+          ))}
+        </View>
+      ) : (
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.ink,
+            fontSize: 13,
+            letterSpacing: 1.5,
+            textTransform: 'uppercase',
+            marginHorizontal: 24,
+            marginTop: 4,
+            marginBottom: 12,
+          }}
+        >
+          her birini onayla
+        </Text>
+      )}
 
       {isLast && (
-        <Pressable
-          onPress={async () => {
-            await hx.tap();
-            setAgreed((v) => !v);
-          }}
-          style={({ pressed }) => ({
-            marginHorizontal: 24,
-            marginBottom: 14,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: agreed ? palette.ink : palette.ink + '08',
-            flexDirection: 'row',
-            alignItems: 'center',
-            opacity: pressed ? 0.7 : 1,
+        <View style={{ marginHorizontal: 24, marginBottom: 14 }}>
+          {[
+            `30 dk içinde gelmediğimde rezervasyon iptal olur`,
+            `no-show olursa ₺${holdAmount} bloke tutar tahsil edilir`,
+            `ilk 2 dk içinde iptal ücretsiz, sonrasında ücret kesilir`,
+          ].map((line, idx) => {
+            const checked = agreedRules[idx];
+            return (
+              <Pressable
+                key={line}
+                onPress={async () => {
+                  await hx.tap();
+                  setAgreedRules((prev) => {
+                    const next = [...prev];
+                    next[idx] = !next[idx];
+                    return next;
+                  });
+                }}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked }}
+                style={({ pressed }) => ({
+                  marginBottom: 10,
+                  opacity: pressed ? 0.65 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      backgroundColor: checked ? palette.coral : palette.paper,
+                      borderWidth: 2.5,
+                      borderColor: checked ? palette.coral : palette.ink,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginRight: 14,
+                    }}
+                  >
+                    {checked ? (
+                      <Feather name="check" size={22} color={palette.paper} />
+                    ) : null}
+                  </View>
+                  <Text
+                    style={{
+                      flex: 1,
+                      fontFamily: 'Unbounded_700Bold',
+                      color: palette.ink,
+                      fontSize: 14,
+                      lineHeight: 20,
+                      letterSpacing: 0.1,
+                    }}
+                  >
+                    {line}
+                  </Text>
+                </View>
+              </Pressable>
+            );
           })}
-        >
-          <View
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 6,
-              backgroundColor: agreed ? palette.paper : 'transparent',
-              borderWidth: 1.5,
-              borderColor: agreed ? palette.paper : palette.ink + '55',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginRight: 12,
-            }}
-          >
-            {agreed && <Feather name="check" size={14} color={palette.ink} />}
-          </View>
-          <Text
-            style={{
-              flex: 1,
-              fontFamily: 'Inter_600SemiBold',
-              color: agreed ? palette.paper : palette.ink,
-              fontSize: 13,
-              lineHeight: 18,
-            }}
-          >
-            {t('reservations.slides.agree_label')}
-          </Text>
-        </Pressable>
+        </View>
       )}
 
       <Footer
