@@ -193,6 +193,21 @@ export function postauth(req: PostauthRequest) {
   return iyzicoPost<PostauthRequest, PostauthResponse>('/payment/postauth', req);
 }
 
+// ---------- /cardstorage/card/delete ----------
+
+export type DeleteCardRequest = {
+  locale: 'tr' | 'en';
+  conversationId: string;
+  cardUserKey: string;
+  cardToken: string;
+};
+
+export type DeleteCardResponse = IyzicoBase;
+
+export function deleteCard(req: DeleteCardRequest) {
+  return iyzicoPost<DeleteCardRequest, DeleteCardResponse>('/cardstorage/card/delete', req);
+}
+
 // ---------- /payment/cancel (release) ----------
 
 export type CancelRequest = {

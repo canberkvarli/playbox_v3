@@ -1,103 +1,126 @@
-// Supabase Edge Function: delete-account
+// @ts-nocheck — Deno runtime
 //
-// Deletes the calling user's account using the service-role admin API. The
-// client app calls this with its user JWT; we verify the JWT, then call
-// `admin.deleteUser()` with the service-role key (which is NEVER exposed to
-// the client).
+// delete-account
+// KVKK / right-to-erasure: removes the caller's account and all derived
+// records, plus tells Iyzico to drop the stored card.
+//
+// Order of operations matters because of foreign-key cascades and
+// external-state cleanups:
+//
+//   1. Iyzico card delete  — best-effort, never blocks user deletion
+//   2. PG row deletes      — every user-scoped table (reservation_events
+//                            cascades from reservations.id automatically)
+//   3. auth.admin.deleteUser() last — so a partial failure leaves the user
+//                            able to sign back in and retry rather than
+//                            orphaned with no auth row
+//
+// Errors at each step are logged but do NOT propagate to the client. The
+// user has clicked "delete my account" and we owe them follow-through;
+// support cleans up anything that didn't land via the dashboard.
 //
 // Deploy with:
-//   supabase functions deploy delete-account
+//   npx supabase functions deploy delete-account
 //
-// Required env (set via `supabase secrets set --env-file ./supabase/.env`):
-//   SUPABASE_URL              — autopopulated in Edge runtime
-//   SUPABASE_ANON_KEY         — autopopulated in Edge runtime
-//   SUPABASE_SERVICE_ROLE_KEY — set this manually, NEVER commit it
+// Required env (set via dashboard → Edge Functions → Settings):
+//   SUPABASE_URL                - autopopulated
+//   SUPABASE_ANON_KEY           - autopopulated
+//   SUPABASE_SERVICE_ROLE_KEY   - set manually, NEVER commit
+//   IYZICO_API_KEY              - already set for other iyzico-* fns
+//   IYZICO_SECRET_KEY           - already set for other iyzico-* fns
+//   IYZICO_BASE_URL             - already set for other iyzico-* fns
 //
-// The user's auth JWT comes from the Authorization: Bearer header. We use
-// the anon-key client to identify the caller, then a service-role client to
-// actually delete them.
+// Request:  {} (user identified by JWT)
+// Success:  { ok: true, deleted: { ... per-table flags } }
 
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
+import { handleOptions, json } from '../_shared/cors.ts';
+import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
+import { checkEnv, deleteCard as iyzicoDeleteCard } from '../_shared/iyzico.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+Deno.serve(async (req) => {
+  const opt = handleOptions(req);
+  if (opt) return opt;
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  const userId = getUserIdFromRequest(req);
+  const jwt = getBearerToken(req);
+  if (!userId || !jwt) return json({ ok: false, error: 'unauthorized' }, 401);
 
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ ok: false, error: 'method_not_allowed' }), {
-      status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+  const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!SERVICE_ROLE_KEY) return json({ ok: false, error: 'service_role_missing' }, 500);
 
-  try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ ok: false, error: 'missing_auth' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+  const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const result: Record<string, boolean | string> = {};
 
-    // 1. Identify the caller using their JWT.
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: getUserErr } = await userClient.auth.getUser();
-    if (getUserErr || !user) {
-      return new Response(JSON.stringify({ ok: false, error: 'invalid_token' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // 2. Delete the user with the service-role admin client.
-    const admin = createClient(supabaseUrl, serviceKey);
-    const { error: deleteErr } = await admin.auth.admin.deleteUser(user.id);
-    if (deleteErr) {
-      console.error('[delete-account] deleteUser failed', deleteErr);
-      return new Response(
-        JSON.stringify({ ok: false, error: 'delete_failed', message: deleteErr.message }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  // 1. Iyzico card removal — only if there's a stored card and Iyzico is
+  //    configured. Either condition missing is fine, just record why.
+  const envCheck = checkEnv();
+  if (envCheck.ok) {
+    const { data: card } = await supabaseAdmin
+      .from('user_cards')
+      .select('iyzico_card_user_key, iyzico_card_token')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (card?.iyzico_card_user_key && card?.iyzico_card_token) {
+      try {
+        const iyz = await iyzicoDeleteCard({
+          locale: 'tr',
+          conversationId: `delete-account:${userId}:${Date.now()}`,
+          cardUserKey: card.iyzico_card_user_key,
+          cardToken: card.iyzico_card_token,
+        });
+        result.iyzico_card = iyz.status === 'success';
+        if (iyz.status !== 'success') {
+          console.warn('[delete-account] iyzico delete failed (non-blocking)', { userId, iyz });
         }
-      );
-    }
-
-    // 3. (Optional) Cascade-clean rows in your own tables. RLS won't help
-    //    once auth.users is gone, so any FK references should ON DELETE
-    //    CASCADE. If you have non-FK soft-delete tables, scrub them here.
-    //
-    //    await admin.from('sessions').delete().eq('user_id', user.id);
-    //    await admin.from('payments').delete().eq('user_id', user.id);
-    //    await admin.from('reservations').delete().eq('user_id', user.id);
-
-    return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  } catch (e) {
-    console.error('[delete-account] unexpected', e);
-    return new Response(
-      JSON.stringify({ ok: false, error: 'unexpected', message: String(e) }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      } catch (e) {
+        console.warn('[delete-account] iyzico delete threw (non-blocking)', { userId, e });
+        result.iyzico_card = false;
       }
-    );
+    } else {
+      result.iyzico_card = 'no_card_on_file';
+    }
+  } else {
+    result.iyzico_card = 'iyzico_not_configured';
   }
+
+  // 2. PG row deletes. Each is best-effort; failures are logged but don't
+  //    abort. Order is irrelevant because we use service role (RLS bypassed)
+  //    and reservation_events cascades from reservations.id automatically.
+  const tables: Array<{ table: string; key: string }> = [
+    { table: 'reservations', key: 'user_id' },
+    { table: 'user_reservation_locks', key: 'user_id' },
+    { table: 'terms_acceptances', key: 'user_id' },
+    { table: 'user_push_tokens', key: 'user_id' },
+    { table: 'user_cards', key: 'user_id' },
+  ];
+  for (const t of tables) {
+    const { error } = await supabaseAdmin.from(t.table).delete().eq(t.key, userId);
+    if (error) {
+      console.error('[delete-account] table delete failed', { userId, table: t.table, error });
+      result[t.table] = false;
+    } else {
+      result[t.table] = true;
+    }
+  }
+
+  // 3. Auth row last. If it fails, all PII is already gone — support can
+  //    clean up the orphaned auth row from the dashboard.
+  try {
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+    if (error) {
+      console.error('[delete-account] auth delete failed', { userId, error });
+      result.auth_user = false;
+    } else {
+      result.auth_user = true;
+    }
+  } catch (e) {
+    console.error('[delete-account] auth delete threw', { userId, e });
+    result.auth_user = false;
+  }
+
+  return json({ ok: true, deleted: result });
 });

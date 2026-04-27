@@ -20,23 +20,31 @@ const SECTIONS: Array<{ heading: string; body: string }> = [
     body: 'planlanan süreyi aştığında her ek dakika normal ücret üzerinden saymaya devam eder. ekipman makul bir süre içinde iade edilmezse hesabın geçici olarak askıya alınabilir ve ek ceza ücreti uygulanabilir.',
   },
   {
-    heading: '4. eksik veya hasarlı parça',
+    heading: '4. rezervasyonlar ve teminat',
+    body: 'rezervasyon yaparken kayıtlı kartından ₺20 geçici olarak bloke edilir (henüz tahsil edilmez). rezervasyon süresi 30 dakikadır. ilk 2 dakika içinde iptal edersen bloke serbest bırakılır, hiçbir ücret çıkmaz. süresi dolduğu hâlde istasyona gelmezsen bloke edilen tutar tahsil edilir; bu, başkalarının da oyun hakkını korumak içindir. arka arkaya rezervasyon kaçırırsan yeni rezervasyon hakkın 24 saat ile 7 gün arasında geçici olarak askıya alınabilir.',
+  },
+  {
+    heading: '5. eksik veya hasarlı parça',
     body: 'kapıdan aldığın ekipman ile aynı parçaları, sağlam halde iade etmeyi taahhüt edersin. eksik parça veya kasıtlı hasar durumunda yenileme bedeli kart hesabına yansıtılır.',
   },
   {
-    heading: '5. hesap güvenliği',
+    heading: '6. hesap güvenliği',
     body: 'hesabın senin sorumluluğundadır. telefonunu ya da uygulamayı başkalarıyla paylaşmamalısın. şüpheli bir durum gördüğünde hemen destek ekibine ulaşmalısın.',
   },
   {
-    heading: '6. iptal ve iade',
-    body: 'henüz başlamamış rezervasyonlar ücretsiz iptal edilebilir. başlamış bir seansın ücretini iade edemeyiz, ancak bir aksaklık olduysa destek ekibi durumu inceler.',
+    heading: '7. iptal ve iade',
+    body: 'rezervasyonu ilk 2 dakika içinde iptal edersen hiçbir ücret çıkmaz. sonrasında iptal edersen ya da süresi dolduğunda istasyona gelmediysen, bloke edilen tutar tahsil edilir. başlamış bir seansın ücretini iade edemeyiz, ancak bir aksaklık olduysa destek ekibi durumu inceler.',
   },
   {
-    heading: '7. değişiklikler',
+    heading: '8. hesap silme hakkı',
+    body: 'ayarlar > "hesabımı sil" akışından dilediğin zaman hesabını silebilirsin. silme işlemi 24 saat içinde tamamlanır; tüm rezervasyon geçmişin, kayıtlı kartın ve push tokenın sistemden kaldırılır. yasal zorunluluk gereği vergi/fatura kayıtları 10 yıl süreyle anonim olarak saklanabilir.',
+  },
+  {
+    heading: '9. değişiklikler',
     body: 'bu sözleşmeyi zaman zaman güncelleyebiliriz. önemli bir değişiklik olduğunda uygulama içinden bildirim göreceksin.',
   },
   {
-    heading: '8. iletişim',
+    heading: '10. iletişim',
     body: 'sorular için destek@playbox.app — uygulama içinden de destek ekranından ulaşabilirsin.',
   },
 ];
@@ -124,7 +132,7 @@ export default function Terms() {
             opacity: 0.75,
           }}
         >
-          son güncelleme: 26 nisan 2026 · sürüm 1.0
+          son güncelleme: 27 nisan 2026 · sürüm 1.1
         </Text>
 
         {SECTIONS.map((s) => (

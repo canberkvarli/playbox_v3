@@ -13,22 +13,26 @@ const SECTIONS: Array<{ heading: string; body: string }> = [
   },
   {
     heading: '2. işlenen veriler',
-    body: 'telefon numaran (kimlik doğrulama), konumun (yakındaki istasyonları gösterme ve kapı açma), seans verilerin (süre, istasyon, spor) ve kart bilgilerin (iyzico üzerinden tokenize edilmiş şekilde — biz kart numaranı görmeyiz).',
+    body: 'telefon numaran (kimlik doğrulama), konumun (yakındaki istasyonları gösterme ve kapı açma), seans verilerin (süre, istasyon, spor), rezervasyon kayıtların (kapı, süre, sonuç), push tokenı (bildirim gönderebilmek için) ve kart bilgilerin (iyzico üzerinden tokenize edilmiş şekilde — biz kart numaranı görmeyiz).',
   },
   {
-    heading: '3. veri saklama süresi',
-    body: 'aktif hesap sahibiysen verilerin platformda kalır. hesap silindiğinde tüm kişisel veriler 24 saat içinde sistemden kaldırılır. yasal zorunluluk gereği vergi/fatura kayıtları 10 yıl saklanabilir.',
+    heading: '3. rezervasyon ve teminat verileri',
+    body: 'rezervasyon yaptığında kart üzerinde bloke koyma, vaktinde iptal etmediğinde tahsilat ve tekrarlayan ihlaller için geçici hesap kilidi uygularız. bu işlemleri yürütebilmek için rezervasyonların geçmişi (oluşturma, iptal, kullanma, süresi dolma) ve sonuçları en fazla 90 gün boyunca aktif kayıtta tutulur; sonra anonimleştirilir.',
   },
   {
-    heading: '4. üçüncü taraflar',
-    body: 'iyzico (ödeme), supabase (sunucu altyapısı), apple/google (push bildirimleri) ile veri paylaşımı yapılır. her biri kvkk uyumlu çalışır ve kendi gizlilik politikalarına tabidir.',
+    heading: '4. veri saklama süresi',
+    body: 'aktif hesap sahibiysen verilerin platformda kalır. hesap silindiğinde tüm kişisel veriler 24 saat içinde sistemden kaldırılır; iyzico tarafındaki kayıtlı kartın da aynı sürede silinir. yasal zorunluluk gereği vergi/fatura kayıtları 10 yıl boyunca anonim olarak saklanabilir.',
   },
   {
-    heading: '5. çerezler & analiz',
+    heading: '5. üçüncü taraflar',
+    body: 'iyzico (ödeme), supabase (sunucu altyapısı), twilio verify (telefon doğrulama), apple/google (push bildirimleri) ile veri paylaşımı yapılır. her biri kvkk uyumlu çalışır ve kendi gizlilik politikalarına tabidir.',
+  },
+  {
+    heading: '6. çerezler & analiz',
     body: 'uygulamanın hangi ekranlarının nasıl kullanıldığını anlamak için anonim kullanım verisi toplarız. kişisel kimliğine bağlı değildir.',
   },
   {
-    heading: '6. iletişim',
+    heading: '7. iletişim',
     body: 'soruların için destek@playbox.app adresine yazabilirsin. kvkk başvuruları aynı adrese yapılabilir; 30 gün içinde yanıtlanır.',
   },
 ];
@@ -116,7 +120,7 @@ export default function Privacy() {
             opacity: 0.75,
           }}
         >
-          son güncelleme: 26 nisan 2026 · sürüm 1.0
+          son güncelleme: 27 nisan 2026 · sürüm 1.1
         </Text>
 
         {SECTIONS.map((s) => (
