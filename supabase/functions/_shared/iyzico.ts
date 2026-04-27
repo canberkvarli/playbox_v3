@@ -1,11 +1,14 @@
 /**
  * Minimal Iyzico client for Supabase Edge Functions (Deno).
  *
- * Uses the V2 (IYZWSv2) auth scheme:
+ * Uses the V2 (IYZWSv2) auth scheme. Matches iyzipay-node's reference impl:
  *   payload    = randomKey + uriPath + JSON.stringify(body)
- *   signature  = base64(HMAC-SHA256(payload, secretKey))
+ *   signature  = HEX(HMAC-SHA256(payload, secretKey))   ← HEX, not base64.
  *   authParams = "apiKey:<x>&randomKey:<y>&signature:<z>"
  *   Authorization: "IYZWSv2 " + base64(authParams)
+ *
+ * The signature is hex-encoded; only the outer authParams string is base64.
+ * Mixing those up produces "Geçersiz imza" (invalid signature) every time.
  *
  * Env vars required on the Supabase project:
  *   IYZICO_API_KEY
@@ -32,7 +35,7 @@ function randomKey(): string {
   return `${Date.now()}-${crypto.randomUUID()}`;
 }
 
-async function hmacSha256Base64(secret: string, payload: string): Promise<string> {
+async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw',
@@ -42,12 +45,17 @@ async function hmacSha256Base64(secret: string, payload: string): Promise<string
     ['sign']
   );
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 async function buildAuthHeader(uri: string, bodyString: string): Promise<{ auth: string; rnd: string }> {
   const rnd = randomKey();
-  const signature = await hmacSha256Base64(SECRET_KEY, rnd + uri + bodyString);
+  // Iyzico's IYZWSv2 spec: signature is HEX-encoded HMAC-SHA256, NOT base64.
+  // The outer authParams string is what gets base64'd into the Authorization
+  // header. Reverse them and Iyzico responds with errorCode 1000.
+  const signature = await hmacSha256Hex(SECRET_KEY, rnd + uri + bodyString);
   const authParams = `apiKey:${API_KEY}&randomKey:${rnd}&signature:${signature}`;
   const authHeader = 'IYZWSv2 ' + btoa(authParams);
   return { auth: authHeader, rnd };
