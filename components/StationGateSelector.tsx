@@ -233,18 +233,7 @@ function GateCard({
         >
           <Feather name="check" size={11} color={palette.paper} />
         </Animated.View>
-        <Text
-          style={{
-            fontFamily: 'JetBrainsMono_400Regular',
-            fontSize: 11,
-            color: palette.ink,
-            letterSpacing: 0.6,
-            marginBottom: 6,
-          }}
-        >
-          Kapı {index + 1}
-        </Text>
-        <Text style={{ fontSize: 40 }}>{SPORT_EMOJI[sport]}</Text>
+        <Text style={{ fontSize: 44 }}>{SPORT_EMOJI[sport]}</Text>
         <Text
           numberOfLines={1}
           style={{
@@ -449,9 +438,12 @@ export function StationGateSelector({
         })}
       </View>
 
-      {/* Gate picker — only when a sport with multiple gates is selected.
-          Single-gate sports skip this UI and just auto-select the gate. */}
-      {selected && allGates.length > 1 ? (
+      {/* Gate picker — hidden in v1 because auto-selection (first free
+          gate on sport change) covers the common case and the manual pill
+          row was confusing users who expected one card per door. The block
+          stays in the tree behind a feature flag so we can bring it back
+          for power users / multi-locker stations later. */}
+      {false && selected && allGates.length > 1 ? (
         <View style={{ marginTop: 18 }}>
           <Text
             style={{
@@ -648,18 +640,6 @@ export function StationGateSelector({
           </View>
         </View>
 
-        <Text
-          style={{
-            fontSize: 11,
-            color: palette.ink,
-            letterSpacing: 0.4,
-            marginTop: 8,
-            textAlign: 'center',
-            fontWeight: '500',
-          }}
-        >
-          {t('station.duration_hint')}
-        </Text>
       </View>
 
       {/* Active-session banner — highest priority, shown regardless of
@@ -773,7 +753,7 @@ export function StationGateSelector({
               },
             });
           }}
-          style={({ pressed }) => ({ marginTop: 12, opacity: pressed ? 0.65 : 1 })}
+          style={({ pressed }) => ({ marginTop: 22, opacity: pressed ? 0.65 : 1 })}
         >
           <View
             style={{

@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { palette } from '@/constants/theme';
 import { hx } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
-import { stations as STATIONS, type Sport } from '@/data/stations.seed';
+import { STATIONS, type Sport } from '@/data/stations.seed';
 import {
   useReservationsApi,
   useReservationState,
