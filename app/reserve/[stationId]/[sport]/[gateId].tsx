@@ -63,11 +63,7 @@ export default function ReserveFlow() {
   const lockMin = 30; // canonical app_config value; UI doesn't need server round-trip for this
 
   const [pageIdx, setPageIdx] = useState(0);
-  // Three explicit consent rules — user must tick each one before confirm
-  // enables. Mirrors the session-prep agreement pattern so users see one
-  // consistent UI for "I read this, I agree."
-  const [agreedRules, setAgreedRules] = useState<boolean[]>([false, false, false]);
-  const agreed = agreedRules.every(Boolean);
+  const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -232,103 +228,75 @@ export default function ReserveFlow() {
         ))}
       </ScrollView>
 
-      {!isLast ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 12 }}>
-          {SLIDES.map((_, i) => (
-            <View
-              key={i}
-              style={{
-                width: i === pageIdx ? 18 : 6,
-                height: 6,
-                borderRadius: 3,
-                backgroundColor: i === pageIdx ? palette.ink : palette.ink + '33',
-              }}
-            />
-          ))}
-        </View>
-      ) : (
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 13,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-            marginHorizontal: 24,
-            marginTop: 4,
-            marginBottom: 12,
-          }}
-        >
-          her birini onayla
-        </Text>
-      )}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 12 }}>
+        {SLIDES.map((_, i) => (
+          <View
+            key={i}
+            style={{
+              width: i === pageIdx ? 18 : 6,
+              height: 6,
+              borderRadius: 3,
+              marginHorizontal: 3,
+              backgroundColor: i === pageIdx ? palette.ink : palette.ink + '33',
+            }}
+          />
+        ))}
+      </View>
 
       {isLast && (
-        <View style={{ marginHorizontal: 24, marginBottom: 14 }}>
-          {[
-            `30 dk içinde gelmediğimde rezervasyon iptal olur`,
-            `no-show olursa ₺${holdAmount} bloke tutar tahsil edilir`,
-            `ilk 2 dk içinde iptal ücretsiz, sonrasında ücret kesilir`,
-          ].map((line, idx) => {
-            const checked = agreedRules[idx];
-            return (
-              <Pressable
-                key={line}
-                onPress={async () => {
-                  await hx.tap();
-                  setAgreedRules((prev) => {
-                    const next = [...prev];
-                    next[idx] = !next[idx];
-                    return next;
-                  });
-                }}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked }}
-                style={({ pressed }) => ({
-                  marginBottom: 10,
-                  opacity: pressed ? 0.65 : 1,
-                })}
-              >
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 38,
-                      height: 38,
-                      borderRadius: 10,
-                      backgroundColor: checked ? palette.coral : palette.paper,
-                      borderWidth: 2.5,
-                      borderColor: checked ? palette.coral : palette.ink,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 14,
-                    }}
-                  >
-                    {checked ? (
-                      <Feather name="check" size={22} color={palette.paper} />
-                    ) : null}
-                  </View>
-                  <Text
-                    style={{
-                      flex: 1,
-                      fontFamily: 'Unbounded_700Bold',
-                      color: palette.ink,
-                      fontSize: 14,
-                      lineHeight: 20,
-                      letterSpacing: 0.1,
-                    }}
-                  >
-                    {line}
-                  </Text>
-                </View>
-              </Pressable>
-            );
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            setAgreed((v) => !v);
+          }}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: agreed }}
+          style={({ pressed }) => ({
+            marginHorizontal: 24,
+            marginBottom: 14,
+            opacity: pressed ? 0.65 : 1,
           })}
-        </View>
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              padding: 14,
+              borderRadius: 14,
+              borderWidth: 2,
+              borderColor: agreed ? palette.coral : palette.ink + '33',
+              backgroundColor: agreed ? palette.coral + '14' : palette.paper,
+            }}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                backgroundColor: agreed ? palette.coral : palette.paper,
+                borderWidth: 2.5,
+                borderColor: agreed ? palette.coral : palette.ink,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginRight: 14,
+              }}
+            >
+              {agreed ? <Feather name="check" size={22} color={palette.paper} /> : null}
+            </View>
+            <Text
+              style={{
+                flex: 1,
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.ink,
+                fontSize: 14,
+                lineHeight: 20,
+                letterSpacing: 0.1,
+              }}
+            >
+              kuralları okudum, kabul ediyorum
+            </Text>
+          </View>
+        </Pressable>
       )}
 
       <Footer
