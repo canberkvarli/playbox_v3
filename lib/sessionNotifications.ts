@@ -70,6 +70,8 @@ export async function scheduleSessionEndAlerts({
   // Wipe any prior notifications first — fresh session = fresh schedule.
   await cancelSessionEndAlerts();
 
+  // expo-notifications SDK 53+ requires `type: 'date'` on date-based
+  // triggers. The earlier `{ date }` shorthand throws a TypeError now.
   if (preAt > now) {
     try {
       await N.scheduleNotificationAsync({
@@ -78,9 +80,9 @@ export async function scheduleSessionEndAlerts({
           title: '5 dk kaldı',
           body: `${stationName} • ekipmanı toparlamaya başla.`,
           sound: 'default',
-          data: { type: 'session-pre' },
+          data: { kind: 'session-pre' },
         },
-        trigger: { date: new Date(preAt) },
+        trigger: { type: 'date', date: new Date(preAt) },
       });
     } catch (e) {
       if (__DEV__) console.warn('[sessionNotif] pre schedule failed', e);
@@ -95,9 +97,9 @@ export async function scheduleSessionEndAlerts({
           title: 'süre doldu',
           body: `${stationName} • ekipmanı iade et, kapıyı kapat.`,
           sound: 'default',
-          data: { type: 'session-end' },
+          data: { kind: 'session-end' },
         },
-        trigger: { date: new Date(endAt) },
+        trigger: { type: 'date', date: new Date(endAt) },
       });
     } catch (e) {
       if (__DEV__) console.warn('[sessionNotif] end schedule failed', e);
