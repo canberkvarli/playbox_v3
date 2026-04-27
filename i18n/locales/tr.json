@@ -255,6 +255,10 @@
       "privacy": "gizlilik politikası",
       "terms": "kullanım şartları",
       "coming_soon": "yakında"
+    },
+    "feedback": {
+      "section": "geri bildirim",
+      "rate_app": "uygulamayı değerlendir"
     }
   },
   "station": {
@@ -352,6 +356,13 @@
       "skip": "geç",
       "submit": "gönder",
       "submitting": "gönderiliyor..."
+    },
+    "app_prompt": {
+      "title": "playbox'ı değerlendir",
+      "sub": "düşüncen bizim için değerli — kısaca paylaşır mısın?",
+      "dismiss": "şimdi değil",
+      "thanks_title": "teşekkürler!",
+      "thanks_sub": "değerlendirmen kaydedildi."
     }
   },
   "reservations": {

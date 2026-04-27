@@ -19,6 +19,9 @@ import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
+import { AppRatingSheet } from '@/components/AppRatingSheet';
+import { BadFeedbackModal } from '@/components/BadFeedbackModal';
+import { isBadRating } from '@/lib/feedback';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
@@ -277,6 +280,8 @@ export default function Settings() {
   const { displayName, username, phone } = useDisplayUser();
 
   const [editField, setEditField] = useState<'name' | 'username' | null>(null);
+  const [ratingSheetOpen, setRatingSheetOpen] = useState(false);
+  const [badFeedbackRating, setBadFeedbackRating] = useState<number | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const setNameOverride = useSettingsStore((s) => s.setNameOverride);
   const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
@@ -463,6 +468,19 @@ export default function Settings() {
             destructive
           />
         </RiseIn>
+
+        {/* Geri bildirim — manual entry to "rate the app". Bad ratings
+            chain into the BadFeedbackModal for chips + free text. */}
+        <RiseIn delay={120}>
+          <SectionLabel>{t('settings.feedback.section')}</SectionLabel>
+          <SettingRow
+            label={t('settings.feedback.rate_app')}
+            onPress={async () => {
+              await hx.tap();
+              setRatingSheetOpen(true);
+            }}
+          />
+        </RiseIn>
       </ScrollView>
 
       {/* Pinned footer */}
@@ -564,6 +582,23 @@ export default function Settings() {
         placeholder="mert_42"
         onSave={saveUsername}
         onClose={() => setEditField(null)}
+      />
+      <AppRatingSheet
+        visible={ratingSheetOpen}
+        onClose={(rating) => {
+          setRatingSheetOpen(false);
+          // Bad rating? Chain straight into the bad-feedback modal so the
+          // user can tell us what specifically went wrong.
+          if (isBadRating(rating)) {
+            setTimeout(() => setBadFeedbackRating(rating), 240);
+          }
+        }}
+      />
+      <BadFeedbackModal
+        visible={badFeedbackRating != null}
+        rating={badFeedbackRating ?? 0}
+        kind="app"
+        onClose={() => setBadFeedbackRating(null)}
       />
       <DeleteAccountModal
         visible={deleteOpen}

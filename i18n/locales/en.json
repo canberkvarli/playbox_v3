@@ -255,6 +255,10 @@
       "privacy": "privacy policy",
       "terms": "terms of use",
       "coming_soon": "coming soon"
+    },
+    "feedback": {
+      "section": "feedback",
+      "rate_app": "rate the app"
     }
   },
   "station": {
@@ -352,6 +356,13 @@
       "skip": "skip",
       "submit": "send",
       "submitting": "sending..."
+    },
+    "app_prompt": {
+      "title": "rate playbox",
+      "sub": "your thoughts matter to us — care to share?",
+      "dismiss": "not now",
+      "thanks_title": "thank you!",
+      "thanks_sub": "your rating was saved."
     }
   },
   "reservations": {
