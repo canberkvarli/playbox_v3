@@ -11,6 +11,12 @@ export type StationDetailPanelProps = {
   station: Station;
   onSportTap: (sport: Sport) => void;
   /**
+   * Optional reserve handler. When provided, each gate card shows a small
+   * "rezerve et" link that takes the user to the hold-a-spot flow instead
+   * of the immediate-unlock flow.
+   */
+  onReserveTap?: (sport: Sport) => void;
+  /**
    * Optional slot rendered at the very top of the panel — before the hero.
    * Host-specific controls (close button, back arrow, help) go here.
    */
@@ -25,7 +31,7 @@ export type StationDetailPanelProps = {
  * Per-sport cards (gates) are tappable — each card represents a numbered
  * gate (K1, K2, K3) and shows müsait / dolu status. Tap opens session-prep.
  */
-export function StationDetailPanel({ station, onSportTap, headerSlot }: StationDetailPanelProps) {
+export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSlot }: StationDetailPanelProps) {
   const { t } = useT();
 
   const availableCount = station.sports.filter((s) => (station.stock[s] ?? 0) > 0).length;
@@ -196,6 +202,42 @@ export function StationDetailPanel({ station, onSportTap, headerSlot }: StationD
                         />
                       </View>
                     )}
+
+                    {/* Reserve link — secondary affordance. Tapping the card
+                        body still routes to session-prep (immediate unlock);
+                        this small link routes to the hold-a-spot flow. */}
+                    {!out && onReserveTap ? (
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          onReserveTap(sport);
+                        }}
+                        hitSlop={6}
+                        style={({ pressed }) => ({
+                          marginTop: 12,
+                          paddingTop: 10,
+                          borderTopWidth: 1,
+                          borderTopColor: palette.ink + '14',
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          opacity: pressed ? 0.55 : 1,
+                        })}
+                      >
+                        <Text
+                          style={{
+                            fontFamily: 'Unbounded_700Bold',
+                            color: palette.ink,
+                            fontSize: 11,
+                            letterSpacing: 0.4,
+                            textTransform: 'uppercase',
+                          }}
+                        >
+                          rezerve et
+                        </Text>
+                        <Feather name="arrow-up-right" size={14} color={palette.ink} />
+                      </Pressable>
+                    ) : null}
                   </Pressable>
                 );
               })}

@@ -74,6 +74,22 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
     }, 250);
   };
 
+  // Hold-a-spot path. Routes to /reserve/[stationId]/[sport]/[gateId] which
+  // creates an iyzico hold and locks the gate for ~30 min so the user can
+  // walk over without losing it. Gate id mirrors gatesForStation()'s scheme.
+  const onReserveTap = async (sport: Sport) => {
+    if (!station) return;
+    await hx.tap();
+    sheetRef.current?.close();
+    const gateId = `${station.id}-${sport}-1`;
+    setTimeout(() => {
+      router.push({
+        pathname: '/reserve/[stationId]/[sport]/[gateId]',
+        params: { stationId: station.id, sport, gateId },
+      });
+    }, 250);
+  };
+
   const onHelp = async () => {
     await hx.tap();
     tourRef.current?.open();
@@ -148,6 +164,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
             <StationDetailPanel
               station={station}
               onSportTap={onSportTap}
+              onReserveTap={onReserveTap}
               headerSlot={headerSlot}
             />
           ) : null}
