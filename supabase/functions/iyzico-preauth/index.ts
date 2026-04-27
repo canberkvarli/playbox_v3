@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       id: userId,
       name: 'Playbox',
       surname: 'Kullanıcı',
-      email: `${userId}@users.playbox.local`,
+      email: `${userId}@users.playbox.app`,
       identityNumber: '11111111111',
       registrationAddress: 'N/A',
       ip,

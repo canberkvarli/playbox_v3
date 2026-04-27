@@ -61,7 +61,10 @@ Deno.serve(async (req) => {
     locale: 'tr',
     conversationId: `reg:${userId}:${Date.now()}`,
     externalId: userId,
-    email: `${userId}@users.playbox.local`,
+    // Iyzico's validator rejects non-public TLDs (".local" → errorCode 5).
+    // playbox.app is the brand domain — synthetic addresses still work
+    // because Iyzico only checks format, not deliverability.
+    email: `${userId}@users.playbox.app`,
     cardUserKey: existing?.iyzico_card_user_key ?? undefined,
     card: {
       cardAlias: 'playbox',
