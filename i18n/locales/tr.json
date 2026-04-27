@@ -321,6 +321,39 @@
     "share_msg": "{{station}} istasyonunda {{minutes}} dakika {{sport}} oynadım 💪 — playbox",
     "cta": "anladım"
   },
+  "feedback": {
+    "bad": {
+      "session": {
+        "title": "ne ters gitti?",
+        "sub": "kısaca anlatabilir misin? bir sonrakinde daha iyisini yapalım.",
+        "reasons": {
+          "equipment": "ekipman bozuk",
+          "gate": "kapı sorunlu",
+          "cleanliness": "temiz değildi",
+          "misleading": "yanıltıcı bilgi",
+          "pricing": "ücretle ilgili",
+          "other": "başka"
+        }
+      },
+      "app": {
+        "title": "uygulamada bir sorun mu var?",
+        "sub": "ne olduğunu anlat — sonraki sürümde düzeltelim.",
+        "reasons": {
+          "slow": "yavaş",
+          "confusing": "anlaşılmaz",
+          "crashed": "hata aldım",
+          "map_wrong": "harita doğru değil",
+          "notifications": "bildirimler",
+          "other": "başka"
+        }
+      },
+      "message_label": "ek bilgi (zorunlu değil)",
+      "message_placeholder": "kısaca yaz, yardımcı olur",
+      "skip": "geç",
+      "submit": "gönder",
+      "submitting": "gönderiliyor..."
+    }
+  },
   "reservations": {
     "locked": "rezerve",
     "go_to_station": "istasyona git",

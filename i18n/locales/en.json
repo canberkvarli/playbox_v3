@@ -321,6 +321,39 @@
     "share_msg": "just played {{minutes}} min of {{sport}} at {{station}} 💪 — playbox",
     "cta": "got it"
   },
+  "feedback": {
+    "bad": {
+      "session": {
+        "title": "what went wrong?",
+        "sub": "tell us in a few words — we'll do better next time.",
+        "reasons": {
+          "equipment": "broken gear",
+          "gate": "gate issue",
+          "cleanliness": "not clean",
+          "misleading": "misleading info",
+          "pricing": "pricing concern",
+          "other": "other"
+        }
+      },
+      "app": {
+        "title": "trouble with the app?",
+        "sub": "tell us what happened — we'll fix it.",
+        "reasons": {
+          "slow": "slow",
+          "confusing": "confusing",
+          "crashed": "crashed / error",
+          "map_wrong": "map is wrong",
+          "notifications": "notifications",
+          "other": "other"
+        }
+      },
+      "message_label": "more detail (optional)",
+      "message_placeholder": "a short note helps us a lot",
+      "skip": "skip",
+      "submit": "send",
+      "submitting": "sending..."
+    }
+  },
   "reservations": {
     "locked": "reserved",
     "go_to_station": "go to station",

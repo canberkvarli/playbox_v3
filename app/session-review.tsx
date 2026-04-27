@@ -13,7 +13,9 @@ import { useIyzico } from '@/lib/iyzico';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { PostSessionCardPrompt } from '@/components/PostSessionCardPrompt';
+import { BadFeedbackModal } from '@/components/BadFeedbackModal';
 import { costForMinutes } from '@/lib/pricing';
+import { isBadRating, submitFeedback } from '@/lib/feedback';
 
 const FACES = ['😡', '😕', '😐', '🙂', '🤩'] as const;
 
@@ -30,6 +32,7 @@ export default function SessionReview() {
   const { releaseHold } = useIyzico();
 
   const [rating, setRating] = useState<number | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [cardPromptDismissed, setCardPromptDismissed] = useState(false);
   const sideEffectsRan = useRef(false);
 
@@ -225,6 +228,15 @@ export default function SessionReview() {
                   onPress={async () => {
                     await hx.tap();
                     setRating(i);
+                    // Save the rating immediately — fire and forget so the
+                    // UI never waits on the network.
+                    submitFeedback({ kind: 'session', rating: i }).catch(() => {});
+                    // For 😡 / 😕, open the bad-feedback modal so we can
+                    // capture WHY. The modal posts a separate row with
+                    // reasons + message.
+                    if (isBadRating(i)) {
+                      setTimeout(() => setFeedbackOpen(true), 240);
+                    }
                   }}
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.8 : 1,
@@ -294,6 +306,13 @@ export default function SessionReview() {
           </View>
         </Pressable>
       </RiseIn>
+
+      <BadFeedbackModal
+        visible={feedbackOpen}
+        rating={rating ?? 0}
+        kind="session"
+        onClose={() => setFeedbackOpen(false)}
+      />
     </View>
   );
 }
