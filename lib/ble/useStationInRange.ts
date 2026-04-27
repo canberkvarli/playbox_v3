@@ -1,35 +1,42 @@
 import { useEffect, useState } from 'react';
+import { getDriver, type ProximityState } from '@/lib/hardware';
+
+export type ProximityResult = {
+  inRange: boolean;
+  state: ProximityState;
+  /** True if the user explicitly needs to grant something (BLE / location). */
+  needsPermission: boolean;
+  /** True if the OS BLE adapter is off and the user should turn it on. */
+  bluetoothOff: boolean;
+  /** True only on platforms without BLE (web, simulator without sim plugins). */
+  unsupported: boolean;
+};
 
 /**
- * Returns whether the user appears to be in BLE range of the given station.
+ * Watches BLE proximity for the given station id. Backed by the active
+ * hardware driver — mock by default in dev, real BLE in production (or in
+ * dev when `useDevStore.bleHardware` is true).
  *
- * v1 stub: in dev, always reports true so the OYNA flow is testable. In
- * production, returns false until a periodic passive scan confirms the
- * station's device is broadcasting nearby with usable RSSI.
- *
- * Wire-up plan (v2):
- *   - Use stationClient's BleManager to startDeviceScan filtered by SERVICE_UUID.
- *   - When a scanned device's `name` matches the station's BLE name AND
- *     RSSI > -85, set inRange = true. Reset to false if no hit in 6s.
- *   - Stop scanning on unmount.
+ * Returns both the simple `inRange` boolean and a richer `state` so screens
+ * can show "scanning…", "bluetooth kapalı", "izin ver", etc.
  */
-export function useStationInRange(stationBleName: string | null) {
-  const [inRange, setInRange] = useState<boolean>(false);
+export function useStationInRange(stationId: string | null) {
+  const [state, setState] = useState<ProximityState>({ kind: 'idle' });
 
   useEffect(() => {
-    if (!stationBleName) {
-      setInRange(false);
+    if (!stationId) {
+      setState({ kind: 'idle' });
       return;
     }
-    // Dev convenience: assume in range so we can exercise the unlock UI
-    // without standing next to a station. Production code path (v2) replaces
-    // this with a real passive RSSI scan.
-    if (__DEV__) {
-      setInRange(true);
-      return;
-    }
-    setInRange(false);
-  }, [stationBleName]);
+    const driver = getDriver();
+    const sub = driver.watchStation(stationId, setState);
+    return () => sub.stop();
+  }, [stationId]);
 
-  return { inRange };
+  const inRange = state.kind === 'in_range';
+  const needsPermission = state.kind === 'permission_denied';
+  const bluetoothOff = state.kind === 'bluetooth_off';
+  const unsupported = state.kind === 'unsupported';
+
+  return { inRange, state, needsPermission, bluetoothOff, unsupported };
 }

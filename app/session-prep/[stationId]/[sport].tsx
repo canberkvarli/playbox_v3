@@ -28,6 +28,8 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { CardRequiredSheet } from '@/components/CardRequiredSheet';
 import { RiseIn } from '@/components/RiseIn';
 import { scheduleSessionEndAlerts } from '@/lib/sessionNotifications';
+import { getDriver } from '@/lib/hardware';
+import { supabase } from '@/lib/supabase';
 
 const PREAUTH_HOLD_TRY = 150;
 
@@ -226,6 +228,49 @@ export default function SessionPrep() {
               name: preflight.active.stationName,
             }),
         [{ text: 'Tamam', onPress: () => router.replace('/(tabs)/play') }]
+      );
+      return;
+    }
+
+    // Gate unlock — server-mediated through the active hardware driver.
+    // Mock driver returns success instantly; BLE driver POSTs to the
+    // /gate-unlock Edge Function which verifies session + dispatches MQTT.
+    // Failure here MUST release the iyzico hold; we charged for an unlock
+    // we never delivered.
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    const sessionToken = authSession?.access_token ?? '';
+    const driver = getDriver();
+    const gateId = `${station.id}-${sport}-${Math.max(1, gateIndex + 1)}`;
+    const correlationId = `unlock:${station.id}:${sport}:${Date.now()}`;
+    const unlockRes = await driver.unlockGate({
+      stationId: station.id,
+      gateId,
+      sessionToken,
+      correlationId,
+    });
+    if (!unlockRes.ok) {
+      if (holdId) {
+        releaseHold(holdId).catch(() => {});
+        setHold(null);
+      }
+      setUnlocking(false);
+      unlockingRef.current = false;
+      await hx.punch();
+      const reasonMap: Record<string, string> = {
+        not_in_range: 'kapıya yaklaş ve tekrar dene.',
+        permission_denied: 'bluetooth izni gerekiyor — ayarlardan aç.',
+        bluetooth_off: 'bluetooth\'u açıp tekrar dene.',
+        connection_failed: 'kapı yanıt vermedi. tekrar dene.',
+        auth_rejected: 'oturum doğrulanamadı, baştan başla.',
+        gate_busy: 'kapı şu an meşgul. bir an sonra tekrar dene.',
+        timeout: 'kapı yanıtı gelmedi. tekrar dene.',
+        network: 'internet bağlantın yok gibi.',
+        unsupported: 'bu cihaz kapı açmayı desteklemiyor.',
+        unknown: 'bir sorun çıktı, tekrar dene.',
+      };
+      Alert.alert(
+        t('common.error_generic'),
+        reasonMap[unlockRes.error] ?? reasonMap.unknown,
       );
       return;
     }

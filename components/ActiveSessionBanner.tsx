@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
-import { useSegments } from 'expo-router';
+import { Pressable, Text, View } from 'react-native';
+import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -12,6 +12,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
@@ -20,9 +21,6 @@ import { useSessionStore } from '@/stores/sessionStore';
 function fmt(sec: number) {
   const abs = Math.abs(sec);
   const sign = sec < 0 ? '-' : '';
-  // Under an hour: precise MM:SS clock (what you want while counting down).
-  // Over an hour (only happens deep into overrun): drop seconds, switch to
-  // Hsa Mdk — avoids the "-276:45" horror when a user forgets for ages.
   if (abs < 3600) {
     const mm = Math.floor(abs / 60).toString().padStart(2, '0');
     const ss = (abs % 60).toString().padStart(2, '0');
@@ -33,43 +31,58 @@ function fmt(sec: number) {
   return `${sign}${h}sa ${m}dk`;
 }
 
-// Reading speed for the ticker: ~60 pixels per second. News-ticker-ish,
-// fast enough not to feel sluggish, slow enough to actually read.
-const TICKER_PPS = 60;
+// Reading speed for the ticker: ~50 pixels per second.
+const TICKER_PPS = 50;
 
 /**
- * Scrolling news-ticker bar. The width is measured exactly once on the first
- * layout; after that the animation just runs forever in a `withRepeat` loop.
- * This avoids the previous stagger where every countdown tick re-ran the
- * effect and restarted the marquee.
- *
- * The two Text copies share the same animated X, so the end of the first
- * copy butts seamlessly against the start of the second — no visible gap or
- * jump at the loop boundary.
+ * Active-session banner. Scrolling marquee at the bottom of the screen,
+ * tappable to jump to /play. Coloured ink while on-time, pulsing coral when
+ * overrun. Hidden on /play and on the modal-style routes that already have
+ * their own primary CTAs.
  */
-function Ticker({
-  label,
-  overrun,
-}: {
-  label: string;
-  overrun: boolean;
-}) {
-  const [textWidth, setTextWidth] = useState(0);
+export function ActiveSessionBanner() {
+  const active = useSessionStore((s) => s.active);
+  const segments = useSegments();
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [, setTick] = useState(0);
+
+  // Marquee scroll
   const x = useSharedValue(0);
+  const [textWidth, setTextWidth] = useState(0);
   const measuredRef = useRef(false);
   const runningRef = useRef(false);
 
-  // Measure exactly once. MM:SS ticks cause the Text to re-render each
-  // second, but the character count is constant (padStart), so width won't
-  // meaningfully drift — safe to lock in the first measurement.
-  const onTextLayout = (e: { nativeEvent: { layout: { width: number } } }) => {
-    if (measuredRef.current) return;
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) {
-      measuredRef.current = true;
-      setTextWidth(w);
+  // Overrun colour pulse
+  const pulse = useSharedValue(0);
+
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+
+  const elapsedSec = active ? Math.floor((Date.now() - active.startedAt) / 1000) : 0;
+  const totalSec = active ? active.durationMinutes * 60 : 0;
+  const remaining = totalSec - elapsedSec;
+  const overrun = remaining < 0;
+
+  useEffect(() => {
+    if (!active || !overrun) {
+      cancelAnimation(pulse);
+      pulse.value = 0;
+      return;
     }
-  };
+    pulse.value = 0;
+    pulse.value = withRepeat(
+      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(pulse);
+    };
+  }, [active, overrun, pulse]);
 
   useEffect(() => {
     if (textWidth <= 0 || runningRef.current) return;
@@ -81,7 +94,7 @@ function Ticker({
         easing: Easing.linear,
       }),
       -1,
-      false
+      false,
     );
     return () => {
       cancelAnimation(x);
@@ -89,155 +102,135 @@ function Ticker({
     };
   }, [textWidth, x]);
 
-  const style = useAnimatedStyle(() => ({
+  const cardStyle = useAnimatedStyle(() => {
+    const bg = overrun
+      ? interpolateColor(pulse.value, [0, 1], [palette.coral, '#ff3a3a'])
+      : palette.ink;
+    return { backgroundColor: bg };
+  });
+
+  const marqueeStyle = useAnimatedStyle(() => ({
     flexDirection: 'row',
     transform: [{ translateX: x.value }],
   }));
 
-  // Alert pulse — only runs while overrun. Drives a 0↔1 shared value that
-  // interpolates the bar between coral and a brighter "danger red" so it
-  // reads as an alarm without feeling visually noisy when on-time.
-  const pulse = useSharedValue(0);
-  useEffect(() => {
-    if (!overrun) {
-      cancelAnimation(pulse);
-      pulse.value = 0;
-      return;
-    }
-    pulse.value = 0;
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 550, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true
-    );
-    return () => {
-      cancelAnimation(pulse);
-    };
-  }, [overrun, pulse]);
-
-  const fg = palette.paper;
-
-  const barStyle = useAnimatedStyle(() => {
-    const bg = overrun
-      ? interpolateColor(pulse.value, [0, 1], [palette.coral, '#ff2d2d'])
-      : palette.mauve;
-    return {
-      backgroundColor: bg,
-      borderTopWidth: 1,
-      borderBottomWidth: 1,
-      borderColor: fg + '44',
-    };
-  });
-
-  const textStyle = {
-    fontFamily: 'JetBrainsMono_700Bold' as const,
-    fontSize: 17,
-    lineHeight: 20,
-    color: fg,
-    letterSpacing: 1.2,
-    paddingHorizontal: 22,
-  };
-
-  return (
-    <Animated.View
-      style={barStyle}
-      accessibilityRole="text"
-      accessibilityLabel={label}
-    >
-      <View
-        // Fixed height + overflow:hidden reserves vertical space and clips the
-        // absolutely-positioned marquee row. Pure View (not Pressable) so the
-        // bar reads as ambient status, not a tappable link.
-        style={{ height: 32, width: '100%', overflow: 'hidden' }}
-      >
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              top: 6,
-              left: 0,
-              flexDirection: 'row',
-            },
-            style,
-          ]}
-        >
-          <Text onLayout={onTextLayout} numberOfLines={1} style={textStyle}>
-            {label}
-          </Text>
-          <Text numberOfLines={1} style={textStyle}>
-            {label}
-          </Text>
-        </Animated.View>
-      </View>
-    </Animated.View>
-  );
-}
-
-/**
- * Active-session indicator. Renders a news-ticker style bar at both the top
- * and bottom of the screen while a session is running. Tapping either opens
- * the play tab. Hidden while already on play.
- */
-export function ActiveSessionBanner() {
-  const active = useSessionStore((s) => s.active);
-  const segments = useSegments();
-  const insets = useSafeAreaInsets();
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-
   if (!active) return null;
-  if (segments.join('/').endsWith('(tabs)/play')) return null;
-
-  const elapsedSec = Math.floor((Date.now() - active.startedAt) / 1000);
-  const totalSec = active.durationMinutes * 60;
-  const remaining = totalSec - elapsedSec;
-  const overrun = remaining < 0;
+  const path = segments.join('/');
+  if (path.endsWith('(tabs)/play')) return null;
+  if (path.includes('session-prep') || path.includes('session-review')) return null;
+  if (path.includes('card-add') || path.includes('scan')) return null;
 
   const sportLabel = (SPORT_LABELS[active.sport] ?? active.sport).toUpperCase();
   const sportEmoji = SPORT_EMOJI[active.sport] ?? '';
 
-  // Tight ticker: sport, station, countdown. Trailing spaces give the loop
-  // breathing room so the text restart doesn't butt up against the previous one.
+  // Repeated label with separators. Two trailing spaces give the loop seam
+  // some air so the restart doesn't feel jarring.
   const label =
     [
-      `${sportEmoji} ${sportLabel}`,
+      `${sportEmoji}  ${sportLabel}`,
       active.stationName.toUpperCase(),
-      fmt(remaining),
-    ].join('  ·  ') + '          ';
+      `${overrun ? 'GEÇ' : 'KALDI'} ${fmt(remaining)}`,
+      'OYNA SEKMESİNE GİT',
+    ].join('   ·   ') + '         ';
+
+  const onTextLayout = (e: { nativeEvent: { layout: { width: number } } }) => {
+    if (measuredRef.current) return;
+    const w = e.nativeEvent.layout.width;
+    if (w > 0) {
+      measuredRef.current = true;
+      setTextWidth(w);
+    }
+  };
+
+  const onPress = async () => {
+    await hx.tap();
+    router.push('/(tabs)/play');
+  };
+
+  const textStyle = {
+    fontFamily: 'JetBrainsMono_700Bold' as const,
+    fontSize: 14,
+    lineHeight: 18,
+    color: palette.paper,
+    letterSpacing: 1.2,
+    paddingHorizontal: 18,
+  };
 
   return (
-    <>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: insets.top,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          elevation: 50,
-        }}
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        bottom: insets.bottom + 10,
+        left: 12,
+        right: 12,
+        zIndex: 50,
+        elevation: 50,
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`aktif seans: ${active.stationName}, ${fmt(remaining)} ${overrun ? 'gecikme' : 'kaldı'}`}
+        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
       >
-        <Ticker label={label} overrun={overrun} />
-      </View>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: insets.bottom,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          elevation: 50,
-        }}
-      >
-        <Ticker label={label} overrun={overrun} />
-      </View>
-    </>
+        <Animated.View
+          style={[
+            {
+              borderRadius: 18,
+              borderWidth: 1.5,
+              borderColor: palette.paper + '22',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.22,
+              shadowRadius: 14,
+              elevation: 10,
+              overflow: 'hidden',
+              height: 44,
+              flexDirection: 'row',
+              alignItems: 'center',
+            },
+            cardStyle,
+          ]}
+        >
+          {/* Status dot — pulses with the colour, sits flush left so users
+              know exactly where the ticker starts. */}
+          <View
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: overrun ? palette.paper : palette.butter,
+              marginLeft: 14,
+              marginRight: 6,
+            }}
+          />
+
+          {/* Marquee viewport — overflow:hidden clips the row of duplicated
+              Texts. Two copies share the same animated translateX so the seam
+              is invisible. */}
+          <View style={{ flex: 1, height: 44, overflow: 'hidden', justifyContent: 'center' }}>
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  left: 0,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                },
+                marqueeStyle,
+              ]}
+            >
+              <Text onLayout={onTextLayout} numberOfLines={1} style={textStyle}>
+                {label}
+              </Text>
+              <Text numberOfLines={1} style={textStyle}>
+                {label}
+              </Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
+      </Pressable>
+    </View>
   );
 }
