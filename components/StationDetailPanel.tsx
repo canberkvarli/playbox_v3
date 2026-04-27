@@ -137,108 +137,181 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
             <Text className="font-medium text-ink/60 dark:text-paper/60 uppercase tracking-wider text-xs mb-3">
               {t('station.available_equipment')}
             </Text>
-            <View className="flex-row flex-wrap gap-3">
+            <View>
               {station.sports.map((sport, idx) => {
                 const n = idx + 1;
                 const stock = station.stock[sport] ?? 0;
                 const out = stock === 0 || !station.availableNow;
                 return (
-                  <Pressable
+                  <View
                     key={sport}
-                    onPress={() => {
-                      if (out) return;
-                      onSportTap(sport);
-                    }}
-                    disabled={out}
-                    style={({ pressed }) => ({
-                      flexBasis: '47%',
-                      flexGrow: 1,
+                    style={{
                       backgroundColor: out ? palette.ink + '0d' : palette.paper,
-                      borderWidth: 1,
-                      borderColor: palette.ink + '1a',
+                      borderWidth: 1.5,
+                      borderColor: palette.ink + '22',
                       borderRadius: 20,
                       padding: 16,
-                      transform: [{ scale: pressed && !out ? 0.98 : 1 }],
+                      marginBottom: 12,
                       opacity: out ? 0.55 : 1,
-                    })}
+                    }}
                   >
-                    <View className="flex-row items-center justify-between">
-                      <Text style={{ fontSize: 32 }}>{SPORT_EMOJI[sport]}</Text>
+                    {/* Top row: sport emoji + label + K{n} badge */}
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        marginBottom: 14,
+                      }}
+                    >
+                      <Text style={{ fontSize: 36, marginRight: 12 }}>{SPORT_EMOJI[sport]}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text
+                          style={{
+                            fontFamily: 'Unbounded_800ExtraBold',
+                            color: palette.ink,
+                            fontSize: 18,
+                            letterSpacing: 0.2,
+                          }}
+                        >
+                          {SPORT_LABELS[sport]}
+                        </Text>
+                        {out ? (
+                          <Text
+                            style={{
+                              fontFamily: 'Inter_700Bold',
+                              color: palette.coral,
+                              fontSize: 12,
+                              marginTop: 3,
+                            }}
+                          >
+                            {t('station.full')}
+                          </Text>
+                        ) : (
+                          <View
+                            style={{
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              marginTop: 3,
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: 3,
+                                backgroundColor: '#3aaf6a',
+                                marginRight: 6,
+                              }}
+                            />
+                            <Text
+                              style={{
+                                fontFamily: 'Unbounded_700Bold',
+                                color: palette.ink,
+                                fontSize: 11,
+                                letterSpacing: 0.6,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {t('station.available')}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                       <View
                         style={{
                           backgroundColor: palette.ink,
-                          borderRadius: 6,
-                          paddingHorizontal: 6,
-                          paddingVertical: 2,
+                          borderRadius: 8,
+                          paddingHorizontal: 8,
+                          paddingVertical: 4,
                         }}
                       >
                         <Text
-                          className="font-mono text-paper"
-                          style={{ fontSize: 10 }}
+                          style={{
+                            fontFamily: 'Unbounded_800ExtraBold',
+                            color: palette.paper,
+                            fontSize: 11,
+                            letterSpacing: 0.4,
+                          }}
                         >
                           K{n}
                         </Text>
                       </View>
                     </View>
-                    <Text className="font-medium text-ink dark:text-paper text-base mt-3">
-                      {SPORT_LABELS[sport]}
-                    </Text>
-                    {out ? (
-                      <Text className="font-sans text-ink/40 dark:text-paper/40 text-xs mt-0.5">
-                        {t('station.full')}
-                      </Text>
-                    ) : (
-                      <View className="flex-row items-center gap-1.5 mt-0.5">
-                        <Text className="font-medium text-ink dark:text-paper text-xs">
-                          {t('station.available')}
-                        </Text>
-                        <View
-                          style={{
-                            width: 5,
-                            height: 5,
-                            borderRadius: 2.5,
-                            backgroundColor: palette.coral,
-                          }}
-                        />
-                      </View>
-                    )}
 
-                    {/* Reserve link — secondary affordance. Tapping the card
-                        body still routes to session-prep (immediate unlock);
-                        this small link routes to the hold-a-spot flow. */}
-                    {!out && onReserveTap ? (
-                      <Pressable
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onReserveTap(sport);
-                        }}
-                        hitSlop={6}
-                        style={({ pressed }) => ({
-                          marginTop: 12,
-                          paddingTop: 10,
-                          borderTopWidth: 1,
-                          borderTopColor: palette.ink + '14',
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          opacity: pressed ? 0.55 : 1,
-                        })}
-                      >
-                        <Text
-                          style={{
-                            fontFamily: 'Unbounded_700Bold',
-                            color: palette.ink,
-                            fontSize: 11,
-                            letterSpacing: 0.4,
-                            textTransform: 'uppercase',
-                          }}
+                    {/* Action row: primary "ŞİMDİ OYNA" + secondary "REZERVE ET" */}
+                    {!out ? (
+                      <View style={{ flexDirection: 'row' }}>
+                        <Pressable
+                          onPress={() => onSportTap(sport)}
+                          style={({ pressed }) => ({
+                            flex: 1,
+                            marginRight: 8,
+                            opacity: pressed ? 0.92 : 1,
+                          })}
                         >
-                          rezerve et
-                        </Text>
-                        <Feather name="arrow-up-right" size={14} color={palette.ink} />
-                      </Pressable>
+                          <View
+                            style={{
+                              backgroundColor: palette.coral,
+                              borderRadius: 14,
+                              paddingVertical: 14,
+                              alignItems: 'center',
+                              flexDirection: 'row',
+                              justifyContent: 'center',
+                              shadowColor: palette.coral,
+                              shadowOffset: { width: 0, height: 6 },
+                              shadowOpacity: 0.28,
+                              shadowRadius: 10,
+                              elevation: 6,
+                            }}
+                          >
+                            <Feather name="play" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+                            <Text
+                              style={{
+                                fontFamily: 'Unbounded_800ExtraBold',
+                                color: palette.paper,
+                                fontSize: 13,
+                                letterSpacing: 0.4,
+                              }}
+                            >
+                              ŞİMDİ OYNA
+                            </Text>
+                          </View>
+                        </Pressable>
+                        {onReserveTap ? (
+                          <Pressable
+                            onPress={() => onReserveTap(sport)}
+                            style={({ pressed }) => ({
+                              flex: 1,
+                              opacity: pressed ? 0.6 : 1,
+                            })}
+                          >
+                            <View
+                              style={{
+                                backgroundColor: palette.ink,
+                                borderRadius: 14,
+                                paddingVertical: 14,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              <Feather name="clock" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+                              <Text
+                                style={{
+                                  fontFamily: 'Unbounded_800ExtraBold',
+                                  color: palette.paper,
+                                  fontSize: 13,
+                                  letterSpacing: 0.4,
+                                }}
+                              >
+                                REZERVE ET
+                              </Text>
+                            </View>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     ) : null}
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>
