@@ -181,9 +181,11 @@ function GateCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + sel.value * 0.05 - press.value * 0.04 }],
-    borderColor: selected ? palette.coral : palette.ink + '14',
-    borderWidth: 1.5,
-    backgroundColor: selected ? palette.butter : palette.paper,
+    borderColor: selected ? palette.coral : palette.ink + '33',
+    borderWidth: 2,
+    // Subtle ink tint when unselected so the card doesn't visually
+    // disappear against the paper background of the screen.
+    backgroundColor: selected ? palette.butter : palette.ink + '0d',
   }));
 
   const ringStyle = useAnimatedStyle(() => ({
@@ -753,6 +755,52 @@ export function StationGateSelector({
         hardBlocked={sessionAtOtherStation}
         onPress={onPress}
       />
+
+      {/* Always-visible secondary "Rezerve et" — even when the user is in
+          range, they may want to hold the gate while they finish errands.
+          Hidden in reserveMode (the primary button already does this) and
+          when no gate is selected or stock is empty. */}
+      {!!selected && stockOk && !reserveMode && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
+        <Pressable
+          onPress={async () => {
+            await hx.press();
+            router.push({
+              pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
+              params: {
+                stationId: station.id,
+                sport: selected,
+                gateId: selectedGate.id,
+              },
+            });
+          }}
+          style={({ pressed }) => ({ marginTop: 12, opacity: pressed ? 0.65 : 1 })}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 16,
+              borderRadius: 18,
+              borderWidth: 2,
+              borderColor: palette.ink,
+              backgroundColor: palette.paper,
+            }}
+          >
+            <Feather name="clock" size={18} color={palette.ink} style={{ marginRight: 10 }} />
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 16,
+                letterSpacing: 0.4,
+              }}
+            >
+              REZERVE ET
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
