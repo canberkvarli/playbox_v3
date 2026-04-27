@@ -1,115 +1,73 @@
-# Operator runbook (Supabase Studio v1)
+# Operator runbook (Supabase Studio)
 
-**Audience:** the 2 admins (canberk + utku) keeping reservations sane until we
-graduate to a real dashboard.
+**Audience:** the 2 admins (canberk + utku) running ops until we hire support.
 
-**Where to run these:** Supabase Dashboard → SQL Editor. Save each block as a
-named query so it's one click next time. Both admins already have Owner access
-on the project, no extra invite needed.
+**Where:** Supabase Dashboard → SQL Editor. Save each block as a named query so
+it's one click next time. Both admins already have Owner access.
 
-> ⚠️ All four snippets touch live data. Read the comment block at the top of
-> each before clicking Run. Always copy the user_id / reservation_id from the
-> "find" snippet first; never paste a UUID typed by hand.
+Five operator functions live in [supabase/migrations/20260427120000_operator_functions.sql](../../supabase/migrations/20260427120000_operator_functions.sql)
+and drive the ops below — type the user's phone, the function does the rest.
+No more uuid copy-paste.
 
 ---
 
-## 1. Find a user by phone → see their active reservation + lock state
-
-Replace `+9055...` with the user's phone (E.164).
+## 1. Find a user's current state
 
 ```sql
-with u as (
-  select id, phone, created_at
-  from auth.users
-  where phone = '+9055xxxxxxxx'   -- ← edit me
-)
-select
-  u.id            as user_id,
-  u.phone,
-  u.created_at    as signed_up_at,
-  r.id            as active_reservation_id,
-  r.station_id,
-  r.sport,
-  r.gate_id,
-  r.expires_at,
-  r.hold_id,
-  l.reason        as lock_reason,
-  l.locked_until  as locked_until
-from u
-left join public.reservations r
-  on r.user_id = u.id::text and r.status = 'active'
-left join public.user_reservation_locks l
-  on l.user_id = u.id::text;
+select * from public.op_find_user('+9055xxxxxxxx');   -- ← edit me
 ```
 
-If no rows: phone isn't registered. If `active_reservation_id` is null, the user
-has no active reservation. If `lock_reason` is non-null, they're locked.
+Returns one row with: user_id, phone, signed_up_at, active_reservation_id (or
+null), station / sport / gate / expires_at / hold_id of that reservation,
+lock_reason + locked_until.
+
+Empty → phone isn't registered. Active reservation null → user has nothing
+locked. Lock reason non-null → user is currently blocked from new reservations.
 
 ---
 
-## 2. View a reservation's full audit trail
+## 2. View a user's recent reservations
 
-Replace `RES_UUID` with the reservation_id from snippet #1.
+Default last 5; pass a second arg for more.
 
 ```sql
-select kind, payload, at
-from public.reservation_events
-where reservation_id = 'RES_UUID'   -- ← edit me
-order by at;
+select * from public.op_recent_reservations('+9055xxxxxxxx');           -- last 5
+select * from public.op_recent_reservations('+9055xxxxxxxx', 20);       -- last 20
 ```
 
-Read top-to-bottom. Sequence will be:
-- `created` → reservation placed
-- `consumed` / `grace_cancel` / `cancel_after_grace_captured` /
-  `expired_capture_ok` / `expired_capture_fail` → terminal event
-- Any `tier_lock_triggered` after captures
+---
 
-If you see `expired_capture_fail` followed by no retry, that's why a
-`payment_failed` lock is on the user — see snippet #4.
+## 3. View a reservation's full audit trail
+
+Pass the `reservation_id` from #1 or #2.
+
+```sql
+select * from public.op_view_audit('a1b2c3d4-1234-5678-90ab-fedcba987654');
+```
+
+Read top-down: `created` → terminal event (`consumed`, `grace_cancel`,
+`expired_capture_ok`, etc.) → any `tier_lock_triggered` or
+`admin_lock_cleared` rows.
 
 ---
 
-## 3. Force-release a stuck reservation (gate jam, hardware fault)
+## 4. Force-release a stuck reservation (gate jam, hardware fault)
 
-This calls the `reservation-force-release` Edge Function so the Iyzico hold is
-properly released (NOT captured), the row goes to `expired_released`, and a
-"sistemden kaynaklı sorun" push fires to the user.
-
-Replace `RES_UUID` and `REASON` (free text — gets stored in the audit log).
+This finds the active reservation by phone, calls
+`reservation-force-release`, releases the Iyzico hold (NOT captured),
+moves the row to `expired_released`, and fires the "sistemden kaynaklı
+sorun" push to the user.
 
 ```sql
-select net.http_post(
-  url := (select decrypted_secret from vault.decrypted_secrets where name = 'sweep_url' limit 1)
-         || '/../reservation-force-release',
-  headers := jsonb_build_object(
-    'Content-Type', 'application/json',
-    'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
-  ),
-  body := jsonb_build_object(
-    'reservation_id', 'RES_UUID',                          -- ← edit me
-    'reason', 'gate jam at ist-taksim-football-2'          -- ← edit me, free text
-  )
+select public.op_force_release(
+  '+9055xxxxxxxx',                              -- ← user's phone
+  'gate jam at ist-taksim-football-2'           -- ← reason, free text
 );
 ```
 
-If you don't want to mess with the URL concatenation, hardcode the function URL:
+Returns `{ok: true, reservation_id, request_id, ...}` if dispatched.
 
-```sql
--- Cleaner version — just paste the full URL
-select net.http_post(
-  url := 'https://ucyjbvajmrwermytyuik.supabase.co/functions/v1/reservation-force-release',
-  headers := jsonb_build_object(
-    'Content-Type', 'application/json',
-    'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
-  ),
-  body := jsonb_build_object(
-    'reservation_id', 'RES_UUID',
-    'reason', 'gate jam at ist-taksim-football-2'
-  )
-);
-```
-
-Verify it landed (run ~5 seconds later):
+Confirm the Edge Function actually returned 200:
 
 ```sql
 select status_code, content
@@ -117,55 +75,74 @@ from net._http_response
 order by id desc limit 1;
 ```
 
-Expect `200` + `{"ok":true,...}`.
+Expect `200` and `{"ok":true,"status":"expired_released",...}`.
 
 ---
 
-## 4. Clear a user's lock (payment_failed or manual_review)
+## 5. Clear a user's lock (payment_failed / manual_review)
 
 Use sparingly — these locks exist for a reason. Acceptable triggers:
 
-- **payment_failed**: user updated their card AND the retry-capture succeeded
-  out-of-band, but the lock didn't auto-clear (rare race). Verify capture in
-  Iyzico merchant dashboard before clearing.
-- **manual_review**: support has reviewed the case and the user is good to
-  reserve again.
-
-Replace `USER_ID` with the user_id from snippet #1.
+- **payment_failed**: capture has been confirmed in the Iyzico merchant
+  dashboard out-of-band.
+- **manual_review**: support has reviewed the case and is unblocking on
+  a one-time basis.
 
 ```sql
-delete from public.user_reservation_locks
-where user_id = 'USER_ID';      -- ← edit me, the auth.users.id::text
-
--- Audit: leave a breadcrumb in case anyone questions the unlock later.
--- (Find the user's most recent reservation_id from snippet #1's results.)
-insert into public.reservation_events (reservation_id, kind, payload)
-values (
-  'MOST_RECENT_RES_UUID',       -- ← edit me
-  'admin_lock_cleared',
-  jsonb_build_object(
-    'cleared_by', 'canberk',    -- ← edit me to whichever of you is doing this
-    'reason', 'iyzico capture confirmed manually'
-  )
+select public.op_clear_lock(
+  '+9055xxxxxxxx',                              -- ← user's phone
+  'canberk',                                    -- ← who's clearing it
+  'iyzico capture confirmed manually'           -- ← why (audit trail)
 );
 ```
 
+Returns `{ok: true, cleared_lock: 'payment_failed' | 'tier_24h' | ...}`.
+Drops the row from `user_reservation_locks` AND writes an
+`admin_lock_cleared` event on the user's most recent reservation, so the
+audit trail survives.
+
 ---
 
-## Common scenarios → which snippet
+## Common scenarios → which function
 
 | Situation | Run |
 |---|---|
-| User says "the gate didn't open" | #1 to find the reservation, then #3 to force-release with reason "gate jam" |
-| User says "I was charged ₺20 but I was there" | #1 → #2 to confirm `expired_capture_ok` is in the log → if hardware actually failed, refund manually in Iyzico merchant dashboard, then snippet #4 step 2 to log the refund |
-| User says "I can't reserve, says my card failed" | #1 to confirm `payment_failed` lock exists. Tell user to update card via /card-add. The retry-capture happens automatically. If it doesn't auto-clear, #4. |
-| User says "I'm permanently blocked" | #1 to confirm `manual_review` lock. Pull #2 to read their capture history (look for the abuse pattern). If the case warrants unlocking, #4. |
-| Gate physically broken at a station | Doesn't go through this runbook — flag the station as `availableNow: false` in `data/stations.seed.ts` and ship a config update. |
+| User says "the gate didn't open" | `op_find_user` to confirm an active reservation, then `op_force_release` with reason "gate jam at ..." |
+| User says "I was charged ₺20 but I was there" | `op_find_user` → `op_view_audit` to confirm `expired_capture_ok`. If hardware actually failed, refund manually in Iyzico merchant dashboard, then `op_clear_lock` (which also leaves the audit breadcrumb) |
+| User says "I can't reserve, says my card failed" | `op_find_user` to confirm `payment_failed` lock. Tell user to update card via /card-add. Retry-capture happens automatically. If it doesn't auto-clear in 5 min, `op_clear_lock` |
+| User says "I'm permanently blocked" | `op_find_user` to confirm `manual_review` lock. `op_recent_reservations` to read their abuse pattern. If the case warrants unlocking, `op_clear_lock` |
+| Gate physically broken at a station | Doesn't go through this runbook — set `availableNow: false` in `data/stations.seed.ts` and ship a config update |
 
 ---
 
-## Future improvements (not now)
+## Setup once per admin (5 min)
 
-- **Wrap snippet #3 + #4 in plpgsql functions** so it's `select playbox_force_release('uuid','reason')` instead of pasting the http_post boilerplate.
-- **Move to Retool** when the daily snippet runs hit > 5 / day or you onboard a non-engineer support person. Retool free tier covers up to ~5 admin seats, no work-email requirement (personal Gmail works).
-- **Slack-bot integration** so support flows happen in chat: `/playbox release RES_UUID gate-jam` → bot calls the edge function → posts the result back. Worth it once op volume justifies the bot maintenance.
+1. Open [Dashboard → SQL Editor](https://supabase.com/dashboard/project/ucyjbvajmrwermytyuik/sql/new).
+2. Paste each block above (one at a time), click **Save**, name them with the
+   `op:` prefix:
+   - `op: find user`
+   - `op: recent reservations`
+   - `op: view audit`
+   - `op: force release`
+   - `op: clear lock`
+3. Done — the saved-queries sidebar groups everything by prefix.
+
+To share with Utku: Dashboard → Settings → Team Members → Invite by email
+(personal Gmail is fine; we don't use a work-domain restriction). Role:
+**Developer**. Saved queries are project-scoped, so he sees them automatically.
+
+---
+
+## When to graduate from this approach
+
+Stay here until ANY of:
+
+- Daily op count > 5/day (copy-paste fatigue)
+- A non-engineer joins support
+- You want SLA-grade audit trails (Supabase Studio doesn't log who ran what)
+- You want approvals / two-person sign-off on `op_clear_lock` for
+  manual_review cases
+
+When that happens, move to **Retool**: same backend, real admin UI, free
+tier covers 5 seats, personal Gmail signup. The functions in this doc
+become Retool buttons one-to-one — no rewriting.
