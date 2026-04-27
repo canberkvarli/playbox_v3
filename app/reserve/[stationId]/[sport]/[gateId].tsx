@@ -97,6 +97,14 @@ export default function ReserveFlow() {
     full: { reason?: string; locked_until?: string },
   ) => {
     hx.no();
+    // Don't bounce the user off the reservation flow with a dialog — if
+    // they just need a card, route them straight to /card-add. Card-add
+    // calls router.back() on success, dropping them right where they
+    // were so they can re-tap confirm with a card on file.
+    if (code === 'no_card') {
+      router.push('/card-add');
+      return;
+    }
     let key = `reservations.errors.${code}`;
     if (code === 'locked' && full.reason) {
       // Pull locale strings via the existing errors map; reason adds context.
