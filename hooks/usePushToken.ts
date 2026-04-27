@@ -4,24 +4,16 @@ import * as Notifications from 'expo-notifications';
 
 import { supabase } from '@/lib/supabase';
 
-// expo-device is optional — if it's not installed, fall back to assuming
-// real device. The token API still works on physical devices either way;
-// the only effect of this fallback is that simulators may try to register
-// and silently fail.
-let Device: { isDevice: boolean; modelName: string | null; osVersion: string | null } = {
-  isDevice: true,
+// Real-device detection without the expo-device import — Metro fails to
+// resolve it statically even inside a try/require, so we rely on a
+// Platform heuristic. Simulators on iOS report Constants.isDevice === false
+// but here we just trust getExpoPushTokenAsync to throw on simulator and
+// land us in the catch block. Cheaper than another native dep for one bool.
+const Device: { isDevice: boolean; modelName: string | null; osVersion: string | null } = {
+  isDevice: Platform.OS !== 'web',
   modelName: null,
   osVersion: null,
 };
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const mod = require('expo-device');
-  Device = {
-    isDevice: !!mod.isDevice,
-    modelName: mod.modelName ?? null,
-    osVersion: mod.osVersion ?? null,
-  };
-} catch {}
 
 /**
  * Registers the Expo push token with the backend on mount.

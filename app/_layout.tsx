@@ -97,10 +97,6 @@ export default function RootLayout() {
               options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
             />
             <Stack.Screen
-              name="reserve/[stationId]/[sport]/[gateId]"
-              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_bottom' }}
-            />
-            <Stack.Screen
               name="legal/privacy"
               options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
             />
