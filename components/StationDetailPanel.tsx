@@ -238,14 +238,16 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                       </View>
                     </View>
 
-                    {/* Action row: primary "ŞİMDİ OYNA" + secondary "REZERVE ET" */}
-                    {!out ? (
-                      <View style={{ flexDirection: 'row' }}>
+                    {/* Action row: primary "ŞİMDİ OYNA" + secondary "REZERVE ET".
+                        When out of stock we still want REZERVE ET available —
+                        reserving for later is exactly the use-case. */}
+                    <View style={{ flexDirection: 'row' }}>
+                      {!out ? (
                         <Pressable
                           onPress={() => onSportTap(sport)}
                           style={({ pressed }) => ({
                             flex: 1,
-                            marginRight: 8,
+                            marginRight: onReserveTap ? 14 : 0,
                             opacity: pressed ? 0.92 : 1,
                           })}
                         >
@@ -277,40 +279,40 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                             </Text>
                           </View>
                         </Pressable>
-                        {onReserveTap ? (
-                          <Pressable
-                            onPress={() => onReserveTap(sport)}
-                            style={({ pressed }) => ({
-                              flex: 1,
-                              opacity: pressed ? 0.6 : 1,
-                            })}
+                      ) : null}
+                      {onReserveTap ? (
+                        <Pressable
+                          onPress={() => onReserveTap(sport)}
+                          style={({ pressed }) => ({
+                            flex: 1,
+                            opacity: pressed ? 0.6 : 1,
+                          })}
+                        >
+                          <View
+                            style={{
+                              backgroundColor: palette.ink,
+                              borderRadius: 14,
+                              paddingVertical: 14,
+                              alignItems: 'center',
+                              flexDirection: 'row',
+                              justifyContent: 'center',
+                            }}
                           >
-                            <View
+                            <Feather name="clock" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+                            <Text
                               style={{
-                                backgroundColor: palette.ink,
-                                borderRadius: 14,
-                                paddingVertical: 14,
-                                alignItems: 'center',
-                                flexDirection: 'row',
-                                justifyContent: 'center',
+                                fontFamily: 'Unbounded_800ExtraBold',
+                                color: palette.paper,
+                                fontSize: 13,
+                                letterSpacing: 0.4,
                               }}
                             >
-                              <Feather name="clock" size={14} color={palette.paper} style={{ marginRight: 8 }} />
-                              <Text
-                                style={{
-                                  fontFamily: 'Unbounded_800ExtraBold',
-                                  color: palette.paper,
-                                  fontSize: 13,
-                                  letterSpacing: 0.4,
-                                }}
-                              >
-                                REZERVE ET
-                              </Text>
-                            </View>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    ) : null}
+                              REZERVE ET
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ) : null}
+                    </View>
                   </View>
                 );
               })}

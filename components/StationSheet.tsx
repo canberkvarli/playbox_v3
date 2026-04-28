@@ -21,6 +21,7 @@ import { useMapStore } from '@/stores/mapStore';
 import { StationDetailPanel } from './StationDetailPanel';
 import { StationTourSheet, type StationTourSheetHandle } from './StationTourSheet';
 import { markTourSeen } from '@/lib/seenTour';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 export type StationSheetHandle = {
   open: (s: Station) => void;
@@ -62,7 +63,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
     []
   );
 
-  const onSportTap = async (sport: Sport) => {
+  const onSportTap = useGuardedPress(async (sport: Sport) => {
     if (!station) return;
     await hx.tap();
     sheetRef.current?.close();
@@ -72,12 +73,12 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         params: { stationId: station.id, sport },
       });
     }, 250);
-  };
+  });
 
   // Hold-a-spot path. Routes to /reserve/[stationId]/[sport]/[gateId] which
   // creates an iyzico hold and locks the gate for ~30 min so the user can
   // walk over without losing it. Gate id mirrors gatesForStation()'s scheme.
-  const onReserveTap = async (sport: Sport) => {
+  const onReserveTap = useGuardedPress(async (sport: Sport) => {
     if (!station) return;
     await hx.tap();
     sheetRef.current?.close();
@@ -88,7 +89,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         params: { stationId: station.id, sport, gateId },
       });
     }, 250);
-  };
+  });
 
   const onHelp = async () => {
     await hx.tap();

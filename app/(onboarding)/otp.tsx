@@ -10,6 +10,7 @@ import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 const RESEND_SECONDS = 60;
 
@@ -62,6 +63,17 @@ export default function Otp() {
       });
       if (err || !data.session) throw err ?? new Error('no session');
 
+      // Mirror the verified phone into user_metadata as a stable fallback —
+      // user.phone is sometimes blank after the session round-trip and we
+      // need a reliable read for Settings.
+      if (!data.user?.phone) {
+        try {
+          await supabase.auth.updateUser({ data: { phone } });
+        } catch (e) {
+          console.warn('[auth] persist phone fallback failed', e);
+        }
+      }
+
       await hx.yes();
       // Routing decision lives in one place. KVKK consent gate comes BEFORE
       // the handle step — without consent we can't legally process anything,
@@ -83,7 +95,7 @@ export default function Otp() {
     }
   };
 
-  const onResend = async () => {
+  const onResend = useGuardedPress(async () => {
     if (secondsLeft > 0 || !phone) return;
     await hx.tap();
     setError(null);
@@ -98,12 +110,12 @@ export default function Otp() {
       return;
     }
     setSecondsLeft(RESEND_SECONDS);
-  };
+  });
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
+  });
 
   const onChangeText = (s: string) => {
     setError(null);

@@ -29,6 +29,7 @@ import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { RESERVATION_LOCK_MIN, useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
 import { supabase } from '@/lib/supabase';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 const DURATION_MIN = 10;
 const DURATION_MAX = 180;
@@ -377,7 +378,7 @@ export function StationGateSelector({
     setSelected((prev) => (prev === sp ? null : sp));
   };
 
-  const onPress = async () => {
+  const onPress = useGuardedPress(async () => {
     // Session-active override: if a session is open here, the CTA should just
     // take them to the Play tab. Different station → hard stop (no CTA tap).
     if (sessionAtThisStation) {
@@ -403,7 +404,20 @@ export function StationGateSelector({
     }
     await hx.press();
     onUnlock(selected, duration);
-  };
+  });
+
+  const onReservePress = useGuardedPress(async () => {
+    if (!selected || !selectedGate) return;
+    await hx.press();
+    router.push({
+      pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
+      params: {
+        stationId: station.id,
+        sport: selected,
+        gateId: selectedGate.id,
+      },
+    });
+  });
 
   return (
     <View>
@@ -742,17 +756,7 @@ export function StationGateSelector({
           when no gate is selected or stock is empty. */}
       {!!selected && stockOk && !reserveMode && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
         <Pressable
-          onPress={async () => {
-            await hx.press();
-            router.push({
-              pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
-              params: {
-                stationId: station.id,
-                sport: selected,
-                gateId: selectedGate.id,
-              },
-            });
-          }}
+          onPress={onReservePress}
           style={({ pressed }) => ({ marginTop: 22, opacity: pressed ? 0.65 : 1 })}
         >
           <View

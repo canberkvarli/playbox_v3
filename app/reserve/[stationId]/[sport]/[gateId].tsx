@@ -69,7 +69,10 @@ export default function ReserveFlow() {
 
   const onClose = async () => {
     await hx.tap();
-    router.back();
+    // Always dismiss back to the map regardless of how the user got here
+    // (map → reserve, or map → station → reserve). The reserve flow is
+    // modal-shaped — X means close, not "pop one screen".
+    router.dismissTo('/(tabs)/map');
   };
 
   const onConfirm = async () => {
@@ -218,7 +221,7 @@ export default function ReserveFlow() {
   const isLast = pageIdx === SLIDES.length - 1;
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
-      <Header onBack={goBack} />
+      <Header onBack={onClose} />
       <ScrollView
         ref={scrollRef}
         horizontal

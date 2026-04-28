@@ -6,6 +6,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 export default function Welcome() {
   const { t } = useT();
@@ -14,10 +15,10 @@ export default function Welcome() {
 
   const titleLines = t('onb.welcome.title').split('\n');
 
-  const onStart = async () => {
+  const onStart = useGuardedPress(async () => {
     await hx.press();
     router.push('/(onboarding)/intro-map');
-  };
+  });
 
   return (
     <View

@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
+
 import { useAuthSession } from './useAuthSession';
 import { useSettingsStore } from '@/stores/settingsStore';
 
@@ -7,6 +9,18 @@ export type DisplayUser = {
   phone: string;
   initial: string;
 };
+
+// Supabase strips the leading `+` from `user.phone` ("905551234567"). Fall
+// back to user_metadata.phone — we mirror it there at OTP-verify time
+// because the top-level phone field is occasionally blank after the
+// session round-trip. Returns a pretty +90 555 123 45 67 form when valid.
+function prettyPhone(raw: string | null | undefined, metaPhone: string | null | undefined): string {
+  const candidate = (typeof raw === 'string' && raw.trim()) || (typeof metaPhone === 'string' && metaPhone.trim()) || '';
+  if (!candidate) return '—';
+  const e164 = candidate.startsWith('+') ? candidate : `+${candidate}`;
+  const parsed = parsePhoneNumberFromString(e164);
+  return parsed?.formatInternational() ?? e164;
+}
 
 /**
  * Single source of truth for how the user is labeled across the app.
@@ -30,10 +44,9 @@ export function useDisplayUser(): DisplayUser {
   const nameOverride = useSettingsStore((s) => s.nameOverride);
   const usernameOverride = useSettingsStore((s) => s.usernameOverride);
 
-  const meta = (user?.user_metadata ?? {}) as { name?: string; username?: string };
+  const meta = (user?.user_metadata ?? {}) as { name?: string; username?: string; phone?: string };
   const metaName = nonEmpty(meta.name);
   const metaUsername = nonEmpty(meta.username);
-  const phoneRaw = user?.phone;
 
   const displayName =
     nonEmpty(nameOverride) ??
@@ -47,7 +60,7 @@ export function useDisplayUser(): DisplayUser {
   return {
     displayName,
     username,
-    phone: phoneRaw ? `+${phoneRaw}` : '—',
+    phone: prettyPhone(user?.phone, meta.phone),
     initial: (displayName.charAt(0) || 'O').toUpperCase(),
   };
 }

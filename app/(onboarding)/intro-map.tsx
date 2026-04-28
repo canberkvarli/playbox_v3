@@ -17,6 +17,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type MarkerProps = { left: `${number}%`; top: `${number}%`; delay: number };
 
@@ -74,14 +75,14 @@ export default function IntroMap() {
 
   const titleLines = t('onb.intro_map.title').split('\n');
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
-  const onContinue = async () => {
+  });
+  const onContinue = useGuardedPress(async () => {
     await hx.press();
     router.push('/(onboarding)/intro-social');
-  };
+  });
 
   return (
     <View

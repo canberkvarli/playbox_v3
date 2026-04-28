@@ -12,6 +12,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { useDevStore } from '@/stores/devStore';
 import { supabase } from '@/lib/supabase';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 function digitsOnly(s: string) {
   return s.replace(/\D/g, '');
@@ -50,7 +51,7 @@ export default function Phone() {
     setRaw(d);
   };
 
-  const onContinue = async () => {
+  const onContinue = useGuardedPress(async () => {
     if (!valid || busy) return;
     Keyboard.dismiss();
     setBusy(true);
@@ -75,12 +76,12 @@ export default function Phone() {
 
     router.push({ pathname: '/(onboarding)/otp', params: { phone: phoneNumber } });
     setBusy(false);
-  };
+  });
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
+  });
 
   const ctaEnabled = valid && !busy;
 

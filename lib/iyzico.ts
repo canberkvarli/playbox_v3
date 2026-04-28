@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 /**
  * Client wrapper over Supabase Edge Functions that proxy Iyzico.
@@ -85,15 +86,26 @@ export function useIyzico() {
       }
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? null;
+      if (!token && __DEV__) {
+        console.warn(`[iyzico] ${name}: no Supabase session — function will only accept anon-level calls`);
+      }
 
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
 
+      // Supabase's edge gateway requires an apikey header (or a verified
+      // JWT) BEFORE the request reaches our function code. If we only send
+      // Authorization and the session is null, the gateway returns 401
+      // with sb_error_code=UNAUTHORIZED_NO_AUTH_HEADER and our function
+      // never runs. Always send the anon apikey so the gateway accepts the
+      // request, then forward the user JWT in Authorization when we have
+      // one (the function uses it to identify the user).
       const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(SUPABASE_ANON_KEY ? { apikey: SUPABASE_ANON_KEY } : {}),
+          Authorization: `Bearer ${token ?? SUPABASE_ANON_KEY ?? ''}`,
         },
         body: JSON.stringify(body ?? {}),
         signal: ctrl.signal,

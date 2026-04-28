@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, Text, TextInput, View, Keyboard } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View, Keyboard } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -10,6 +10,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 function defaultUsername(userId: string): string {
   return `oyuncu_${userId.slice(-6)}`;
@@ -54,21 +55,24 @@ export default function Handle() {
     setBusy(false);
   };
 
-  const onSubmit = () => finish(true);
-  const onSkip = () => finish(false);
+  const onSubmit = useGuardedPress(() => finish(true));
+  const onSkip = useGuardedPress(() => finish(false));
 
   const primaryEnabled = !busy && !loading;
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: palette.paper,
-        paddingHorizontal: 24,
-        paddingTop: insets.top + 24,
-        paddingBottom: insets.bottom + 16,
-      }}
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: palette.paper }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: 24,
+          paddingTop: insets.top + 24,
+          paddingBottom: insets.bottom + 16,
+        }}
+      >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View
           style={{
@@ -218,7 +222,7 @@ export default function Handle() {
           onPress={onSkip}
           disabled={!primaryEnabled}
           hitSlop={8}
-          style={({ pressed }) => ({ marginTop: 14, opacity: pressed ? 0.55 : 1 })}
+          style={({ pressed }) => ({ marginTop: 24, opacity: pressed ? 0.55 : 1 })}
         >
           <Text
             style={{
@@ -234,6 +238,7 @@ export default function Handle() {
           </Text>
         </Pressable>
       </RiseIn>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }

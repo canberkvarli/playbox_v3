@@ -23,6 +23,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type PermStatus = 'idle' | 'granted' | 'denied';
 type PermKey = 'location' | 'notif' | 'camera';
@@ -228,15 +229,15 @@ export default function Permissions() {
 
   const ctaEnabled = perms.location === 'granted';
 
-  const onContinue = async () => {
+  const onContinue = useGuardedPress(async () => {
     if (!ctaEnabled) return;
     await hx.press();
     router.push('/(onboarding)/phone');
-  };
-  const onBack = async () => {
+  });
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
+  });
 
   return (
     <View

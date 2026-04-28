@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -283,6 +285,7 @@ export default function Settings() {
   const [ratingSheetOpen, setRatingSheetOpen] = useState(false);
   const [badFeedbackRating, setBadFeedbackRating] = useState<number | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePhase, setDeletePhase] = useState<'confirm' | 'goodbye'>('confirm');
   const setNameOverride = useSettingsStore((s) => s.setNameOverride);
   const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
 
@@ -344,39 +347,43 @@ export default function Settings() {
 
   const onDelete = async () => {
     await hx.no();
+    setDeletePhase('confirm');
     setDeleteOpen(true);
   };
 
   const onConfirmDelete = async () => {
-    setDeleteOpen(false);
-    // TODO: call supabase Edge Function `delete-account` that runs
-    // admin.deleteUser() server-side. Until that ships, sign the user out
-    // and surface a "we'll process within 24 hours" notice.
-    try {
-      const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-      if (url) {
-        const { data: { session } } = await supabase.auth.getSession();
-        const token = session?.access_token;
-        if (token) {
-          await fetch(`${url.replace(/\/$/, '')}/functions/v1/delete-account`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({}),
-          }).catch(() => null);
+    // Snap straight to the goodbye state — no jarring Alert pop-up. The
+    // network call and signOut run in the background while the user reads
+    // the farewell card; we navigate when the dust settles.
+    setDeletePhase('goodbye');
+    await hx.yes();
+
+    void (async () => {
+      try {
+        const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+        if (url) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          if (token) {
+            await fetch(`${url.replace(/\/$/, '')}/functions/v1/delete-account`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({}),
+            }).catch(() => null);
+          }
         }
+      } finally {
+        await supabase.auth.signOut();
       }
-    } finally {
-      await supabase.auth.signOut();
-      Alert.alert(
-        t('settings.account.delete_title'),
-        '24 saat içinde verilerin sistemden silinecek. seninle çalışmak güzeldi 👋',
-        [{ text: 'Tamam' }]
-      );
+    })();
+
+    setTimeout(() => {
+      setDeleteOpen(false);
       router.replace('/(onboarding)/welcome');
-    }
+    }, 1600);
   };
 
   return (
@@ -602,6 +609,7 @@ export default function Settings() {
       />
       <DeleteAccountModal
         visible={deleteOpen}
+        phase={deletePhase}
         onCancel={() => setDeleteOpen(false)}
         onConfirm={onConfirmDelete}
       />
@@ -610,16 +618,19 @@ export default function Settings() {
 }
 
 /**
- * Hard-confirmation sheet for account deletion. User has to type "SİL" to
- * unlock the destructive button — Apple wants destructive flows that aren't
- * trivially fat-fingerable.
+ * Hard-confirmation sheet for account deletion. User types "HOŞÇAKAL" to
+ * unlock the destructive button (Apple wants destructive flows that aren't
+ * trivially fat-fingerable). After tap, the same sheet swaps to a goodbye
+ * card and the parent navigates away — no jarring Alert pop-up.
  */
 function DeleteAccountModal({
   visible,
+  phase,
   onCancel,
   onConfirm,
 }: {
   visible: boolean;
+  phase: 'confirm' | 'goodbye';
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
@@ -628,7 +639,7 @@ function DeleteAccountModal({
     if (!visible) setConfirmText('');
   }, [visible]);
 
-  const matches = confirmText.trim().toLocaleUpperCase('tr-TR') === 'SİL';
+  const matches = confirmText.trim().toLocaleUpperCase('tr-TR') === 'HOŞÇAKAL';
 
   return (
     <Modal
@@ -638,8 +649,12 @@ function DeleteAccountModal({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       <Pressable
-        onPress={onCancel}
+        onPress={phase === 'confirm' ? onCancel : undefined}
         style={{
           flex: 1,
           backgroundColor: '#00000080',
@@ -668,6 +683,49 @@ function DeleteAccountModal({
             }}
           />
 
+          {phase === 'goodbye' ? (
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <View
+                style={{
+                  width: 84,
+                  height: 84,
+                  borderRadius: 42,
+                  backgroundColor: palette.ink,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 22,
+                }}
+              >
+                <Text style={{ fontSize: 40 }}>👋</Text>
+              </View>
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.ink,
+                  fontSize: 32,
+                  lineHeight: 36,
+                  textAlign: 'center',
+                }}
+              >
+                hoşçakal
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Inter_600SemiBold',
+                  color: palette.ink,
+                  fontSize: 15,
+                  lineHeight: 22,
+                  marginTop: 12,
+                  textAlign: 'center',
+                  opacity: 0.7,
+                  paddingHorizontal: 8,
+                }}
+              >
+                hesabın 24 saat içinde silinecek.{'\n'}seninle çalışmak güzeldi.
+              </Text>
+            </View>
+          ) : (
+            <>
           <View
             style={{
               width: 64,
@@ -762,12 +820,12 @@ function DeleteAccountModal({
               marginBottom: 8,
             }}
           >
-            onaylamak için "SİL" yaz
+            onaylamak için "HOŞÇAKAL" yaz
           </Text>
           <TextInput
             value={confirmText}
             onChangeText={setConfirmText}
-            placeholder="SİL"
+            placeholder="HOŞÇAKAL"
             placeholderTextColor={palette.ink + '55'}
             autoCapitalize="characters"
             autoCorrect={false}
@@ -856,8 +914,11 @@ function DeleteAccountModal({
               </Text>
             </View>
           </Pressable>
+            </>
+          )}
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

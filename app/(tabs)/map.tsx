@@ -36,6 +36,7 @@ import { rankStations } from '@/lib/search';
 import { StationSheet, type StationSheetHandle } from '@/components/StationSheet';
 import { useMenuStore } from '@/stores/menuStore';
 import { ReservationsPanel } from '@/components/ReservationsPanel';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -1195,6 +1196,7 @@ export default function Map() {
   const mapRef = useRef<MapView>(null);
   const stationSheetRef = useRef<StationSheetHandle>(null);
   const { filter, viewMode, searchQuery, setViewMode, cacheStation } = useMapStore();
+  const cacheStations = useMapStore((s) => s.cacheStations);
   const stationSheetOpen = useMapStore((s) => s.stationSheetOpen);
   const pendingSheetStationId = useMapStore((s) => s.pendingSheetStationId);
   const setPendingSheetStationId = useMapStore((s) => s.setPendingSheetStationId);
@@ -1210,6 +1212,13 @@ export default function Map() {
     () => stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 }),
     [userLoc]
   );
+
+  // Persist every station the user can see so /reservations can resolve a
+  // station_id back to its display name even after the user moves and the
+  // generated ring around userLoc changes.
+  useEffect(() => {
+    if (allStations.length) cacheStations(allStations);
+  }, [allStations, cacheStations]);
 
   // Search filters hard (hide) but sport filter is soft (dim). Keep non-matching
   // stations around so users still see where stuff exists — picking volleyball
@@ -1329,15 +1338,15 @@ export default function Map() {
     setLatDelta(region.latitudeDelta);
   };
 
-  const openStation = async (s: Station) => {
+  const openStation = useGuardedPress(async (s: Station) => {
     await hx.press();
     cacheStation(s);
     // Direct navigation to the full station page (new gate-selector flow).
     // The legacy StationSheet preview is no longer the canonical entry.
     router.push({ pathname: '/station/[id]', params: { id: s.id } });
-  };
+  });
 
-  const openStationFromList = async (s: Station) => {
+  const openStationFromList = useGuardedPress(async (s: Station) => {
     await hx.press();
     cacheStation(s);
     // Switch to map mode so the sheet layers over the map, then center + open.
@@ -1358,7 +1367,7 @@ export default function Map() {
     } else {
       stationSheetRef.current?.open(s);
     }
-  };
+  });
 
   const onLocate = async () => {
     await hx.tap();
@@ -1379,11 +1388,11 @@ export default function Map() {
     useMenuStore.getState().setOpen(true);
   };
 
-  const onPickStationFromSheet = async (s: Station) => {
+  const onPickStationFromSheet = useGuardedPress(async (s: Station) => {
     await hx.press();
     cacheStation(s);
     router.push({ pathname: '/station/[id]', params: { id: s.id } });
-  };
+  });
 
   return (
     <View className="flex-1 bg-paper dark:bg-ink">

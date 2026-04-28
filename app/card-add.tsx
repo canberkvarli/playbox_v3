@@ -19,6 +19,7 @@ import { palette } from '@/constants/theme';
 import { useIyzico } from '@/lib/iyzico';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { RiseIn } from '@/components/RiseIn';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 function onlyDigits(s: string) {
   return s.replace(/\D+/g, '');
@@ -59,7 +60,7 @@ export default function CardAdd() {
     );
   }, [number, name, expiry, cvc]);
 
-  const onSubmit = async () => {
+  const onSubmit = useGuardedPress(async () => {
     if (!valid || submitting) return;
     setSubmitting(true);
     await hx.tap();
@@ -86,12 +87,12 @@ export default function CardAdd() {
     Alert.alert(t('card.error.generic_title'), t(`card.error.${res.error}`, {
       defaultValue: t('card.error.generic_sub'),
     }));
-  };
+  });
 
-  const onClose = async () => {
+  const onClose = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
+  });
 
   return (
     <KeyboardAvoidingView
@@ -278,12 +279,12 @@ export default function CardAdd() {
           accessibilityRole="button"
           accessibilityLabel={t('card.add.cta')}
           style={({ pressed }) => ({
-            opacity: !valid ? 0.55 : pressed ? 0.92 : 1,
+            opacity: !valid ? 1 : pressed ? 0.92 : 1,
           })}
         >
           <View
             style={{
-              backgroundColor: palette.coral,
+              backgroundColor: valid ? palette.coral : palette.ink + '22',
               borderRadius: 18,
               paddingVertical: 16,
               flexDirection: 'row',
@@ -291,9 +292,9 @@ export default function CardAdd() {
               justifyContent: 'center',
               shadowColor: palette.coral,
               shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: valid ? 0.28 : 0.08,
+              shadowOpacity: valid ? 0.28 : 0,
               shadowRadius: 14,
-              elevation: valid ? 8 : 2,
+              elevation: valid ? 8 : 0,
             }}
           >
             <Feather name="check" size={18} color={palette.paper} style={{ marginRight: 8 }} />

@@ -11,6 +11,7 @@ import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -88,13 +89,13 @@ export default function StationDetail() {
     if (url) Linking.openURL(url).catch(() => {});
   };
 
-  const onUnlock = async (sport: Sport, _durationMinutes: number) => {
+  const onUnlock = useGuardedPress(async (sport: Sport, _durationMinutes: number) => {
     // Route to the "how it works" prep slides; the last slide starts the session.
     router.push({
       pathname: '/session-prep/[stationId]/[sport]',
       params: { stationId: station.id, sport },
     });
-  };
+  });
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>

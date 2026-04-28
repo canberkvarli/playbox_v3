@@ -16,6 +16,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type RowProps = {
   index: number;
@@ -156,14 +157,14 @@ export default function IntroSocial() {
 
   const titleLines = t('onb.intro_social.title').split('\n');
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     router.back();
-  };
-  const onContinue = async () => {
+  });
+  const onContinue = useGuardedPress(async () => {
     await hx.press();
     router.push('/(onboarding)/permissions');
-  };
+  });
 
   return (
     <View

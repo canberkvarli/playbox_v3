@@ -10,6 +10,7 @@ import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 const RULES = [
   {
@@ -43,7 +44,7 @@ export default function Kvkk() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const onAccept = async () => {
+  const onAccept = useGuardedPress(async () => {
     if (busy || !user) return;
     setBusy(true);
     setError(null);
@@ -66,20 +67,20 @@ export default function Kvkk() {
     await hx.yes();
     const onboarded = user.user_metadata?.onboarded === true;
     router.replace(onboarded ? '/(tabs)/map' : '/(onboarding)/handle');
-  };
+  });
 
-  const onOpenPrivacy = async () => {
+  const onOpenPrivacy = useGuardedPress(async () => {
     await hx.tap();
     Linking.openURL(PRIVACY_URL).catch(() => {});
-  };
+  });
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     await hx.tap();
     // Backing out of KVKK = signing out, since the account has no usable
     // state without consent. Sends them back to phone entry.
     await supabase.auth.signOut();
     router.replace('/(onboarding)/welcome');
-  };
+  });
 
   return (
     <View

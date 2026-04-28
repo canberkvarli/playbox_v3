@@ -30,6 +30,7 @@ import { RiseIn } from '@/components/RiseIn';
 import { scheduleSessionEndAlerts } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
+import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 const PREAUTH_HOLD_TRY = 150;
 
@@ -149,7 +150,7 @@ export default function SessionPrep() {
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
 
-  const onBack = async () => {
+  const onBack = useGuardedPress(async () => {
     if (unlocking) return;
     await hx.tap();
     if (step === 0) {
@@ -157,9 +158,9 @@ export default function SessionPrep() {
     } else {
       setStep(step - 1);
     }
-  };
+  }, 300);
 
-  const onContinue = async () => {
+  const onContinue = useGuardedPress(async () => {
     if (unlocking) return;
     if (isLast) {
       // Howto mode: this isn't a start-session flow, just an info read.
@@ -176,7 +177,7 @@ export default function SessionPrep() {
     }
     await hx.tap();
     setStep(step + 1);
-  };
+  }, 300);
 
   // Disable advance on the last slide of start-mode until user agrees
   const ctaDisabled = unlocking || (isLast && !isHowto && !agreed);
