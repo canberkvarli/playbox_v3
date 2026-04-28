@@ -29,7 +29,7 @@ export default function SessionReview() {
   const markFreeFirstUsed = usePaymentStore((s) => s.markFreeFirstUsed);
   const currentHoldId = usePaymentStore((s) => s.currentHoldId);
   const clearHold = usePaymentStore((s) => s.setHold);
-  const { releaseHold } = useIyzico();
+  const { captureHold, releaseHold } = useIyzico();
 
   const [rating, setRating] = useState<number | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -46,9 +46,18 @@ export default function SessionReview() {
 
     const holdId = lastEnded.holdId ?? currentHoldId;
     if (holdId) {
-      releaseHold(holdId).finally(() => clearHold(null));
+      // Capture the actual cost for the played minutes — Iyzico releases
+      // the difference between the preauth amount and the captured amount
+      // automatically. Previously we were calling releaseHold() here, which
+      // cancelled the entire preauth and gave the user a free session.
+      const elapsedMs = lastEnded.endedAt - lastEnded.startedAt;
+      const elapsedMin = Math.max(1, Math.ceil(elapsedMs / 60_000));
+      const amountTry = costForMinutes(elapsedMin);
+      const free = cardStatus === 'none' && !freeFirstUsed;
+      const action = free ? releaseHold(holdId) : captureHold(holdId, amountTry);
+      action.finally(() => clearHold(null));
     }
-  }, [lastEnded, cardStatus, freeFirstUsed, markFreeFirstUsed, releaseHold, clearHold, currentHoldId]);
+  }, [lastEnded, cardStatus, freeFirstUsed, markFreeFirstUsed, captureHold, releaseHold, clearHold, currentHoldId]);
 
   const showCardPrompt = lastEnded && cardStatus === 'none' && !cardPromptDismissed;
 

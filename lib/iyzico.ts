@@ -148,8 +148,12 @@ export function useIyzico() {
   );
 
   const captureHold = useCallback(
-    (holdId: string) =>
-      call<CaptureReleaseResult>('iyzico-capture-release', { holdId, action: 'capture' }),
+    (holdId: string, amountTry: number) =>
+      call<CaptureReleaseResult>('iyzico-capture-release', {
+        holdId,
+        action: 'capture',
+        amountTry,
+      }),
     [call]
   );
 
