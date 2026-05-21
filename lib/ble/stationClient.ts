@@ -47,12 +47,18 @@ class StationClient {
     onError?: (err: Error) => void,
   ): { stop: () => void } {
     let stopped = false;
-    this.manager.startDeviceScan(null, null, (err, scanned) => {
+    // Filter the scan to our service UUID so iOS only fires the callback
+    // for matching devices. Without this, the radio churns through every
+    // BLE peripheral in range (AirPods, watches, neighbors' speakers...)
+    // and our matching ad gets queued behind dozens of irrelevant ones.
+    this.manager.startDeviceScan([SERVICE_UUID], null, (err, scanned) => {
       if (stopped) return;
       if (err) {
         onError?.(err);
         return;
       }
+      // We still gate on name as a sanity check, but the service UUID
+      // filter has already done 99% of the work.
       if (scanned?.name === stationName) {
         onSeen(scanned.rssi ?? -55);
       }
