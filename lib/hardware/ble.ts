@@ -48,32 +48,51 @@ export function createBleDriver(): HardwareDriver {
     watchStation(stationId, onChange) {
       const targetName = nameFromStationId(stationId);
       let cancelled = false;
+      let staleTimer: ReturnType<typeof setTimeout> | null = null;
+      // If we don't see an advertisement for this long, fall back to
+      // out_of_range. The ESP32 advertises every ~100–200ms, so a 6s gap
+      // means the user genuinely walked away (or BT got flaky).
+      const STALE_TIMEOUT_MS = 6_000;
 
       onChange({ kind: 'scanning' });
 
-      // Connect-and-stay. If we connect, we report in_range and keep the
-      // device handle warm so a subsequent unlockGate is a single write.
-      // If we fail, classify the error so the UI can prompt correctly.
-      (async () => {
-        try {
-          if (!stationClient.isConnected()) {
-            await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
-          }
+      const armStaleTimer = () => {
+        if (staleTimer) clearTimeout(staleTimer);
+        staleTimer = setTimeout(() => {
           if (cancelled) return;
-          onChange({ kind: 'in_range', rssi: -55, lastSeenAt: Date.now() });
-        } catch (e) {
+          onChange({ kind: 'out_of_range' });
+        }, STALE_TIMEOUT_MS);
+      };
+      // Arm an initial fallback so we don't sit on "scanning" forever if no
+      // ad ever shows up.
+      armStaleTimer();
+
+      // Advertisement-only watcher: reports in_range within ~100–300ms of
+      // the first ad packet. No connection / no service discovery here —
+      // unlockGate connects on demand when the user actually taps. This is
+      // the speed win vs. the old scan-and-connect path.
+      const sub = stationClient.watchAdvertisements(
+        targetName,
+        (rssi) => {
+          if (cancelled) return;
+          onChange({ kind: 'in_range', rssi, lastSeenAt: Date.now() });
+          armStaleTimer();
+        },
+        (e) => {
           if (cancelled) return;
           const kind = classifyError(e);
           if (kind === 'bluetooth_off') onChange({ kind: 'bluetooth_off' });
           else if (kind === 'permission_denied') onChange({ kind: 'permission_denied' });
           else if (kind === 'unsupported') onChange({ kind: 'unsupported' });
           else onChange({ kind: 'out_of_range' });
-        }
-      })();
+        },
+      );
 
       return {
         stop: () => {
           cancelled = true;
+          if (staleTimer) clearTimeout(staleTimer);
+          sub.stop();
           // Don't disconnect on unmount — the unlock screen and the play
           // screen are different mounts but share the same physical link.
         },
