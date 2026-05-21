@@ -47,18 +47,18 @@ class StationClient {
     onError?: (err: Error) => void,
   ): { stop: () => void } {
     let stopped = false;
-    // Filter the scan to our service UUID so iOS only fires the callback
-    // for matching devices. Without this, the radio churns through every
-    // BLE peripheral in range (AirPods, watches, neighbors' speakers...)
-    // and our matching ad gets queued behind dozens of irrelevant ones.
-    this.manager.startDeviceScan([SERVICE_UUID], null, (err, scanned) => {
+    // Scan with no UUID filter — BLE adverts are 31-byte capped, so the
+    // ESP32's name + 128-bit service UUID + flags don't both fit in the
+    // primary advert. NimBLE pushes the UUID into the scan response,
+    // which means iOS's UUID-filtered scan would miss our device. We
+    // match by name in the callback instead — slightly more CPU work
+    // but actually reliable.
+    this.manager.startDeviceScan(null, null, (err, scanned) => {
       if (stopped) return;
       if (err) {
         onError?.(err);
         return;
       }
-      // We still gate on name as a sanity check, but the service UUID
-      // filter has already done 99% of the work.
       if (scanned?.name === stationName) {
         onSeen(scanned.rssi ?? -55);
       }
