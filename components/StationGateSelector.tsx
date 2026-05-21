@@ -269,7 +269,8 @@ export function StationGateSelector({
 }: StationGateSelectorProps) {
   const { t } = useT();
   const router = useRouter();
-  const { inRange } = useStationInRange(station.id);
+  const { inRange, state: proximityState } = useStationInRange(station.id);
+  const proximityFar = proximityState.kind === 'out_of_range';
 
   // Server-state hook — drives the disabled state if user has an active
   // reservation elsewhere. Polling is off here (not a long-lived screen);
@@ -691,8 +692,11 @@ export function StationGateSelector({
         </Animated.View>
       ) : null}
 
-      {/* Status hint banner — explains why CTA is what it is */}
-      {selected && !inRange && !blockedByOtherReservation && !activeSession ? (
+      {/* Status hint banner — only show after BLE has *confirmed* the
+          station is out of range. During the initial scanning phase
+          (the first ~½ second after mount) we suppress the banner so
+          users near the station don't see a "get closer" flash. */}
+      {selected && proximityFar && !blockedByOtherReservation && !activeSession ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
           style={{
