@@ -1,4 +1,5 @@
-import { BleManager, Device, Subscription } from "react-native-ble-plx";
+import { BleManager, Device, Subscription, State } from "react-native-ble-plx";
+import { Platform, PermissionsAndroid } from "react-native";
 import { Buffer } from "buffer";
 import {
   SERVICE_UUID,
@@ -9,6 +10,8 @@ import {
   decodeEvent,
   type Command,
   type StationEvent,
+  type UnlockCommand,
+  type ReturnUnlockCommand,
 } from "./protocol";
 
 class StationClient {
@@ -79,21 +82,16 @@ class StationClient {
     );
   }
 
-  unlock(gate: number, sessionId: string, durationMin: number) {
-    return this.writeCommand({
-      cmd: "unlock",
-      gate,
-      session_id: sessionId,
-      duration_min: durationMin,
-    });
+  // Both methods take a pre-signed payload obtained from the `sign-unlock`
+  // edge function. The phone is intentionally a dumb pipe — it never
+  // computes the HMAC, never holds the station secret. See
+  // supabase/functions/sign-unlock for the signing path.
+  unlock(payload: UnlockCommand) {
+    return this.writeCommand(payload);
   }
 
-  returnUnlock(gate: number, sessionId: string) {
-    return this.writeCommand({
-      cmd: "return_unlock",
-      gate,
-      session_id: sessionId,
-    });
+  returnUnlock(payload: ReturnUnlockCommand) {
+    return this.writeCommand(payload);
   }
 
   subscribeToEvents(
@@ -138,6 +136,65 @@ class StationClient {
       // already disconnected, ignore
     }
     this.device = null;
+  }
+
+  /**
+   * Trigger the OS Bluetooth permission prompt and resolve to the result.
+   *
+   * iOS: instantiating the BleManager (via the lazy getter) creates the
+   * underlying CBCentralManager which surfaces the system alert the first
+   * time the app uses BLE. We observe `onStateChange` and resolve once it
+   * settles. PoweredOn/PoweredOff both mean "permission granted" — we don't
+   * gate onboarding on the radio being currently on, just on the user
+   * having said yes to the prompt.
+   *
+   * Android: runtime permission request via `PermissionsAndroid`. On
+   * Android 12+ we ask for BLUETOOTH_SCAN + BLUETOOTH_CONNECT; on older
+   * versions BLE scanning piggy-backs on ACCESS_FINE_LOCATION.
+   */
+  async requestPermission(): Promise<"granted" | "denied"> {
+    if (Platform.OS === "android") {
+      try {
+        if (Number(Platform.Version) >= 31) {
+          const r = await PermissionsAndroid.requestMultiple([
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+            PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          ]);
+          const ok = Object.values(r).every(
+            (s) => s === PermissionsAndroid.RESULTS.GRANTED,
+          );
+          return ok ? "granted" : "denied";
+        }
+        const r = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        );
+        return r === PermissionsAndroid.RESULTS.GRANTED ? "granted" : "denied";
+      } catch {
+        return "denied";
+      }
+    }
+    if (Platform.OS !== "ios") return "denied";
+
+    return new Promise((resolve) => {
+      let done = false;
+      let sub: Subscription | null = null;
+      const finish = (result: "granted" | "denied") => {
+        if (done) return;
+        done = true;
+        try {
+          sub?.remove();
+        } catch {}
+        resolve(result);
+      };
+      sub = this.manager.onStateChange((state) => {
+        if (state === State.PoweredOn) finish("granted");
+        else if (state === State.PoweredOff) finish("granted");
+        else if (state === State.Unauthorized) finish("denied");
+        else if (state === State.Unsupported) finish("denied");
+      }, true);
+      // Safety net — if the state never settles, fail closed.
+      setTimeout(() => finish("denied"), 10_000);
+    });
   }
 }
 

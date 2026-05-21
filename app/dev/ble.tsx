@@ -10,8 +10,13 @@ import {
 } from "react-native";
 import { stationClient } from "../../lib/ble/stationClient";
 import type { StationEvent } from "../../lib/ble/protocol";
+import {
+  fetchSignedUnlock,
+  fetchSignedReturnUnlock,
+} from "../../lib/ble/signUnlock";
 
 const STATION_NAME = "Playbox-DEV-001";
+const STATION_ID = "DEV-001";
 const TEST_SESSION_ID = "sess-dev-001";
 const TEST_GATE = 1;
 const TEST_DURATION_MIN = 30;
@@ -94,12 +99,14 @@ export default function BleDebugScreen() {
 
   async function onUnlock() {
     try {
-      await stationClient.unlock(
-        TEST_GATE,
-        TEST_SESSION_ID,
-        TEST_DURATION_MIN,
-      );
-      log("info", `wrote unlock cmd (gate=${TEST_GATE})`);
+      const signed = await fetchSignedUnlock({
+        stationId: STATION_ID,
+        gate: TEST_GATE,
+        sessionId: TEST_SESSION_ID,
+        durationMin: TEST_DURATION_MIN,
+      });
+      await stationClient.unlock(signed);
+      log("info", `wrote signed unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
     } catch (e: unknown) {
       log("error", e instanceof Error ? e.message : String(e));
     }
@@ -107,8 +114,13 @@ export default function BleDebugScreen() {
 
   async function onReturnUnlock() {
     try {
-      await stationClient.returnUnlock(TEST_GATE, TEST_SESSION_ID);
-      log("info", `wrote return_unlock cmd (gate=${TEST_GATE})`);
+      const signed = await fetchSignedReturnUnlock({
+        stationId: STATION_ID,
+        gate: TEST_GATE,
+        sessionId: TEST_SESSION_ID,
+      });
+      await stationClient.returnUnlock(signed);
+      log("info", `wrote signed return_unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
     } catch (e: unknown) {
       log("error", e instanceof Error ? e.message : String(e));
     }

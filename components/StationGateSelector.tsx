@@ -336,9 +336,6 @@ export function StationGateSelector({
     return (station.stock[selected] ?? 0) > 0;
   }, [selected, station]);
 
-  // Reservation flow trigger: not in range + selected + station available + at
-  // least one free gate left after subtracting active reservations.
-  const reserveMode = !!selected && stockOk && !inRange && !activeReservation && !!selectedGate;
   const blockedByOtherReservation =
     !!activeReservation && activeReservation.station_id !== station.id;
 
@@ -369,8 +366,6 @@ export function StationGateSelector({
     ? t('station.cta_other_reservation')
     : !stockOk
     ? t('station.cta_out_of_stock')
-    : reserveMode
-    ? t('station.cta_reserve', { min: RESERVATION_LOCK_MIN })
     : t('station.cta_unlock');
 
   const onSelect = async (sp: Sport) => {
@@ -387,21 +382,18 @@ export function StationGateSelector({
       return;
     }
     if (!ctaEnabled || !selected) return;
-    if (reserveMode && selectedGate) {
-      await hx.press();
-      // Hand off to the new reserve flow — slides on first reservation,
-      // mini-confirm thereafter. The server validates everything (card,
-      // lock, terms, capacity, velocity) and surfaces clean errors.
-      router.push({
-        pathname: '/reserve/[stationId]/[sport]/[gateId]' as const,
-        params: {
-          stationId: station.id,
-          sport: selected,
-          gateId: selectedGate.id,
-        },
-      });
+
+    // Out of BLE range: don't silently re-route to reserve. Tell the user
+    // what's wrong and let them either move closer or tap Reserve below.
+    if (!inRange) {
+      await hx.tap();
+      Alert.alert(
+        t('station.out_of_range_title'),
+        t('station.out_of_range_msg'),
+      );
       return;
     }
+
     await hx.press();
     onUnlock(selected, duration);
   });
@@ -715,7 +707,7 @@ export function StationGateSelector({
         >
           <Feather name="bluetooth" size={14} color={palette.ink} style={{ marginRight: 8 }} />
           <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
-            {reserveMode ? t('station.range_hint_reserve') : t('station.range_hint')}
+            {t('station.range_hint')}
           </Text>
         </Animated.View>
       ) : null}
@@ -744,17 +736,16 @@ export function StationGateSelector({
 
       <CTAButton
         label={ctaLabel}
-        bg={reserveMode ? palette.ink : palette.coral}
+        bg={palette.coral}
         enabled={ctaEnabled}
         hardBlocked={sessionAtOtherStation}
         onPress={onPress}
       />
 
-      {/* Always-visible secondary "Rezerve et" — even when the user is in
-          range, they may want to hold the gate while they finish errands.
-          Hidden in reserveMode (the primary button already does this) and
-          when no gate is selected or stock is empty. */}
-      {!!selected && stockOk && !reserveMode && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
+      {/* Always-visible secondary "Rezerve et". Lets the user hold a gate
+          remotely; the primary "open gate" button stays put on top and
+          shows an out-of-range modal if tapped from afar. */}
+      {!!selected && stockOk && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
         <Pressable
           onPress={onReservePress}
           style={({ pressed }) => ({ marginTop: 22, opacity: pressed ? 0.65 : 1 })}

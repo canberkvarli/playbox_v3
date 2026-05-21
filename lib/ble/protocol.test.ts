@@ -14,25 +14,33 @@ describe("encodeCommand", () => {
       gate: 2,
       session_id: "sess-abc",
       duration_min: 60,
+      ts: 1712345678,
+      sig: "deadbeef".repeat(8),
     });
     expect(JSON.parse(json)).toEqual({
       cmd: "unlock",
       gate: 2,
       session_id: "sess-abc",
       duration_min: 60,
+      ts: 1712345678,
+      sig: "deadbeef".repeat(8),
     });
   });
 
-  it("encodes a return_unlock command without duration", () => {
+  it("encodes a return_unlock command", () => {
     const json = encodeCommand({
       cmd: "return_unlock",
       gate: 2,
       session_id: "sess-abc",
+      ts: 1712345678,
+      sig: "cafebabe".repeat(8),
     });
     expect(JSON.parse(json)).toEqual({
       cmd: "return_unlock",
       gate: 2,
       session_id: "sess-abc",
+      ts: 1712345678,
+      sig: "cafebabe".repeat(8),
     });
   });
 });

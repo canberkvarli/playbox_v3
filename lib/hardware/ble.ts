@@ -1,213 +1,121 @@
 /**
- * Real-hardware driver. Uses react-native-ble-plx to scan for the station's
- * BLE advertisement and supabase Edge Functions to dispatch the unlock.
+ * Real-hardware driver. Talks to the station directly over BLE via the
+ * shared `stationClient` (single BleManager instance, single connection).
  *
- * THIS FILE HAS TWO HARDWARE-SPECIFIC CONSTANTS THAT YOU MUST FILL IN
- * before flipping the production switch:
+ * Phase 0 (breadboard): proximity check = "can we scan-and-connect to the
+ * advertised name?" — not RSSI. This avoids running two BLE scans (one for
+ * proximity, one for unlock) which fight on iOS. Once the connection is up,
+ * unlock is a JSON write to the unlock characteristic.
  *
- *   1. PLAYBOX_BLE_SERVICE_UUID  — the 128-bit service UUID your gates
- *      advertise. Get it from the firmware spec.
- *   2. The advertising-name format under `nameFromStationId`. Right now
- *      the placeholder assumes `pbox-${stationId}`. If your firmware
- *      uses a different convention (MAC suffix, sequential ID), update it.
- *
- * The unlock command goes through the `gate-unlock` Supabase Edge Function
- * (server-mediated MQTT). Direct BLE write to the gate is intentionally
- * NOT supported — it would let a rooted phone bypass session/payment
- * checks. Server roundtrip cost is ~250ms which is acceptable for an
- * unlock flow that already has theatrics.
+ * Station-name resolution:
+ *   - If EXPO_PUBLIC_BLE_STATION_NAME is set, every stationId maps to that
+ *     name. Use this when testing one breadboard against the seed map.
+ *   - Otherwise we derive `Playbox-${UPPER_STATION_ID}` to match the
+ *     firmware's `Playbox-DEV-001`-style advertising convention.
  */
 
 import type { HardwareDriver, ProximityState, UnlockResult } from './types';
 import { reportError } from '@/lib/telemetry';
+import { stationClient } from '@/lib/ble/stationClient';
+import { fetchSignedUnlock } from '@/lib/ble/signUnlock';
 
-// Lazy-load the native module so dev environments without it (web, jest)
-// don't crash at import time.
-let BleManager: any = null;
-function loadBle() {
-  if (BleManager !== null) return BleManager;
-  try {
-    BleManager = require('react-native-ble-plx').BleManager;
-    return BleManager;
-  } catch {
-    BleManager = false;
-    return null;
-  }
-}
+const BLE_STATION_NAME_OVERRIDE = process.env.EXPO_PUBLIC_BLE_STATION_NAME;
+const SCAN_TIMEOUT_MS = 8_000;
 
-// ────────────────────────── HARDWARE-SPECIFIC ─────────────────────────────
-
-/** TODO: replace with the real service UUID once firmware spec is final. */
-const PLAYBOX_BLE_SERVICE_UUID = '00000000-0000-1000-8000-00805f9b34fb';
-
-/** RSSI threshold for "in range". Closer = larger (less negative). */
-const IN_RANGE_RSSI = -85;
-
-/** How long without a scan hit before we flip back to out_of_range. */
-const PROXIMITY_TTL_MS = 6_000;
-
-/**
- * Translate a station id ("ist-kadikoy") into the local-name fragment the
- * gate advertises. Gates broadcast as e.g. "pbox-ist-kadikoy-1" where the
- * trailing number is the gate index. Adjust this when firmware locks the
- * naming scheme.
- */
 function nameFromStationId(stationId: string): string {
-  return `pbox-${stationId}`;
+  if (BLE_STATION_NAME_OVERRIDE) return BLE_STATION_NAME_OVERRIDE;
+  return `Playbox-${stationId.toUpperCase()}`;
 }
 
-// ─────────────────────────── DRIVER IMPL ──────────────────────────────────
-
-let bleManagerInstance: any = null;
-function getManager(): any {
-  if (bleManagerInstance) return bleManagerInstance;
-  const M = loadBle();
-  if (!M) return null;
-  bleManagerInstance = new M();
-  return bleManagerInstance;
+/** gateId convention is `${stationId}-${sport}-${index}`; pull the index. */
+function parseGateIndex(gateId: string): number {
+  const tail = gateId.split('-').pop() ?? '';
+  const n = Number.parseInt(tail, 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
-const UNLOCK_TIMEOUT_MS = 8_000;
+function classifyError(e: unknown): ProximityState['kind'] | 'connection_failed' {
+  const msg = String((e as Error)?.message ?? e ?? '').toLowerCase();
+  if (msg.includes('powered off') || msg.includes('poweredoff')) return 'bluetooth_off';
+  if (msg.includes('unauthorized') || msg.includes('permission')) return 'permission_denied';
+  if (msg.includes('unsupported')) return 'unsupported';
+  if (msg.includes('timeout') || msg.includes('not found')) return 'out_of_range';
+  return 'connection_failed';
+}
 
 export function createBleDriver(): HardwareDriver {
   return {
     watchStation(stationId, onChange) {
-      const manager = getManager();
-      if (!manager) {
-        onChange({ kind: 'unsupported' });
-        return { stop: () => {} };
-      }
-
       const targetName = nameFromStationId(stationId);
-      let lastSeenAt = 0;
-      let ttlTimer: ReturnType<typeof setInterval> | null = null;
-      let scanning = false;
+      let cancelled = false;
 
-      const stop = () => {
+      onChange({ kind: 'scanning' });
+
+      // Connect-and-stay. If we connect, we report in_range and keep the
+      // device handle warm so a subsequent unlockGate is a single write.
+      // If we fail, classify the error so the UI can prompt correctly.
+      (async () => {
         try {
-          manager.stopDeviceScan();
-        } catch {}
-        if (ttlTimer) {
-          clearInterval(ttlTimer);
-          ttlTimer = null;
+          if (!stationClient.isConnected()) {
+            await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
+          }
+          if (cancelled) return;
+          onChange({ kind: 'in_range', rssi: -55, lastSeenAt: Date.now() });
+        } catch (e) {
+          if (cancelled) return;
+          const kind = classifyError(e);
+          if (kind === 'bluetooth_off') onChange({ kind: 'bluetooth_off' });
+          else if (kind === 'permission_denied') onChange({ kind: 'permission_denied' });
+          else if (kind === 'unsupported') onChange({ kind: 'unsupported' });
+          else onChange({ kind: 'out_of_range' });
         }
-        scanning = false;
-      };
-
-      // Permission + adapter state check. On iOS the system prompt fires
-      // automatically the first time we start a scan, so we just react to
-      // whatever state lands.
-      const stateSubscription = manager.onStateChange((state: string) => {
-        if (state === 'PoweredOn') {
-          if (scanning) return;
-          scanning = true;
-          onChange({ kind: 'scanning' });
-          manager.startDeviceScan(
-            [PLAYBOX_BLE_SERVICE_UUID],
-            { allowDuplicates: true },
-            (err: Error | null, device: any) => {
-              if (err) {
-                if (String(err.message ?? '').toLowerCase().includes('permission')) {
-                  onChange({ kind: 'permission_denied' });
-                } else {
-                  reportError(err, { source: 'ble.scan', stationId });
-                  onChange({ kind: 'out_of_range' });
-                }
-                return;
-              }
-              if (!device) return;
-              const localName = device.localName ?? device.name ?? '';
-              if (!localName.startsWith(targetName)) return;
-              if (typeof device.rssi !== 'number') return;
-              if (device.rssi < IN_RANGE_RSSI) return;
-              lastSeenAt = Date.now();
-              onChange({
-                kind: 'in_range',
-                rssi: device.rssi,
-                lastSeenAt,
-              });
-            },
-          );
-          // TTL watchdog: if we haven't seen the device in PROXIMITY_TTL_MS,
-          // flip back to out_of_range. Keeps the UI honest if the user walks
-          // away mid-flow.
-          ttlTimer = setInterval(() => {
-            if (lastSeenAt && Date.now() - lastSeenAt > PROXIMITY_TTL_MS) {
-              onChange({ kind: 'out_of_range' });
-            }
-          }, 1000);
-        } else if (state === 'PoweredOff') {
-          onChange({ kind: 'bluetooth_off' });
-        } else if (state === 'Unauthorized') {
-          onChange({ kind: 'permission_denied' });
-        } else if (state === 'Unsupported') {
-          onChange({ kind: 'unsupported' });
-        }
-      }, true);
+      })();
 
       return {
         stop: () => {
-          try {
-            stateSubscription?.remove?.();
-          } catch {}
-          stop();
+          cancelled = true;
+          // Don't disconnect on unmount — the unlock screen and the play
+          // screen are different mounts but share the same physical link.
         },
       };
     },
 
-    async unlockGate({ stationId, gateId, sessionToken, correlationId }): Promise<UnlockResult> {
-      if (!SUPABASE_URL) {
-        return { ok: false, error: 'network', message: 'supabase URL not configured' };
-      }
-      const url = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/gate-unlock`;
-
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), UNLOCK_TIMEOUT_MS);
+    async unlockGate({ stationId, gateId, correlationId }): Promise<UnlockResult> {
+      const targetName = nameFromStationId(stationId);
+      const gate = parseGateIndex(gateId);
 
       try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionToken}`,
-            'X-Correlation-Id': correlationId,
-          },
-          body: JSON.stringify({ station_id: stationId, gate_id: gateId, correlation_id: correlationId }),
-          signal: ctrl.signal,
+        // Get signed BLE payload from the server. Server checks JWT + active
+        // payment hold before signing — without those, no signature, no
+        // unlock. Phone never holds the station secret.
+        // session_id is the firmware's handle for matching a later
+        // return_unlock to this unlock; correlationId is unique per attempt
+        // and stable for the duration of the session, so it doubles as it.
+        const signed = await fetchSignedUnlock({
+          stationId,
+          gate,
+          sessionId: correlationId,
+          durationMin: 30,
         });
 
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          if (res.status === 401 || res.status === 403) {
-            return { ok: false, error: 'auth_rejected', message: text };
-          }
-          if (res.status === 409) {
-            return { ok: false, error: 'gate_busy', message: text };
-          }
-          return { ok: false, error: 'unknown', message: `${res.status} ${text}` };
+        if (!stationClient.isConnected()) {
+          await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
-
-        const json = await res.json().catch(() => null);
-        if (!json?.ok) {
-          return { ok: false, error: 'unknown', message: 'bad_response' };
-        }
+        await stationClient.unlock(signed);
         return { ok: true, openedAt: Date.now() };
-      } catch (e: any) {
-        if (e?.name === 'AbortError') {
-          return { ok: false, error: 'timeout' };
-        }
-        reportError(e, { source: 'ble.unlock', stationId, gateId });
-        return { ok: false, error: 'network', message: String(e?.message ?? e) };
-      } finally {
-        clearTimeout(timer);
+      } catch (e) {
+        const kind = classifyError(e);
+        reportError(e as Error, { source: 'ble.unlock', stationId, gateId });
+        if (kind === 'bluetooth_off') return { ok: false, error: 'bluetooth_off' };
+        if (kind === 'permission_denied') return { ok: false, error: 'permission_denied' };
+        if (kind === 'unsupported') return { ok: false, error: 'unsupported' };
+        if (kind === 'out_of_range') return { ok: false, error: 'not_in_range' };
+        return { ok: false, error: 'connection_failed', message: String((e as Error)?.message ?? e) };
       }
     },
 
     reset() {
-      try {
-        bleManagerInstance?.stopDeviceScan?.();
-      } catch {}
+      stationClient.disconnect().catch(() => {});
     },
   };
 }

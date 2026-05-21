@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -269,9 +269,24 @@ export default function SessionPrep() {
         unsupported: 'bu cihaz kapı açmayı desteklemiyor.',
         unknown: 'bir sorun çıktı, tekrar dene.',
       };
+      // permission_denied + bluetooth_off are recoverable only via Settings
+      // — iOS won't reshow the BT prompt and won't toggle the radio for us.
+      // Give the user a one-tap deep-link instead of a dead-end alert.
+      const settingsRecoverable =
+        unlockRes.error === 'permission_denied' ||
+        unlockRes.error === 'bluetooth_off';
       Alert.alert(
         t('common.error_generic'),
         reasonMap[unlockRes.error] ?? reasonMap.unknown,
+        settingsRecoverable
+          ? [
+              { text: 'iptal', style: 'cancel' },
+              {
+                text: 'ayarları aç',
+                onPress: () => Linking.openSettings().catch(() => {}),
+              },
+            ]
+          : [{ text: 'tamam' }],
       );
       return;
     }

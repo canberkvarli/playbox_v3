@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { stationClient } from '@/lib/ble/stationClient';
 
 let CameraPerms: {
   get?: () => Promise<{ granted: boolean; canAskAgain: boolean }>;
@@ -26,19 +27,21 @@ import { RiseIn } from '@/components/RiseIn';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type PermStatus = 'idle' | 'granted' | 'denied';
-type PermKey = 'location' | 'notif' | 'camera';
+type PermKey = 'location' | 'notif' | 'camera' | 'bt';
 type PermsState = Record<PermKey, PermStatus>;
 
 const ICONS: Record<PermKey, keyof typeof Feather.glyphMap> = {
   location: 'map-pin',
   notif: 'bell',
   camera: 'camera',
+  bt: 'bluetooth',
 };
 
 const REQUIRED: Record<PermKey, boolean> = {
   location: true,
   notif: false,
   camera: false,
+  bt: true,
 };
 
 async function readInitial(): Promise<PermsState> {
@@ -58,6 +61,10 @@ async function readInitial(): Promise<PermsState> {
     location: loc.granted ? 'granted' : loc.canAskAgain === false ? 'denied' : 'idle',
     notif:    notif.granted ? 'granted' : notif.canAskAgain === false ? 'denied' : 'idle',
     camera:   cam.granted ? 'granted' : cam.canAskAgain === false ? 'denied' : 'idle',
+    // BT initial status starts at 'idle'. We deliberately don't probe iOS state
+    // on mount — instantiating the BleManager would surface the system prompt
+    // without context. The user has to tap the card first.
+    bt:       'idle',
   };
 }
 
@@ -73,6 +80,11 @@ async function request(key: PermKey): Promise<PermStatus> {
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
       });
       return r.granted || r.status === 'granted' ? 'granted' : 'denied';
+    } catch { return 'denied'; }
+  }
+  if (key === 'bt') {
+    try {
+      return await stationClient.requestPermission();
     } catch { return 'denied'; }
   }
   if (!CameraPerms.request) return 'denied';
@@ -195,7 +207,9 @@ function PermissionCard({
           <Feather name="check" size={22} color={palette.ink} />
         ) : denied ? (
           <Text style={{ color: palette.coral, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
-            {t('onb.perms.retry')}
+            {/* iOS only allows the system Bluetooth prompt once. After deny,
+                recovery is via Settings — the card press handler routes there. */}
+            {k === 'bt' ? t('onb.perms.open_settings') : t('onb.perms.retry')}
           </Text>
         ) : (
           <Feather name="chevron-right" size={20} color={palette.ink} />
@@ -214,6 +228,7 @@ export default function Permissions() {
     location: 'idle',
     notif: 'idle',
     camera: 'idle',
+    bt: 'idle',
   });
 
   useEffect(() => {
@@ -222,12 +237,18 @@ export default function Permissions() {
 
   const handle = (key: PermKey) => async () => {
     await hx.tap();
+    // iOS Bluetooth only prompts once. If we previously got 'denied', the
+    // OS won't re-prompt — the only path forward is Settings.
+    if (key === 'bt' && perms.bt === 'denied') {
+      Linking.openSettings().catch(() => {});
+      return;
+    }
     const next = await request(key);
     setPerms((p) => ({ ...p, [key]: next }));
     if (next === 'granted') await hx.yes();
   };
 
-  const ctaEnabled = perms.location === 'granted';
+  const ctaEnabled = perms.location === 'granted' && perms.bt === 'granted';
 
   const onContinue = useGuardedPress(async () => {
     if (!ctaEnabled) return;
@@ -293,6 +314,7 @@ export default function Permissions() {
       <RiseIn delay={120}>
         <View style={{ marginTop: 28 }}>
           <PermissionCard k="location" status={perms.location} onPress={handle('location')} t={t} />
+          <PermissionCard k="bt"       status={perms.bt}       onPress={handle('bt')}       t={t} />
           <PermissionCard k="notif"    status={perms.notif}    onPress={handle('notif')}    t={t} />
           <PermissionCard k="camera"   status={perms.camera}   onPress={handle('camera')}   t={t} />
         </View>

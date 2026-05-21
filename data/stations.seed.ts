@@ -38,6 +38,12 @@ export function gatesForStation(station: Station, sport: Sport): Gate[] {
 }
 
 export const STATIONS: Station[] = [
+  // ---- Local dev breadboard (matches firmware station_id "DEV-001") --------
+  // EDIT lat/lng to your physical location so it shows up as nearby on the
+  // map. Quick way: open Google Maps, right-click your location, click the
+  // coordinates that appear at the top — they'll copy as "lat, lng".
+  { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball'],            stock: { football: 1, basketball: 1 },              availableNow: true  },
+
   // İstanbul (16)
   { id: 'ist-taksim',       name: 'Taksim Spor Kulübü',         city: 'istanbul', lat: 41.0370, lng: 28.9850, sports: ['football', 'basketball'],            stock: { football: 3, basketball: 2 },              availableNow: true  },
   { id: 'ist-kadikoy',      name: 'Kadıköy Moda Spor Vakfı',    city: 'istanbul', lat: 40.9851, lng: 29.0264, sports: ['football', 'volleyball', 'tennis'],  stock: { football: 1, volleyball: 4, tennis: 2 },   availableNow: true  },
