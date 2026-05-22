@@ -412,6 +412,9 @@ export default function SessionPrep() {
             {step + 1} / {STEPS.length}
           </Text>
           <Text
+            adjustsFontSizeToFit
+            numberOfLines={2}
+            minimumFontScale={0.55}
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
@@ -652,31 +655,33 @@ function AgreementRow({
           <Animated.View
             style={[
               {
-                width: 44,
-                height: 44,
-                borderRadius: 12,
+                width: 36,
+                height: 36,
+                borderRadius: 10,
                 backgroundColor: checked ? palette.ink + '33' : palette.paper,
-                borderWidth: 3,
+                borderWidth: 2.5,
                 borderColor: checked ? palette.ink + '55' : palette.ink,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 16,
+                marginRight: 14,
+                flexShrink: 0,
               },
               boxStyle,
             ]}
           >
             <Animated.View style={checkStyle}>
-              <Feather name="check" size={26} color={palette.ink} />
+              <Feather name="check" size={22} color={palette.ink} />
             </Animated.View>
           </Animated.View>
           <Text
             style={{
               flex: 1,
+              flexShrink: 1,
               fontFamily: 'Unbounded_700Bold',
               color: palette.ink,
-              fontSize: 16,
-              lineHeight: 22,
-              letterSpacing: 0.2,
+              fontSize: 14,
+              lineHeight: 20,
+              letterSpacing: 0.1,
             }}
           >
             {label}

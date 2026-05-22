@@ -26,10 +26,6 @@ Deno.serve(async (req) => {
   const opt = handleOptions(req);
   if (opt) return opt;
 
-  const userId = getUserIdFromRequest(req);
-  const jwt = getBearerToken(req);
-  if (!userId || !jwt) return json({ ok: false, error: 'unauthorized' }, 401);
-
   let body: {
     cmd?: 'unlock' | 'return_unlock';
     station_id?: string;
@@ -42,6 +38,14 @@ Deno.serve(async (req) => {
     body = await req.json();
   } catch {
     return json({ ok: false, error: 'bad_body' }, 400);
+  }
+
+  // Auth: required for normal use, optional for the DEV-001 dev panel.
+  const userId = getUserIdFromRequest(req);
+  const jwt = getBearerToken(req);
+  const isDevBypass = body.dev_bypass === true && body.station_id === 'DEV-001';
+  if (!isDevBypass && (!userId || !jwt)) {
+    return json({ ok: false, error: 'unauthorized' }, 401);
   }
 
   const cmd = body.cmd ?? 'unlock';

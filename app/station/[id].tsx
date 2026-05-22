@@ -279,42 +279,49 @@ function DevServoButtons({ stationId }: { stationId: string }) {
   };
 
   return (
-    <View
-      style={{
-        marginTop: 28,
-        padding: 14,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: palette.ink + '22',
-        backgroundColor: palette.ink + '06',
-      }}
-    >
+    <View style={{ marginTop: 32 }}>
       <Text
         style={{
           fontFamily: 'JetBrainsMono_700Bold',
           fontSize: 10,
-          letterSpacing: 1.2,
-          color: palette.ink + 'aa',
-          marginBottom: 10,
+          letterSpacing: 1.5,
+          color: palette.ink + '88',
+          marginBottom: 12,
+          textAlign: 'center',
         }}
       >
         DEV · SERVO TEST · BYPASSES PAYMENT
       </Text>
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable
           onPress={runUnlock}
           disabled={!!busy}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 12,
-            borderRadius: 10,
+            paddingVertical: 16,
+            paddingHorizontal: 16,
+            borderRadius: 999,
             backgroundColor: palette.ink,
-            opacity: busy === 'unlock' ? 0.5 : pressed ? 0.8 : 1,
+            opacity: busy === 'unlock' ? 0.5 : pressed ? 0.85 : 1,
+            transform: [{ scale: pressed && !busy ? 0.97 : 1 }],
             alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: palette.ink,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 8,
+            elevation: 4,
           })}
         >
-          <Text style={{ color: palette.paper, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
-            {busy === 'unlock' ? 'unlocking…' : 'force unlock'}
+          <Text
+            style={{
+              color: palette.paper,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 12,
+              letterSpacing: 0.5,
+            }}
+          >
+            {busy === 'unlock' ? '...' : 'UNLOCK'}
           </Text>
         </Pressable>
         <Pressable
@@ -322,15 +329,30 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           disabled={!!busy}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 12,
-            borderRadius: 10,
+            paddingVertical: 16,
+            paddingHorizontal: 16,
+            borderRadius: 999,
             backgroundColor: palette.coral,
-            opacity: busy === 'return' ? 0.5 : pressed ? 0.8 : 1,
+            opacity: busy === 'return' ? 0.5 : pressed ? 0.85 : 1,
+            transform: [{ scale: pressed && !busy ? 0.97 : 1 }],
             alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: palette.coral,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 4,
           })}
         >
-          <Text style={{ color: palette.paper, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
-            {busy === 'return' ? 'returning…' : 'force return'}
+          <Text
+            style={{
+              color: palette.paper,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 12,
+              letterSpacing: 0.5,
+            }}
+          >
+            {busy === 'return' ? '...' : 'RETURN'}
           </Text>
         </Pressable>
       </View>
@@ -338,13 +360,13 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         style={{
           fontFamily: 'Inter_400Regular',
           fontSize: 11,
-          color: palette.ink + '88',
-          marginTop: 8,
-          lineHeight: 16,
+          color: palette.ink + '66',
+          marginTop: 10,
+          lineHeight: 15,
+          textAlign: 'center',
         }}
       >
-        Force Unlock → servo to 90° (state: UNLOCKED). Press BOOT button on ESP32 to advance to IN_USE.
-        Force Return → servo to 90° (state: RETURN_UNLOCKED). Press BOOT to close, fires gate_closed.
+        servo → 90°. press BOOT on ESP32 between actions.
       </Text>
     </View>
   );

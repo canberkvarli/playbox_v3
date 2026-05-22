@@ -25,7 +25,14 @@ async function callSignUnlock<T>(body: unknown): Promise<EdgeResponse<T>> {
     data: { session },
   } = await supabase.auth.getSession();
   const token = session?.access_token ?? null;
-  if (!token) return { ok: false, error: 'not_signed_in' };
+  // Phase 0 dev shortcut: when called with dev_bypass=true (only honored
+  // server-side for DEV-001), skip the "must be signed in" gate so we can
+  // smoke-test the servo without an account.
+  const devBypass = (body as { dev_bypass?: boolean })?.dev_bypass === true;
+  if (!token && !devBypass) return { ok: false, error: 'not_signed_in' };
+
+  const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  const authHeader = token ? `Bearer ${token}` : `Bearer ${SUPABASE_ANON_KEY}`;
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
@@ -35,7 +42,8 @@ async function callSignUnlock<T>(body: unknown): Promise<EdgeResponse<T>> {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Authorization: authHeader,
+        apikey: SUPABASE_ANON_KEY,
       },
       body: JSON.stringify(body),
       signal: ctrl.signal,
