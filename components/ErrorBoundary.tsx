@@ -110,20 +110,27 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </Text>
           </View>
         </Pressable>
-        {__DEV__ ? (
-          <Text
-            style={{
-              fontFamily: 'JetBrainsMono_400Regular',
-              color: palette.ink,
-              fontSize: 11,
-              marginTop: 32,
-              opacity: 0.6,
-              textAlign: 'center',
-            }}
-          >
-            {String(this.state.error.message ?? this.state.error)}
-          </Text>
-        ) : null}
+        {/* Phase 0: always show the error message — we're still iterating in
+            TestFlight and need real stack traces to diagnose. Move back behind
+            __DEV__ before public launch. */}
+        <Text
+          selectable
+          style={{
+            fontFamily: 'JetBrainsMono_400Regular',
+            color: palette.ink,
+            fontSize: 11,
+            lineHeight: 16,
+            marginTop: 32,
+            opacity: 0.6,
+            textAlign: 'left',
+            paddingHorizontal: 8,
+          }}
+        >
+          {String(this.state.error.message ?? this.state.error)}
+          {this.state.error.stack
+            ? '\n\n' + this.state.error.stack.split('\n').slice(0, 6).join('\n')
+            : ''}
+        </Text>
       </View>
     );
   }
