@@ -4,6 +4,12 @@
 // Returns an HMAC-signed BLE unlock payload that the phone relays directly
 // to the station over BLE. The phone never sees the station secret.
 //
+// DEPLOY: must be deployed with --no-verify-jwt so the function can handle
+// its own auth (the gateway 401 would otherwise reject the DEV-001
+// dev_bypass call before our code runs). The function itself enforces
+// auth on every non-dev-bypass call.
+//   npx supabase functions deploy sign-unlock --no-verify-jwt
+//
 // Why this is separate from `gate-unlock`:
 //   - gate-unlock dispatches to a hardware bridge (network/MQTT) and is the
 //     primary unlock path when the phone has internet.
