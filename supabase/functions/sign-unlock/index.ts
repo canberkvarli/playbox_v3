@@ -36,6 +36,7 @@ Deno.serve(async (req) => {
     gate?: number;
     session_id?: string;
     duration_min?: number;
+    dev_bypass?: boolean;
   };
   try {
     body = await req.json();
@@ -46,6 +47,7 @@ Deno.serve(async (req) => {
   const cmd = body.cmd ?? 'unlock';
   const { station_id, gate, session_id } = body;
   const duration_min = body.duration_min ?? 30;
+  const dev_bypass = body.dev_bypass === true;
 
   if (!station_id || gate == null || !session_id) {
     return json({ ok: false, error: 'missing_params' }, 400);
@@ -62,22 +64,32 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  // Same payment-hold check as gate-unlock — refuse to sign anything for a
-  // user without an active iyzico preauth. Without this, BLE unlock would
-  // bypass payment.
-  const { data: hold, error: holdErr } = await admin
-    .from('payment_holds')
-    .select('id, station_id, captured_at, released_at')
-    .eq('user_id', userId)
-    .eq('station_id', station_id)
-    .is('captured_at', null)
-    .is('released_at', null)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Dev bypass: skip the payment-hold gate for DEV-001 only, used by the
+  // Force Unlock / Force Return buttons in the app for hardware smoke
+  // testing. Limited to that one station ID so it can't be used to bypass
+  // payment for any real station.
+  const allowDevBypass = dev_bypass && station_id === 'DEV-001';
 
-  if (holdErr) console.error('[sign-unlock] hold lookup failed', holdErr);
-  if (!hold) return json({ ok: false, error: 'no_active_hold' }, 402);
+  if (!allowDevBypass) {
+    // Same payment-hold check as gate-unlock — refuse to sign anything for a
+    // user without an active iyzico preauth. Without this, BLE unlock would
+    // bypass payment.
+    const { data: hold, error: holdErr } = await admin
+      .from('payment_holds')
+      .select('id, station_id, captured_at, released_at')
+      .eq('user_id', userId)
+      .eq('station_id', station_id)
+      .is('captured_at', null)
+      .is('released_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (holdErr) console.error('[sign-unlock] hold lookup failed', holdErr);
+    if (!hold) return json({ ok: false, error: 'no_active_hold' }, 402);
+  } else {
+    console.log('[sign-unlock] dev_bypass for DEV-001 — skipping hold check');
+  }
 
   try {
     const signed = cmd === 'unlock'

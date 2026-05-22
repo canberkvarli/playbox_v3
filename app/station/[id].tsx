@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -12,6 +12,8 @@ import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
+import { stationClient } from '@/lib/ble/stationClient';
+import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -217,7 +219,133 @@ export default function StationDetail() {
             unlocking={unlocking}
           />
         </View>
+
+        {station.id === 'DEV-001' ? <DevServoButtons stationId={station.id} /> : null}
       </ScrollView>
+    </View>
+  );
+}
+
+// =============================================================================
+// DevServoButtons — Phase 0 only.
+// Two buttons that drive the breadboard servo directly without going through
+// the reservation / payment-hold flow. The edge function only honors
+// `dev_bypass` for station_id === 'DEV-001', so this is scoped to the dev unit.
+// =============================================================================
+function DevServoButtons({ stationId }: { stationId: string }) {
+  const [busy, setBusy] = useState<null | 'unlock' | 'return'>(null);
+
+  const runUnlock = async () => {
+    if (busy) return;
+    setBusy('unlock');
+    try {
+      const signed = await fetchSignedUnlock({
+        stationId,
+        gate: 1,
+        sessionId: `dev-${Date.now()}`,
+        durationMin: 30,
+        devBypass: true,
+      });
+      if (!stationClient.isConnected()) {
+        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
+      }
+      await stationClient.unlock(signed);
+    } catch (e: unknown) {
+      Alert.alert('Force Unlock failed', String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const runReturn = async () => {
+    if (busy) return;
+    setBusy('return');
+    try {
+      const signed = await fetchSignedReturnUnlock({
+        stationId,
+        gate: 1,
+        sessionId: `dev-${Date.now()}`,
+        devBypass: true,
+      });
+      if (!stationClient.isConnected()) {
+        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
+      }
+      await stationClient.returnUnlock(signed);
+    } catch (e: unknown) {
+      Alert.alert('Force Return failed', String((e as Error)?.message ?? e));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <View
+      style={{
+        marginTop: 28,
+        padding: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: palette.ink + '22',
+        backgroundColor: palette.ink + '06',
+      }}
+    >
+      <Text
+        style={{
+          fontFamily: 'JetBrainsMono_700Bold',
+          fontSize: 10,
+          letterSpacing: 1.2,
+          color: palette.ink + 'aa',
+          marginBottom: 10,
+        }}
+      >
+        DEV · SERVO TEST · BYPASSES PAYMENT
+      </Text>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Pressable
+          onPress={runUnlock}
+          disabled={!!busy}
+          style={({ pressed }) => ({
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 10,
+            backgroundColor: palette.ink,
+            opacity: busy === 'unlock' ? 0.5 : pressed ? 0.8 : 1,
+            alignItems: 'center',
+          })}
+        >
+          <Text style={{ color: palette.paper, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
+            {busy === 'unlock' ? 'unlocking…' : 'force unlock'}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={runReturn}
+          disabled={!!busy}
+          style={({ pressed }) => ({
+            flex: 1,
+            paddingVertical: 12,
+            borderRadius: 10,
+            backgroundColor: palette.coral,
+            opacity: busy === 'return' ? 0.5 : pressed ? 0.8 : 1,
+            alignItems: 'center',
+          })}
+        >
+          <Text style={{ color: palette.paper, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
+            {busy === 'return' ? 'returning…' : 'force return'}
+          </Text>
+        </Pressable>
+      </View>
+      <Text
+        style={{
+          fontFamily: 'Inter_400Regular',
+          fontSize: 11,
+          color: palette.ink + '88',
+          marginTop: 8,
+          lineHeight: 16,
+        }}
+      >
+        Force Unlock → servo to 90° (state: UNLOCKED). Press BOOT button on ESP32 to advance to IN_USE.
+        Force Return → servo to 90° (state: RETURN_UNLOCKED). Press BOOT to close, fires gate_closed.
+      </Text>
     </View>
   );
 }

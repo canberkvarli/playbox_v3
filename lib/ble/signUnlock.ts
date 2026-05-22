@@ -60,6 +60,9 @@ export async function fetchSignedUnlock(input: {
   gate: number;
   sessionId: string;
   durationMin: number;
+  /** Phase 0 only: bypass payment-hold check on the server. Honored only
+   *  for stationId === 'DEV-001'. */
+  devBypass?: boolean;
 }): Promise<UnlockCommand> {
   const res = await callSignUnlock<UnlockCommand>({
     cmd: 'unlock',
@@ -67,6 +70,7 @@ export async function fetchSignedUnlock(input: {
     gate: input.gate,
     session_id: input.sessionId,
     duration_min: input.durationMin,
+    dev_bypass: input.devBypass ?? false,
   });
   if (!res.ok) {
     throw new Error(`sign-unlock failed: ${res.error}${res.detail ? ` (${res.detail})` : ''}`);
@@ -78,12 +82,15 @@ export async function fetchSignedReturnUnlock(input: {
   stationId: string;
   gate: number;
   sessionId: string;
+  /** Phase 0 only: same as fetchSignedUnlock.devBypass. */
+  devBypass?: boolean;
 }): Promise<ReturnUnlockCommand> {
   const res = await callSignUnlock<ReturnUnlockCommand>({
     cmd: 'return_unlock',
     station_id: input.stationId,
     gate: input.gate,
     session_id: input.sessionId,
+    dev_bypass: input.devBypass ?? false,
   });
   if (!res.ok) {
     throw new Error(`sign-unlock failed: ${res.error}${res.detail ? ` (${res.detail})` : ''}`);
