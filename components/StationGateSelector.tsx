@@ -271,6 +271,12 @@ export function StationGateSelector({
   const router = useRouter();
   const { inRange, state: proximityState } = useStationInRange(station.id);
   const proximityFar = proximityState.kind === 'out_of_range';
+  // True while BLE is still finding the answer ("scanning"/"idle"). During
+  // this window we don't yet know whether the user is close enough — the
+  // CTA must not be tappable, otherwise they'll punch OYNA and get the
+  // out-of-range modal even when they're actually right next to it.
+  const proximityResolving =
+    proximityState.kind === 'idle' || proximityState.kind === 'scanning';
 
   // Server-state hook — drives the disabled state if user has an active
   // reservation elsewhere. Polling is off here (not a long-lived screen);
@@ -350,7 +356,11 @@ export function StationGateSelector({
     !reserving &&
     !blockedByOtherReservation &&
     !sessionAtOtherStation &&
-    !sessionAtThisStation;
+    !sessionAtThisStation &&
+    // Don't let the user tap OYNA while we're still resolving BLE
+    // proximity. Without this gate they get the "yaklaş" modal during
+    // the scan window even when they're actually close.
+    !proximityResolving;
   const ctaEnabled = canContinueSession || canStartFresh;
 
   const ctaLabel = unlocking
@@ -367,6 +377,8 @@ export function StationGateSelector({
     ? t('station.cta_other_reservation')
     : !stockOk
     ? t('station.cta_out_of_stock')
+    : proximityResolving
+    ? t('station.checking_proximity')
     : t('station.cta_unlock');
 
   const onSelect = async (sp: Sport) => {

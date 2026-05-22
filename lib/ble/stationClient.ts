@@ -47,22 +47,34 @@ class StationClient {
     onError?: (err: Error) => void,
   ): { stop: () => void } {
     let stopped = false;
-    // Scan with no UUID filter — BLE adverts are 31-byte capped, so the
-    // ESP32's name + 128-bit service UUID + flags don't both fit in the
-    // primary advert. NimBLE pushes the UUID into the scan response,
-    // which means iOS's UUID-filtered scan would miss our device. We
-    // match by name in the callback instead — slightly more CPU work
-    // but actually reliable.
-    this.manager.startDeviceScan(null, null, (err, scanned) => {
-      if (stopped) return;
-      if (err) {
-        onError?.(err);
-        return;
-      }
-      if (scanned?.name === stationName) {
-        onSeen(scanned.rssi ?? -55);
-      }
-    });
+    // - allowDuplicates: iOS otherwise dedupes the scan-callback to one
+    //   fire per device, so we'd miss the scan-response packet (which is
+    //   where the name lives — NimBLE puts the 128-bit service UUID in
+    //   the primary advert and pushes the name into the scan response
+    //   because they don't both fit in 31 bytes). With duplicates on we
+    //   get every packet and detect on whichever arrives first.
+    // - No service-UUID filter: see the above; the UUID is in the primary
+    //   but iOS's filter is moody about that on some builds. Matching
+    //   client-side on name OR UUID is more reliable.
+    this.manager.startDeviceScan(
+      null,
+      { allowDuplicates: true },
+      (err, scanned) => {
+        if (stopped) return;
+        if (err) {
+          onError?.(err);
+          return;
+        }
+        if (!scanned) return;
+        const nameMatches = scanned.name === stationName;
+        const uuidMatches = (scanned.serviceUUIDs ?? []).some(
+          (u) => u.toLowerCase() === SERVICE_UUID.toLowerCase(),
+        );
+        if (nameMatches || uuidMatches) {
+          onSeen(scanned.rssi ?? -55);
+        }
+      },
+    );
     return {
       stop: () => {
         if (stopped) return;

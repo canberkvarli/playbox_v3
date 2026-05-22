@@ -283,6 +283,7 @@
       "return": "return when done"
     },
     "cta_unlock": "PLAY",
+    "checking_proximity": "checking range…",
     "out_of_range_title": "Get closer to the station",
     "out_of_range_msg": "You need to be near the Playbox station to open the gate. Walk closer and try again — or reserve below to hold it while you head over.",
     "cta_out_of_stock": "out of stock",

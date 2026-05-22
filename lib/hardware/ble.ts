@@ -49,12 +49,11 @@ export function createBleDriver(): HardwareDriver {
       const targetName = nameFromStationId(stationId);
       let cancelled = false;
       let staleTimer: ReturnType<typeof setTimeout> | null = null;
-      // If we don't see an advertisement for this long, fall back to
-      // out_of_range. ESP32 advertises every ~100–200ms, so 2.5s is more
-      // than enough for a healthy nearby device — meanwhile users who
-      // genuinely aren't close get the "yaklaş" banner immediately
-      // instead of waiting 6s.
-      const STALE_TIMEOUT_MS = 2_500;
+      // 1.5s is plenty: with allowDuplicates on, iOS fires the scan
+      // callback on every advert packet (~100ms cadence on the ESP32),
+      // so a nearby healthy device is detected in well under 500ms.
+      // Anything past 1.5s is genuinely "you aren't here yet."
+      const STALE_TIMEOUT_MS = 1_500;
 
       onChange({ kind: 'scanning' });
 

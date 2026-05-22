@@ -283,6 +283,7 @@
       "return": "bittiğinde iade et"
     },
     "cta_unlock": "OYNA",
+    "checking_proximity": "kontrol ediliyor…",
     "out_of_range_title": "İstasyona yaklaşman gerek",
     "out_of_range_msg": "Kapıyı açmak için Playbox istasyonunun yanında olman lazım. Yakına gel ve tekrar dene — ya da aşağıdan rezerve edip yolda tut.",
     "cta_out_of_stock": "şu an boş",
