@@ -101,6 +101,27 @@ export function createBleDriver(): HardwareDriver {
           }
           onChange({ kind: 'in_range', rssi: -55, lastSeenAt: Date.now() });
 
+          // Subscribe to the EVENTS characteristic. We don't strictly need
+          // every event right now — the important thing is that having an
+          // active notification subscription tells iOS the link is "in
+          // use," so it stops idling out the connection between user taps
+          // and RETURN responds instantly instead of needing a 2-3s
+          // reconnect dance.
+          try {
+            stationClient.subscribeToEvents(
+              () => {
+                // event payloads handled by other parts of the app
+                // (sessions, gate-closed, ball-overdue). The keepalive
+                // benefit is just the subscription existing.
+              },
+              () => {
+                // ignore — disconnect will surface via onDisconnected
+              },
+            );
+          } catch {
+            // subscribe failure isn't fatal — the unlock still works
+          }
+
           cleanupDisconnect();
           disconnectSub = device.onDisconnected(() => {
             if (cancelled) return;

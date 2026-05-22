@@ -98,8 +98,11 @@ class StationClient {
   }
 
   async scanAndConnect(stationName: string, timeoutMs = 8000): Promise<Device> {
-    // Already connected? Just hand back the live device.
-    if (this.device) {
+    // Already connected to the SAME device? Hand back the live handle.
+    // The name check is critical — without it, opening ist-taksim while
+    // connected to the DEV-001 breadboard would falsely report in_range
+    // for ist-taksim too.
+    if (this.device && this.device.name === stationName) {
       return this.device;
     }
 
