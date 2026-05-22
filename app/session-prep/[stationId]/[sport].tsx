@@ -331,7 +331,7 @@ export default function SessionPrep() {
       style={{
         flex: 1,
         backgroundColor: palette.paper,
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
       }}
@@ -413,13 +413,13 @@ export default function SessionPrep() {
           </Text>
           <Text
             adjustsFontSizeToFit
-            numberOfLines={2}
-            minimumFontScale={0.55}
+            numberOfLines={1}
+            minimumFontScale={0.5}
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
-              fontSize: 48,
-              lineHeight: 52,
+              fontSize: 42,
+              lineHeight: 46,
               marginTop: 8,
             }}
           >
