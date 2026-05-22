@@ -90,7 +90,11 @@ export function createBleDriver(): HardwareDriver {
         if (cancelled) return;
         onChange({ kind: 'scanning' });
         try {
-          const device = await stationClient.scanAndConnect(targetName, 3000);
+          // 8s gives iOS enough time to spin up its scan + find the device
+          // + establish the GATT link. 3s was missing connections on
+          // first try, especially right after the app launches when the
+          // BLE radio is still warming up.
+          const device = await stationClient.scanAndConnect(targetName, 8000);
           if (cancelled) {
             device.cancelConnection().catch(() => {});
             return;

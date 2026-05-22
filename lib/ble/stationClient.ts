@@ -98,6 +98,11 @@ class StationClient {
   }
 
   async scanAndConnect(stationName: string, timeoutMs = 8000): Promise<Device> {
+    // Already connected? Just hand back the live device.
+    if (this.device) {
+      return this.device;
+    }
+
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
     // for the next advert packet — should be under a second.
@@ -108,10 +113,16 @@ class StationClient {
         this.device = connected;
         connected.onDisconnected(() => {
           this.device = null;
+          // Clear the cached handle too — after a disconnect (especially
+          // if the ESP32 rebooted), the cached Device may be stale and
+          // re-using it for the fast path will just fail again. Force a
+          // fresh scan on the next attempt.
+          this.lastSeenDevice = null;
         });
         return connected;
       } catch {
         // Fall back to the full scan — fast path is best-effort.
+        this.lastSeenDevice = null;
       }
     }
 
@@ -156,8 +167,10 @@ class StationClient {
             const connected = await scanned.connect();
             await connected.discoverAllServicesAndCharacteristics();
             this.device = connected;
+            this.lastSeenDevice = scanned;
             connected.onDisconnected(() => {
               this.device = null;
+              this.lastSeenDevice = null;
             });
             finish(() => resolve(connected));
           } catch (e) {
