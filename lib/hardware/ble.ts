@@ -54,55 +54,85 @@ export function createBleDriver(): HardwareDriver {
     watchStation(stationId, onChange) {
       const targetName = nameFromStationId(stationId);
       let cancelled = false;
-      let staleTimer: ReturnType<typeof setTimeout> | null = null;
-      // iOS scan callbacks come in bursts, not at the advertiser's 100ms
-      // cadence, so 1.5s was too tight and made the banner flicker.
-      // 3s is the sweet spot — close enough that genuinely-far users
-      // still see the "yaklaş" hint quickly, lenient enough that a brief
-      // gap between bursts doesn't flap the state.
-      const STALE_TIMEOUT_MS = 3_000;
+      let retryTimer: ReturnType<typeof setTimeout> | null = null;
+      let disconnectSub: { remove: () => void } | null = null;
 
-      onChange({ kind: 'scanning' });
+      // Connection-based proximity. Scan-based proximity is flaky on iOS
+      // (callbacks come in bursts, dropouts cause the banner to flicker
+      // between "in range" and "yaklaş"). Once we've successfully
+      // connected to the ESP32, the OS tells us *deterministically* when
+      // the link drops — much more stable than counting missed adverts.
+      //
+      // Cadence:
+      //   - 3s scan window → in_range on connect, out_of_range on timeout
+      //   - on disconnect, retry every 3s so we re-detect when the user
+      //     walks back into range without needing to re-mount the screen.
 
-      const armStaleTimer = () => {
-        if (staleTimer) clearTimeout(staleTimer);
-        staleTimer = setTimeout(() => {
-          if (cancelled) return;
-          onChange({ kind: 'out_of_range' });
-        }, STALE_TIMEOUT_MS);
+      const cleanupDisconnect = () => {
+        if (disconnectSub) {
+          try {
+            disconnectSub.remove();
+          } catch {
+            // already removed — ignore
+          }
+          disconnectSub = null;
+        }
       };
-      // Arm an initial fallback so we don't sit on "scanning" forever if no
-      // ad ever shows up.
-      armStaleTimer();
 
-      // Advertisement-only watcher: reports in_range within ~100–300ms of
-      // the first ad packet. No connection / no service discovery here —
-      // unlockGate connects on demand when the user actually taps. This is
-      // the speed win vs. the old scan-and-connect path.
-      const sub = stationClient.watchAdvertisements(
-        targetName,
-        (rssi) => {
-          if (cancelled) return;
-          onChange({ kind: 'in_range', rssi, lastSeenAt: Date.now() });
-          armStaleTimer();
-        },
-        (e) => {
+      const armRetry = (delayMs: number) => {
+        if (retryTimer) clearTimeout(retryTimer);
+        retryTimer = setTimeout(() => {
+          if (!cancelled) attempt();
+        }, delayMs);
+      };
+
+      const attempt = async () => {
+        if (cancelled) return;
+        onChange({ kind: 'scanning' });
+        try {
+          const device = await stationClient.scanAndConnect(targetName, 3000);
+          if (cancelled) {
+            device.cancelConnection().catch(() => {});
+            return;
+          }
+          onChange({ kind: 'in_range', rssi: -55, lastSeenAt: Date.now() });
+
+          cleanupDisconnect();
+          disconnectSub = device.onDisconnected(() => {
+            if (cancelled) return;
+            cleanupDisconnect();
+            onChange({ kind: 'out_of_range' });
+            armRetry(3000);
+          });
+        } catch (e) {
           if (cancelled) return;
           const kind = classifyError(e);
-          if (kind === 'bluetooth_off') onChange({ kind: 'bluetooth_off' });
-          else if (kind === 'permission_denied') onChange({ kind: 'permission_denied' });
-          else if (kind === 'unsupported') onChange({ kind: 'unsupported' });
-          else onChange({ kind: 'out_of_range' });
-        },
-      );
+          if (kind === 'bluetooth_off') {
+            onChange({ kind: 'bluetooth_off' });
+            armRetry(5000);
+          } else if (kind === 'permission_denied') {
+            onChange({ kind: 'permission_denied' });
+            // Needs user action — don't auto-retry.
+          } else if (kind === 'unsupported') {
+            onChange({ kind: 'unsupported' });
+          } else {
+            // out_of_range or connection_failed — keep trying so we pick
+            // up when the user walks closer.
+            onChange({ kind: 'out_of_range' });
+            armRetry(3000);
+          }
+        }
+      };
+
+      attempt();
 
       return {
         stop: () => {
           cancelled = true;
-          if (staleTimer) clearTimeout(staleTimer);
-          sub.stop();
-          // Don't disconnect on unmount — the unlock screen and the play
-          // screen are different mounts but share the same physical link.
+          if (retryTimer) clearTimeout(retryTimer);
+          cleanupDisconnect();
+          // Don't disconnect on unmount — the unlock screen reuses the
+          // same connection. Disconnecting would force a fresh handshake.
         },
       };
     },
