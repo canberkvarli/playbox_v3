@@ -17,6 +17,11 @@ import {
 class StationClient {
   private _manager: BleManager | null = null;
   private device: Device | null = null;
+  // Last advertising packet our proximity watcher saw — lets the unlock
+  // flow connect without restarting the scan. iOS only allows one active
+  // BLE scan at a time, so when proximity + unlock try to scan in parallel
+  // they fight; using the watcher's already-known device avoids that.
+  private lastSeenDevice: Device | null = null;
 
   private get manager(): BleManager {
     if (!this._manager) this._manager = new BleManager();
@@ -71,6 +76,7 @@ class StationClient {
           (u) => u.toLowerCase() === SERVICE_UUID.toLowerCase(),
         );
         if (nameMatches || uuidMatches) {
+          this.lastSeenDevice = scanned;
           onSeen(scanned.rssi ?? -55);
         }
       },
@@ -89,6 +95,32 @@ class StationClient {
   }
 
   async scanAndConnect(stationName: string, timeoutMs = 8000): Promise<Device> {
+    // Fast path: if the proximity watcher recently saw this device, just
+    // connect to it. No second scan, no iOS scan-collision, no waiting
+    // for the next advert packet — should be under a second.
+    if (this.lastSeenDevice && this.lastSeenDevice.name === stationName) {
+      try {
+        const connected = await this.lastSeenDevice.connect();
+        await connected.discoverAllServicesAndCharacteristics();
+        this.device = connected;
+        connected.onDisconnected(() => {
+          this.device = null;
+        });
+        return connected;
+      } catch {
+        // Fall back to the full scan — fast path is best-effort.
+      }
+    }
+
+    // Slow path: stop whatever scan was running (the proximity watcher
+    // will restart on the next screen mount) and run a fresh scan
+    // targeted at this device name.
+    try {
+      this.manager.stopDeviceScan();
+    } catch {
+      // already stopped — ignore
+    }
+
     return new Promise<Device>((resolve, reject) => {
       let settled = false;
       const finish = (fn: () => void) => {
