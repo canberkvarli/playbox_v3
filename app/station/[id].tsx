@@ -220,7 +220,11 @@ export default function StationDetail() {
           />
         </View>
 
-        {station.id === 'DEV-001' ? <DevServoButtons stationId={station.id} /> : null}
+        {/* Phase 0: always render DevServoButtons on every station so we
+            don't get bitten by an id-case mismatch or stale cache hiding
+            them. The buttons themselves are scoped server-side via
+            dev_bypass which only honors station_id="DEV-001". */}
+        <DevServoButtons stationId={station.id} />
       </ScrollView>
     </View>
   );
@@ -320,7 +324,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             paddingHorizontal: 10,
           }}
         >
-          DEV · SERVO TEST
+          DEV · {stationId}
         </Text>
         <View
           style={{
