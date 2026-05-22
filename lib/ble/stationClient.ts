@@ -71,11 +71,14 @@ class StationClient {
           return;
         }
         if (!scanned) return;
-        const nameMatches = scanned.name === stationName;
-        const uuidMatches = (scanned.serviceUUIDs ?? []).some(
-          (u) => u.toLowerCase() === SERVICE_UUID.toLowerCase(),
-        );
-        if (nameMatches || uuidMatches) {
+        // Match strictly by name. Service-UUID matching was a false-positive
+        // because every breadboard ESP32 broadcasts the same SERVICE_UUID;
+        // matching on that meant ist-taksim (and every other Istanbul
+        // station) showed "in range" when the dev unit was nearby. With
+        // allowDuplicates on, iOS gives us the scan-response packets too —
+        // those contain the local name even when NimBLE has pushed it out
+        // of the primary advert due to the 31-byte budget.
+        if (scanned.name === stationName) {
           this.lastSeenDevice = scanned;
           onSeen(scanned.rssi ?? -55);
         }

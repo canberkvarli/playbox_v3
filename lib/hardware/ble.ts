@@ -23,7 +23,13 @@ const BLE_STATION_NAME_OVERRIDE = process.env.EXPO_PUBLIC_BLE_STATION_NAME;
 const SCAN_TIMEOUT_MS = 8_000;
 
 function nameFromStationId(stationId: string): string {
-  if (BLE_STATION_NAME_OVERRIDE) return BLE_STATION_NAME_OVERRIDE;
+  // Only honor the override for the DEV-001 dev workshop. Otherwise the
+  // breadboard would falsely satisfy proximity for every Istanbul station
+  // in the seed map — picking Taksim across the city would show "in range"
+  // just because the dev unit is on your desk.
+  if (BLE_STATION_NAME_OVERRIDE && stationId.toUpperCase() === 'DEV-001') {
+    return BLE_STATION_NAME_OVERRIDE;
+  }
   return `Playbox-${stationId.toUpperCase()}`;
 }
 
@@ -49,11 +55,12 @@ export function createBleDriver(): HardwareDriver {
       const targetName = nameFromStationId(stationId);
       let cancelled = false;
       let staleTimer: ReturnType<typeof setTimeout> | null = null;
-      // 1.5s is plenty: with allowDuplicates on, iOS fires the scan
-      // callback on every advert packet (~100ms cadence on the ESP32),
-      // so a nearby healthy device is detected in well under 500ms.
-      // Anything past 1.5s is genuinely "you aren't here yet."
-      const STALE_TIMEOUT_MS = 1_500;
+      // iOS scan callbacks come in bursts, not at the advertiser's 100ms
+      // cadence, so 1.5s was too tight and made the banner flicker.
+      // 3s is the sweet spot — close enough that genuinely-far users
+      // still see the "yaklaş" hint quickly, lenient enough that a brief
+      // gap between bursts doesn't flap the state.
+      const STALE_TIMEOUT_MS = 3_000;
 
       onChange({ kind: 'scanning' });
 
