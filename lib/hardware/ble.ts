@@ -50,9 +50,11 @@ export function createBleDriver(): HardwareDriver {
       let cancelled = false;
       let staleTimer: ReturnType<typeof setTimeout> | null = null;
       // If we don't see an advertisement for this long, fall back to
-      // out_of_range. The ESP32 advertises every ~100–200ms, so a 6s gap
-      // means the user genuinely walked away (or BT got flaky).
-      const STALE_TIMEOUT_MS = 6_000;
+      // out_of_range. ESP32 advertises every ~100–200ms, so 2.5s is more
+      // than enough for a healthy nearby device — meanwhile users who
+      // genuinely aren't close get the "yaklaş" banner immediately
+      // instead of waiting 6s.
+      const STALE_TIMEOUT_MS = 2_500;
 
       onChange({ kind: 'scanning' });
 

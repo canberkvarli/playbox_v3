@@ -234,10 +234,13 @@ export default function StationDetail() {
 // =============================================================================
 function DevServoButtons({ stationId }: { stationId: string }) {
   const [busy, setBusy] = useState<null | 'unlock' | 'return'>(null);
+  const [lastResult, setLastResult] = useState<string>('');
 
   const runUnlock = async () => {
+    console.log('[DEV] UNLOCK tap');
     if (busy) return;
     setBusy('unlock');
+    setLastResult('→ signing payload...');
     try {
       const signed = await fetchSignedUnlock({
         stationId,
@@ -246,20 +249,28 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         durationMin: 30,
         devBypass: true,
       });
+      setLastResult('→ payload signed, connecting BLE...');
       if (!stationClient.isConnected()) {
         await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       }
+      setLastResult('→ writing BLE...');
       await stationClient.unlock(signed);
+      setLastResult('✓ UNLOCK sent — servo should turn now');
     } catch (e: unknown) {
-      Alert.alert('Force Unlock failed', String((e as Error)?.message ?? e));
+      const msg = String((e as Error)?.message ?? e);
+      console.error('[DEV] UNLOCK failed:', msg);
+      setLastResult(`✗ ${msg}`);
+      Alert.alert('Force Unlock failed', msg);
     } finally {
       setBusy(null);
     }
   };
 
   const runReturn = async () => {
+    console.log('[DEV] RETURN tap');
     if (busy) return;
     setBusy('return');
+    setLastResult('→ signing payload...');
     try {
       const signed = await fetchSignedReturnUnlock({
         stationId,
@@ -267,107 +278,176 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         sessionId: `dev-${Date.now()}`,
         devBypass: true,
       });
+      setLastResult('→ payload signed, connecting BLE...');
       if (!stationClient.isConnected()) {
         await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       }
+      setLastResult('→ writing BLE...');
       await stationClient.returnUnlock(signed);
+      setLastResult('✓ RETURN sent — servo should turn now');
     } catch (e: unknown) {
-      Alert.alert('Force Return failed', String((e as Error)?.message ?? e));
+      const msg = String((e as Error)?.message ?? e);
+      console.error('[DEV] RETURN failed:', msg);
+      setLastResult(`✗ ${msg}`);
+      Alert.alert('Force Return failed', msg);
     } finally {
       setBusy(null);
     }
   };
 
   return (
-    <View style={{ marginTop: 32 }}>
-      <Text
+    <View style={{ marginTop: 36 }}>
+      <View
         style={{
-          fontFamily: 'JetBrainsMono_700Bold',
-          fontSize: 10,
-          letterSpacing: 1.5,
-          color: palette.ink + '88',
-          marginBottom: 12,
-          textAlign: 'center',
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginBottom: 14,
         }}
       >
-        DEV · SERVO TEST · BYPASSES PAYMENT
-      </Text>
+        <View
+          style={{
+            flex: 1,
+            height: 1,
+            backgroundColor: palette.ink + '22',
+          }}
+        />
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_700Bold',
+            fontSize: 10,
+            letterSpacing: 2,
+            color: palette.ink + 'aa',
+            paddingHorizontal: 10,
+          }}
+        >
+          DEV · SERVO TEST
+        </Text>
+        <View
+          style={{
+            flex: 1,
+            height: 1,
+            backgroundColor: palette.ink + '22',
+          }}
+        />
+      </View>
+
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable
           onPress={runUnlock}
           disabled={!!busy}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 16,
-            paddingHorizontal: 16,
-            borderRadius: 999,
-            backgroundColor: palette.ink,
-            opacity: busy === 'unlock' ? 0.5 : pressed ? 0.85 : 1,
-            transform: [{ scale: pressed && !busy ? 0.97 : 1 }],
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: palette.ink,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.25,
-            shadowRadius: 8,
-            elevation: 4,
+            opacity: pressed && !busy ? 0.85 : 1,
+            transform: [{ scale: pressed && !busy ? 0.96 : 1 }],
           })}
         >
-          <Text
+          <View
             style={{
-              color: palette.paper,
-              fontFamily: 'Unbounded_800ExtraBold',
-              fontSize: 12,
-              letterSpacing: 0.5,
+              paddingVertical: 22,
+              paddingHorizontal: 12,
+              borderRadius: 20,
+              backgroundColor: busy === 'unlock' ? palette.ink + '88' : palette.ink,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              shadowColor: palette.ink,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.35,
+              shadowRadius: 14,
+              elevation: 8,
             }}
           >
-            {busy === 'unlock' ? '...' : 'UNLOCK'}
-          </Text>
+            <Feather
+              name="unlock"
+              size={22}
+              color={palette.paper}
+              style={{ marginRight: 10 }}
+            />
+            <Text
+              style={{
+                color: palette.paper,
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 17,
+                letterSpacing: 0.5,
+              }}
+            >
+              {busy === 'unlock' ? '...' : 'UNLOCK'}
+            </Text>
+          </View>
         </Pressable>
+
         <Pressable
           onPress={runReturn}
           disabled={!!busy}
           style={({ pressed }) => ({
             flex: 1,
-            paddingVertical: 16,
-            paddingHorizontal: 16,
-            borderRadius: 999,
-            backgroundColor: palette.coral,
-            opacity: busy === 'return' ? 0.5 : pressed ? 0.85 : 1,
-            transform: [{ scale: pressed && !busy ? 0.97 : 1 }],
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: palette.coral,
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 4,
+            opacity: pressed && !busy ? 0.85 : 1,
+            transform: [{ scale: pressed && !busy ? 0.96 : 1 }],
           })}
         >
-          <Text
+          <View
             style={{
-              color: palette.paper,
-              fontFamily: 'Unbounded_800ExtraBold',
-              fontSize: 12,
-              letterSpacing: 0.5,
+              paddingVertical: 22,
+              paddingHorizontal: 12,
+              borderRadius: 20,
+              backgroundColor: busy === 'return' ? palette.coral + 'cc' : palette.coral,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.4,
+              shadowRadius: 14,
+              elevation: 8,
             }}
           >
-            {busy === 'return' ? '...' : 'RETURN'}
-          </Text>
+            <Feather
+              name="rotate-ccw"
+              size={22}
+              color={palette.paper}
+              style={{ marginRight: 10 }}
+            />
+            <Text
+              style={{
+                color: palette.paper,
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 17,
+                letterSpacing: 0.5,
+              }}
+            >
+              {busy === 'return' ? '...' : 'RETURN'}
+            </Text>
+          </View>
         </Pressable>
       </View>
-      <Text
-        style={{
-          fontFamily: 'Inter_400Regular',
-          fontSize: 11,
-          color: palette.ink + '66',
-          marginTop: 10,
-          lineHeight: 15,
-          textAlign: 'center',
-        }}
-      >
-        servo → 90°. press BOOT on ESP32 between actions.
-      </Text>
+
+      {lastResult ? (
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_400Regular',
+            fontSize: 11,
+            color: palette.ink + 'aa',
+            marginTop: 12,
+            textAlign: 'center',
+            lineHeight: 16,
+          }}
+        >
+          {lastResult}
+        </Text>
+      ) : (
+        <Text
+          style={{
+            fontFamily: 'Inter_400Regular',
+            fontSize: 11,
+            color: palette.ink + '66',
+            marginTop: 12,
+            textAlign: 'center',
+            lineHeight: 15,
+          }}
+        >
+          tap UNLOCK · servo → 90° · press BOOT on ESP32 to lock
+        </Text>
+      )}
     </View>
   );
 }
