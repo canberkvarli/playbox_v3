@@ -21,7 +21,11 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SKETCH_DIR="$REPO_ROOT/firmware/PlayboxStation"
+# Default to single-gate v0.3 sketch. Override with SKETCH env var to flash
+# the 3-gate solenoid build:
+#   SKETCH=PlayboxStation_3gate ./tools/flash.sh
+SKETCH="${SKETCH:-PlayboxStation}"
+SKETCH_DIR="$REPO_ROOT/firmware/$SKETCH"
 FQBN="${FQBN:-esp32:esp32:nodemcu-32s}"
 ESP32_INDEX="https://espressif.github.io/arduino-esp32/package_esp32_index.json"
 BAUD=115200
