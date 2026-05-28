@@ -1,9 +1,9 @@
 export const palette = {
-  paper:  '#fafaf7', // near-white background, slightly warm so it doesn't look clinical
-  ink:    '#572c57', // dark purple — used as primary text + dark accent surfaces
-  mauve:  '#9f5f91', // mid purple
-  coral:  '#e26972', // primary action
-  butter: '#f6ea98', // soft yellow accent
+  paper:  '#ffffff', // pure white — matches QR + phone screen contrast on hardware
+  ink:    '#1a1f3a', // deep midnight navy — body / primary text
+  mauve:  '#a85a8e', // soft purple — reserved for logo speed-line highlights
+  coral:  '#e87527', // warm basketball orange — primary action / handles / dots / numbers
+  butter: '#f5d4b8', // pale peach — soft warm companion to coral
 } as const;
 
 export const darkSurfaces = {

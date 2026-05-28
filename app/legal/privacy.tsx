@@ -62,7 +62,7 @@ export default function Privacy() {
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="geri"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 12 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 20 })}
         >
           <View
             style={{

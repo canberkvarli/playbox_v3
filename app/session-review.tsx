@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -82,14 +82,15 @@ export default function SessionReview() {
   const total = costForMinutes(elapsedMin);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: palette.paper,
+    <ScrollView
+      style={{ flex: 1, backgroundColor: palette.paper }}
+      contentContainerStyle={{
+        flexGrow: 1,
         paddingTop: insets.top + 40,
         paddingBottom: insets.bottom + 20,
         paddingHorizontal: 24,
       }}
+      showsVerticalScrollIndicator={false}
     >
       {/* Hero */}
       <RiseIn delay={0}>
@@ -118,6 +119,44 @@ export default function SessionReview() {
           >
             seans{'\n'}tamamlandı
           </Text>
+
+          {/* Iade onaylandı badge — only when the firmware's gate_closed
+              event arrived for this session. Tiny, unobtrusive: just a
+              receipt that the station physically registered the door
+              close, not an interactive element. */}
+          {lastEnded.returnConfirmed ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 14,
+                backgroundColor: palette.ink + '0d',
+                borderWidth: 1,
+                borderColor: palette.ink + '22',
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+              }}
+            >
+              <Feather
+                name="check-circle"
+                size={12}
+                color={palette.ink}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={{
+                  fontFamily: 'JetBrainsMono_700Bold',
+                  fontSize: 10,
+                  letterSpacing: 1.5,
+                  color: palette.ink,
+                  textTransform: 'uppercase',
+                }}
+              >
+                iade onaylandı
+              </Text>
+            </View>
+          ) : null}
         </View>
       </RiseIn>
 
@@ -322,6 +361,6 @@ export default function SessionReview() {
         kind="session"
         onClose={() => setFeedbackOpen(false)}
       />
-    </View>
+    </ScrollView>
   );
 }

@@ -150,7 +150,7 @@ export function MenuDrawer() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: '#572c5712',
+              backgroundColor: `${palette.ink}12`,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: pressed ? 0.6 : 1,
@@ -234,7 +234,7 @@ export function MenuDrawer() {
             width: DRAWER_W - 40,
             marginLeft: 20,
             height: 1,
-            backgroundColor: '#572c5714',
+            backgroundColor: `${palette.ink}14`,
           }}
         />
 
@@ -307,7 +307,7 @@ export function MenuDrawer() {
               width: DRAWER_W - 40,
               marginLeft: 20,
               height: 1,
-              backgroundColor: '#572c5714',
+              backgroundColor: `${palette.ink}14`,
             }}
           />
           <Pressable

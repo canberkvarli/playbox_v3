@@ -84,7 +84,7 @@ export default function Welcome() {
               height: 132,
               borderRadius: 28,
               overflow: 'hidden',
-              backgroundColor: '#211F29',
+              backgroundColor: palette.ink,
               shadowColor: palette.ink,
               shadowOffset: { width: 0, height: 14 },
               shadowOpacity: 0.22,

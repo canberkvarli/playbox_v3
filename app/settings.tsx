@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
@@ -405,7 +406,7 @@ export default function Settings() {
           onPress={() => router.back()}
           hitSlop={14}
           accessibilityLabel={t('common.back')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 12 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 20 })}
         >
           <View
             style={{
@@ -485,6 +486,56 @@ export default function Settings() {
             onPress={async () => {
               await hx.tap();
               setRatingSheetOpen(true);
+            }}
+          />
+          <SettingRow
+            label="OTA TEST 003"
+            value={`ch=${Updates.channel || 'dev'} rt=${Updates.runtimeVersion || '—'} id=${(Updates.updateId ?? 'embedded').slice(0, 12)}`}
+          />
+          <SettingRow
+            label="Güncellemeyi kontrol et"
+            onPress={async () => {
+              await hx.tap();
+              if (__DEV__ || !Updates.isEnabled) {
+                Alert.alert(
+                  'Geliştirici modu',
+                  `OTA yalnızca release derlemelerinde çalışır.\n\nisEnabled=${Updates.isEnabled}\n__DEV__=${__DEV__}`,
+                );
+                return;
+              }
+              try {
+                const check: any = await Updates.checkForUpdateAsync();
+                if (!check.isAvailable) {
+                  Alert.alert(
+                    'Güncel',
+                    `kanal=${Updates.channel}\nruntime=${Updates.runtimeVersion}\nupdateId=${Updates.updateId ?? 'embedded'}\nreason=${check.reason ?? '?'}\nrollback=${check.isRollBackToEmbedded ?? false}`,
+                  );
+                  return;
+                }
+                const fetched: any = await Updates.fetchUpdateAsync();
+                Alert.alert(
+                  'İndirildi',
+                  `Yeniden başlatılıyor…\n\nyeni=${fetched?.manifest?.id?.slice?.(0, 12) ?? '?'}`,
+                );
+                await Updates.reloadAsync();
+              } catch (e: any) {
+                Alert.alert('Güncelleme başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
+              }
+            }}
+          />
+          <SettingRow
+            label="Bekleyen güncellemeyi uygula"
+            onPress={async () => {
+              await hx.tap();
+              if (__DEV__ || !Updates.isEnabled) {
+                Alert.alert('Geliştirici modu', 'OTA yalnızca release derlemelerinde çalışır.');
+                return;
+              }
+              try {
+                await Updates.reloadAsync();
+              } catch (e: any) {
+                Alert.alert('Yeniden başlatma başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
+              }
             }}
           />
         </RiseIn>

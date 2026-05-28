@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -91,11 +91,14 @@ export default function StationDetail() {
     if (url) Linking.openURL(url).catch(() => {});
   };
 
-  const onUnlock = useGuardedPress(async (sport: Sport, _durationMinutes: number) => {
+  const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number) => {
     // Route to the "how it works" prep slides; the last slide starts the session.
+    // Duration travels through the prep flow as a route param so the slider value
+    // the user picked here actually drives the session timer (and the firmware's
+    // overdue clock) instead of session-prep silently defaulting to 30.
     router.push({
       pathname: '/session-prep/[stationId]/[sport]',
-      params: { stationId: station.id, sport },
+      params: { stationId: station.id, sport, duration: String(durationMinutes) },
     });
   });
 
@@ -232,34 +235,122 @@ export default function StationDetail() {
 
 // =============================================================================
 // DevServoButtons — Phase 0 only.
-// Two buttons that drive the breadboard servo directly without going through
-// the reservation / payment-hold flow. The edge function only honors
+// Drives the breadboard solenoid relay directly without going through the
+// reservation / payment-hold flow. The edge function only honors
 // `dev_bypass` for station_id === 'DEV-001', so this is scoped to the dev unit.
+//
+// Reads the firmware's INFO characteristic to know the live state of each
+// gate. UNLOCK is only enabled when the firmware reports LOCKED; RETURN is
+// only enabled when the firmware reports IN_USE AND it has a stored
+// session id we can replay. This eliminates two classes of testing pain:
+//   1. Tapping UNLOCK while firmware was already IN_USE (silent drop)
+//   2. Sending RETURN with a session id the firmware doesn't recognize
+//      (silent drop due to session mismatch)
 // =============================================================================
+const GATES_MAX: Array<1 | 2 | 3> = [1, 2, 3];
+
+type FwGateState = 'LOCKED' | 'UNLOCKED' | 'IN_USE' | 'RETURN_UNLOCKED';
+
+type FwSnapshot = {
+  /** Per-gate state, keyed by 1-indexed gate number. */
+  states: Record<number, { state: FwGateState; session_id: string }>;
+  /** Number of compartments the firmware exposes (1 for old fw, 3 for new). */
+  gates: number;
+  /** Firmware version string from the INFO characteristic. */
+  fw?: string;
+};
+
 function DevServoButtons({ stationId }: { stationId: string }) {
-  const [busy, setBusy] = useState<null | 'unlock' | 'return'>(null);
+  const [busy, setBusy] = useState<null | 'unlock' | 'return' | 'refresh'>(null);
   const [lastResult, setLastResult] = useState<string>('');
+  const [gate, setGate] = useState<1 | 2 | 3>(1);
+  const [fw, setFw] = useState<FwSnapshot | null>(null);
+
+  // Read INFO and parse the firmware's per-gate state into a useful shape.
+  // Quietly no-ops if BLE isn't connected yet (the connection happens on
+  // first action) so we don't show errors on initial mount.
+  const refreshFirmwareState = async (opts: { connect?: boolean } = {}): Promise<FwSnapshot | null> => {
+    try {
+      if (!stationClient.isConnected()) {
+        if (!opts.connect) return null;
+        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
+      }
+      const info = (await stationClient.readInfo()) as Record<string, unknown>;
+      const states: FwSnapshot['states'] = {};
+      const rawStates = (info?.states as unknown[]) ?? [];
+      for (const s of rawStates) {
+        const obj = s as { gate?: number; state?: string; session_id?: string };
+        if (typeof obj.gate === 'number') {
+          states[obj.gate] = {
+            state: (obj.state ?? 'LOCKED') as FwGateState,
+            session_id: obj.session_id ?? '',
+          };
+        }
+      }
+      const snap: FwSnapshot = {
+        states,
+        gates: typeof info?.gates === 'number' ? info.gates : Object.keys(states).length || 1,
+        fw: typeof info?.fw === 'string' ? info.fw : undefined,
+      };
+      setFw(snap);
+      return snap;
+    } catch (e) {
+      console.log('[DEV] INFO read failed:', String((e as Error)?.message ?? e));
+      return null;
+    }
+  };
+
+  // Initial fetch on mount. Doesn't force a connect — if the proximity
+  // watcher already brought a connection up, we read instantly; otherwise
+  // we wait for the first user action.
+  useEffect(() => {
+    refreshFirmwareState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationId]);
+
+  // If the selected gate is greater than what the firmware exposes, snap
+  // it back to gate 1. Old single-gate fw reports `gates: 1` so picking
+  // gate 2/3 would just send commands the firmware reinterprets as gate 1.
+  useEffect(() => {
+    if (fw && gate > fw.gates) setGate(1);
+  }, [fw, gate]);
+
+  const fwForGate = fw?.states[gate];
+  const fwState: FwGateState | undefined = fwForGate?.state;
+  const fwSessionId: string | undefined = fwForGate?.session_id || undefined;
+
+  const canUnlock = !busy && (fwState === undefined || fwState === 'LOCKED');
+  const canReturn = !busy && fwState === 'IN_USE' && !!fwSessionId;
 
   const runUnlock = async () => {
-    console.log('[DEV] UNLOCK tap');
+    console.log('[DEV] UNLOCK tap gate=', gate, 'fwState=', fwState);
     if (busy) return;
     setBusy('unlock');
-    setLastResult('→ signing payload...');
+    setLastResult(`gate ${gate} → signing payload...`);
+    const sessionId = `dev-${Date.now()}`;
     try {
       const signed = await fetchSignedUnlock({
         stationId,
-        gate: 1,
-        sessionId: `dev-${Date.now()}`,
+        gate,
+        sessionId,
         durationMin: 30,
         devBypass: true,
       });
-      setLastResult('→ payload signed, connecting BLE...');
+      setLastResult(`gate ${gate} → payload signed, connecting BLE...`);
       if (!stationClient.isConnected()) {
         await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       }
-      setLastResult('→ writing BLE...');
+      setLastResult(`gate ${gate} → writing BLE...`);
       await stationClient.unlock(signed);
-      setLastResult('✓ UNLOCK sent — servo should turn now');
+      // Re-read firmware state. If state didn't change from LOCKED, the
+      // command was silently dropped (state mismatch or auth issue) — surface that.
+      const snap = await refreshFirmwareState();
+      const newState = snap?.states[gate]?.state;
+      if (newState === 'UNLOCKED') {
+        setLastResult(`✓ gate ${gate} unlocked — state: UNLOCKED`);
+      } else {
+        setLastResult(`⚠ gate ${gate} write sent but state is ${newState ?? 'unknown'} — check serial`);
+      }
     } catch (e: unknown) {
       const msg = String((e as Error)?.message ?? e);
       console.error('[DEV] UNLOCK failed:', msg);
@@ -271,24 +362,39 @@ function DevServoButtons({ stationId }: { stationId: string }) {
   };
 
   const runReturn = async () => {
-    console.log('[DEV] RETURN tap');
+    console.log('[DEV] RETURN tap gate=', gate, 'fwState=', fwState, 'fwSession=', fwSessionId);
     if (busy) return;
+    // Use the firmware's stored session_id, not anything we generated. This
+    // is the whole fix for the "RETURN ignored due to session mismatch" bug.
+    if (!fwSessionId) {
+      Alert.alert(
+        'firmware has no active session',
+        `gate ${gate} is in state ${fwState ?? '?'}. tap UNLOCK first to put it in IN_USE, then RETURN.`,
+      );
+      return;
+    }
     setBusy('return');
-    setLastResult('→ signing payload...');
+    setLastResult(`gate ${gate} → signing return for fw session ${fwSessionId.slice(0, 16)}...`);
     try {
       const signed = await fetchSignedReturnUnlock({
         stationId,
-        gate: 1,
-        sessionId: `dev-${Date.now()}`,
+        gate,
+        sessionId: fwSessionId,
         devBypass: true,
       });
-      setLastResult('→ payload signed, connecting BLE...');
+      setLastResult(`gate ${gate} → payload signed, connecting BLE...`);
       if (!stationClient.isConnected()) {
         await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       }
-      setLastResult('→ writing BLE...');
+      setLastResult(`gate ${gate} → writing BLE...`);
       await stationClient.returnUnlock(signed);
-      setLastResult('✓ RETURN sent — servo should turn now');
+      const snap = await refreshFirmwareState();
+      const newState = snap?.states[gate]?.state;
+      if (newState === 'RETURN_UNLOCKED') {
+        setLastResult(`✓ gate ${gate} return sent — state: RETURN_UNLOCKED. press BOOT to close.`);
+      } else {
+        setLastResult(`⚠ gate ${gate} write sent but state is ${newState ?? 'unknown'} — check serial`);
+      }
     } catch (e: unknown) {
       const msg = String((e as Error)?.message ?? e);
       console.error('[DEV] RETURN failed:', msg);
@@ -298,6 +404,22 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       setBusy(null);
     }
   };
+
+  const runRefresh = async () => {
+    if (busy) return;
+    setBusy('refresh');
+    setLastResult('reading firmware state...');
+    const snap = await refreshFirmwareState({ connect: true });
+    if (snap) {
+      setLastResult(`fw ${snap.fw ?? '?'} · gates=${snap.gates}`);
+    } else {
+      setLastResult('✗ INFO read failed (not connected?)');
+    }
+    setBusy(null);
+  };
+
+  // Visible gate buttons: limited by what firmware reports. Old fw=1, new fw=3.
+  const visibleGates = (fw ? GATES_MAX.slice(0, Math.min(fw.gates, GATES_MAX.length)) : GATES_MAX) as Array<1 | 2 | 3>;
 
   return (
     <View style={{ marginTop: 36 }}>
@@ -335,14 +457,99 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         />
       </View>
 
+      {/* Firmware state row — what the ESP32 says about each gate right now.
+          Each cell shows: gate number, fw-reported state, session id snippet.
+          Tapping selects the gate for the action buttons below. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 8,
+          marginBottom: 10,
+          justifyContent: 'center',
+        }}
+      >
+        {visibleGates.map((g) => {
+          const selected = g === gate;
+          const s = fw?.states[g]?.state;
+          const sess = fw?.states[g]?.session_id;
+          const tint =
+            s === 'UNLOCKED' || s === 'RETURN_UNLOCKED'
+              ? palette.coral
+              : s === 'IN_USE'
+              ? palette.butter
+              : palette.ink + '33';
+          return (
+            <Pressable
+              key={g}
+              onPress={() => setGate(g)}
+              disabled={!!busy}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 10,
+                borderRadius: 14,
+                borderWidth: 2,
+                borderColor: selected ? palette.ink : palette.ink + '22',
+                backgroundColor: selected ? palette.ink + '0d' : 'transparent',
+                alignItems: 'center',
+                opacity: pressed && !busy ? 0.7 : 1,
+              })}
+            >
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  fontSize: 16,
+                  color: selected ? palette.ink : palette.ink + '88',
+                }}
+              >
+                {g}
+              </Text>
+              <View
+                style={{
+                  marginTop: 4,
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  backgroundColor: tint,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'JetBrainsMono_700Bold',
+                    fontSize: 8,
+                    letterSpacing: 0.6,
+                    color: tint === palette.butter ? palette.ink : palette.paper,
+                  }}
+                >
+                  {s ?? '?'}
+                </Text>
+              </View>
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'JetBrainsMono_400Regular',
+                  fontSize: 8,
+                  color: palette.ink + '66',
+                  marginTop: 2,
+                  maxWidth: '100%',
+                }}
+              >
+                {sess ? sess.slice(-8) : '—'}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {/* Action row — UNLOCK / RETURN gated by firmware state. Disabled means
+          firmware would silently drop the command, so we don't even send it. */}
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <Pressable
           onPress={runUnlock}
-          disabled={!!busy}
+          disabled={!canUnlock}
           style={({ pressed }) => ({
             flex: 1,
-            opacity: pressed && !busy ? 0.85 : 1,
-            transform: [{ scale: pressed && !busy ? 0.96 : 1 }],
+            opacity: !canUnlock ? 0.4 : pressed ? 0.85 : 1,
+            transform: [{ scale: pressed && canUnlock ? 0.96 : 1 }],
           })}
         >
           <View
@@ -356,9 +563,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               flexDirection: 'row',
               shadowColor: palette.ink,
               shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.35,
+              shadowOpacity: canUnlock ? 0.35 : 0,
               shadowRadius: 14,
-              elevation: 8,
+              elevation: canUnlock ? 8 : 0,
             }}
           >
             <Feather
@@ -382,11 +589,11 @@ function DevServoButtons({ stationId }: { stationId: string }) {
 
         <Pressable
           onPress={runReturn}
-          disabled={!!busy}
+          disabled={!canReturn}
           style={({ pressed }) => ({
             flex: 1,
-            opacity: pressed && !busy ? 0.85 : 1,
-            transform: [{ scale: pressed && !busy ? 0.96 : 1 }],
+            opacity: !canReturn ? 0.4 : pressed ? 0.85 : 1,
+            transform: [{ scale: pressed && canReturn ? 0.96 : 1 }],
           })}
         >
           <View
@@ -400,9 +607,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               flexDirection: 'row',
               shadowColor: palette.coral,
               shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.4,
+              shadowOpacity: canReturn ? 0.4 : 0,
               shadowRadius: 14,
-              elevation: 8,
+              elevation: canReturn ? 8 : 0,
             }}
           >
             <Feather
@@ -424,6 +631,49 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           </View>
         </Pressable>
       </View>
+
+      {/* Manual refresh — re-reads INFO from the firmware in case state
+          drifted (e.g. someone pressed BOOT outside the action flow). */}
+      <Pressable
+        onPress={runRefresh}
+        disabled={!!busy}
+        hitSlop={8}
+        style={({ pressed }) => ({
+          marginTop: 10,
+          alignSelf: 'center',
+          opacity: pressed && !busy ? 0.6 : busy ? 0.4 : 1,
+        })}
+      >
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: palette.ink + '33',
+          }}
+        >
+          <Feather
+            name="refresh-cw"
+            size={11}
+            color={palette.ink + 'aa'}
+            style={{ marginRight: 6 }}
+          />
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              fontSize: 10,
+              letterSpacing: 1,
+              color: palette.ink + 'aa',
+              textTransform: 'uppercase',
+            }}
+          >
+            {busy === 'refresh' ? 'okuyor...' : 'fw durumu oku'}
+          </Text>
+        </View>
+      </Pressable>
 
       {lastResult ? (
         <Text
@@ -449,7 +699,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             lineHeight: 15,
           }}
         >
-          tap UNLOCK · servo → 90° · press BOOT on ESP32 to lock
+          pick gate · UNLOCK pulses relay 300ms · RETURN reuses same session
         </Text>
       )}
     </View>

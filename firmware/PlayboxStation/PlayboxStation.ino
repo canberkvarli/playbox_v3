@@ -36,28 +36,31 @@
 #include "mbedtls/md.h"
 
 // ---- Pins -------------------------------------------------------------------
-#define LED_PIN     2
-#define BUTTON_PIN  0   // BOOT button on most ESP32 DevKits (active LOW)
-#define SERVO_PIN   13
+#define LED_PIN 2
+#define BUTTON_PIN 0  // BOOT button on most ESP32 DevKits (active LOW)
+#define SERVO_PIN 13
 
 // ---- Servo angles -----------------------------------------------------------
-#define ANGLE_LOCKED    0
-#define ANGLE_UNLOCKED  90
+#define ANGLE_LOCKED 0
+#define ANGLE_UNLOCKED 90
 
 // ---- Timeouts & watchdog ----------------------------------------------------
-#define UNLOCKED_TIMEOUT_MS         30000UL  // auto-lock if user doesn't take ball
-#define RETURN_UNLOCKED_TIMEOUT_MS  60000UL  // auto-revert if return window expires
-#define WDT_TIMEOUT_S               30
-#define DEFAULT_DURATION_MIN        30
+#define UNLOCKED_TIMEOUT_MS 300000UL        // 5min — bench-friendly; press BOOT to advance sooner
+#define RETURN_UNLOCKED_TIMEOUT_MS 60000UL  // auto-revert if return window expires
+#define WDT_TIMEOUT_S 30
+#define DEFAULT_DURATION_MIN 30
 
 // ---- BLE UUIDs (must match lib/ble/protocol.ts) -----------------------------
-#define SERVICE_UUID     "12345678-1234-5678-1234-56789abcdef0"
+#define SERVICE_UUID "12345678-1234-5678-1234-56789abcdef0"
 #define UNLOCK_CHAR_UUID "12345678-1234-5678-1234-56789abcdef1"
 #define EVENTS_CHAR_UUID "12345678-1234-5678-1234-56789abcdef2"
-#define INFO_CHAR_UUID   "12345678-1234-5678-1234-56789abcdef3"
+#define INFO_CHAR_UUID "12345678-1234-5678-1234-56789abcdef3"
 
 // ---- State ------------------------------------------------------------------
-enum GateState { LOCKED, UNLOCKED, IN_USE, RETURN_UNLOCKED };
+enum GateState { LOCKED,
+                 UNLOCKED,
+                 IN_USE,
+                 RETURN_UNLOCKED };
 const char* stateName(GateState s) {
   switch (s) {
     case LOCKED: return "LOCKED";
@@ -68,17 +71,18 @@ const char* stateName(GateState s) {
   return "?";
 }
 
-GateState                 gateState = LOCKED;
-String                    activeSessionId = "";
-Servo                     gateServo;
-NimBLECharacteristic*     eventsChar = nullptr;
-bool                      bleConnected = false;
+GateState gateState = LOCKED;
+String activeSessionId = "";
+Servo gateServo;
+NimBLECharacteristic* eventsChar = nullptr;
+NimBLECharacteristic* infoChar = nullptr;
+bool bleConnected = false;
 
-Preferences               prefs;
-uint16_t                  durationMin       = DEFAULT_DURATION_MIN;
-unsigned long             stateEnteredMs    = 0;
-bool                      overdueSent       = false;
-uint32_t                  lastTs            = 0;  // monotonic, persisted
+Preferences prefs;
+uint16_t durationMin = DEFAULT_DURATION_MIN;
+unsigned long stateEnteredMs = 0;
+bool overdueSent = false;
+uint32_t lastTs = 0;  // monotonic, persisted
 
 // ---- Per-station secret ----------------------------------------------------
 // Phase 0: hardcoded. Must match the Supabase env var
@@ -87,10 +91,38 @@ uint32_t                  lastTs            = 0;  // monotonic, persisted
 // Phase 1+ will provision per-station secrets to NVS at first boot via a
 // one-time pairing flow; never bake real production secrets into firmware.
 static const uint8_t DEV_001_SECRET[32] = {
-  0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-  0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
-  0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77,
-  0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
+  0x00,
+  0x11,
+  0x22,
+  0x33,
+  0x44,
+  0x55,
+  0x66,
+  0x77,
+  0x88,
+  0x99,
+  0xaa,
+  0xbb,
+  0xcc,
+  0xdd,
+  0xee,
+  0xff,
+  0x00,
+  0x11,
+  0x22,
+  0x33,
+  0x44,
+  0x55,
+  0x66,
+  0x77,
+  0x88,
+  0x99,
+  0xaa,
+  0xbb,
+  0xcc,
+  0xdd,
+  0xee,
+  0xff,
 };
 
 // ---- Event emitter (sends a JSON notification on the EVENTS characteristic) -
@@ -126,38 +158,64 @@ void emitTimeout(const char* kind, const String& sessionId) {
   emitEvent(doc);
 }
 
+// Refresh the INFO characteristic so any reader (notably the app's dev
+// panel) sees the firmware's current truth: which state the gate is in,
+// which session_id the firmware is holding. The dev panel uses this to
+// disable invalid buttons and to send the right session_id on return —
+// preventing the "RETURN ignored due to session mismatch" trap.
+void updateInfo() {
+  if (!infoChar) return;
+  JsonDocument info;
+  info["station_id"] = "DEV-001";
+  info["fw"] = "0.3.0-phase0";
+  info["gates"] = 1;
+  info["battery_pct"] = 100;
+  // Per-gate live snapshot. Array shape matches the 3-gate firmware so the
+  // dev panel can speak both with one code path.
+  JsonArray states = info["states"].to<JsonArray>();
+  JsonObject g1 = states.add<JsonObject>();
+  g1["gate"] = 1;
+  g1["state"] = stateName(gateState);
+  g1["session_id"] = activeSessionId;
+  String out;
+  serializeJson(info, out);
+  infoChar->setValue(out);
+}
+
 // ---- Persistence (NVS) ------------------------------------------------------
 // State + session survive resets so a brief brown-out or watchdog reboot
 // mid-session doesn't strand the user with a "session not found" error.
 void saveState() {
-  prefs.putUChar("state",    (uint8_t)gateState);
+  prefs.putUChar("state", (uint8_t)gateState);
   prefs.putString("session", activeSessionId);
   prefs.putUShort("duration", durationMin);
-  prefs.putBool("overdue",   overdueSent);
+  prefs.putBool("overdue", overdueSent);
 }
 
 void loadState() {
-  gateState        = (GateState)prefs.getUChar("state", LOCKED);
-  activeSessionId  = prefs.getString("session", "");
-  durationMin      = prefs.getUShort("duration", DEFAULT_DURATION_MIN);
-  overdueSent      = prefs.getBool("overdue", false);
-  lastTs           = prefs.getUInt("lastTs", 0);
+  gateState = (GateState)prefs.getUChar("state", LOCKED);
+  activeSessionId = prefs.getString("session", "");
+  durationMin = prefs.getUShort("duration", DEFAULT_DURATION_MIN);
+  overdueSent = prefs.getBool("overdue", false);
+  lastTs = prefs.getUInt("lastTs", 0);
 }
 
-// Single chokepoint for state transitions — guarantees NVS is in sync and the
-// per-state timeout clock is reset every time we move.
+// Single chokepoint for state transitions — guarantees NVS is in sync, the
+// per-state timeout clock is reset, AND the INFO characteristic is refreshed
+// so any active reader sees the new state immediately.
 void transitionTo(GateState next) {
   Serial.printf("[STATE] %s -> %s\n", stateName(gateState), stateName(next));
-  gateState      = next;
+  gateState = next;
   stateEnteredMs = millis();
   if (next == LOCKED) {
     activeSessionId = "";
-    durationMin     = DEFAULT_DURATION_MIN;
-    overdueSent     = false;
+    durationMin = DEFAULT_DURATION_MIN;
+    overdueSent = false;
   } else if (next == IN_USE) {
-    overdueSent     = false;
+    overdueSent = false;
   }
   saveState();
+  updateInfo();
 }
 
 // ---- Timeout checks ---------------------------------------------------------
@@ -165,17 +223,19 @@ void checkTimeouts() {
   unsigned long elapsed = millis() - stateEnteredMs;
 
   if (gateState == UNLOCKED && elapsed > UNLOCKED_TIMEOUT_MS) {
-    Serial.println("[TIMEOUT] UNLOCKED expired — auto-locking");
-    gateServo.write(ANGLE_LOCKED);
+    Serial.println("[TIMEOUT] UNLOCKED expired — assuming taken (no BOOT press)");
+    // Don't snap the servo back: dropping to ANGLE_LOCKED here cleared the
+    // active session, so the subsequent return_unlock was silently dropped
+    // (firmware requires IN_USE + matching session_id). Treat the timeout as
+    // an implicit "ball taken" so the return path still works on bench.
     emitTimeout("unlock_timeout", activeSessionId);
-    transitionTo(LOCKED);
+    transitionTo(IN_USE);
   } else if (gateState == RETURN_UNLOCKED && elapsed > RETURN_UNLOCKED_TIMEOUT_MS) {
     Serial.println("[TIMEOUT] RETURN_UNLOCKED expired — locking back to IN_USE");
     gateServo.write(ANGLE_LOCKED);
     emitTimeout("return_timeout", activeSessionId);
     transitionTo(IN_USE);
-  } else if (gateState == IN_USE && !overdueSent && durationMin > 0 &&
-             elapsed > (unsigned long)durationMin * 60UL * 1000UL) {
+  } else if (gateState == IN_USE && !overdueSent && durationMin > 0 && elapsed > (unsigned long)durationMin * 60UL * 1000UL) {
     Serial.println("[TIMEOUT] IN_USE duration exceeded — emitting ball_overdue");
     emitTimeout("ball_overdue", activeSessionId);
     overdueSent = true;
@@ -198,8 +258,8 @@ static bool computeHmac(const char* msg, size_t msgLen, uint8_t out[32]) {
     return false;
   }
   bool ok = (mbedtls_md_hmac_starts(&ctx, DEV_001_SECRET, sizeof(DEV_001_SECRET)) == 0)
-         && (mbedtls_md_hmac_update(&ctx, (const uint8_t*)msg, msgLen) == 0)
-         && (mbedtls_md_hmac_finish(&ctx, out) == 0);
+            && (mbedtls_md_hmac_update(&ctx, (const uint8_t*)msg, msgLen) == 0)
+            && (mbedtls_md_hmac_finish(&ctx, out) == 0);
   mbedtls_md_free(&ctx);
   return ok;
 }
@@ -289,12 +349,12 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
       return;
     }
 
-    String   cmd       = doc["cmd"]          | "";
-    String   sessionId = doc["session_id"]   | "";
-    int      gate      = doc["gate"]         | 1;
-    int      durMin    = doc["duration_min"] | 0;
-    uint32_t ts        = (uint32_t)(doc["ts"] | (uint32_t)0);
-    String   sigHex    = doc["sig"]          | "";
+    String cmd = doc["cmd"] | "";
+    String sessionId = doc["session_id"] | "";
+    int gate = doc["gate"] | 1;
+    int durMin = doc["duration_min"] | 0;
+    uint32_t ts = (uint32_t)(doc["ts"] | (uint32_t)0);
+    String sigHex = doc["sig"] | "";
 
     // ---- Auth gate -----------------------------------------------------
     // Reject any command without a signature outright. This is the line
@@ -316,7 +376,7 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
 
     if (cmd == "unlock" && gateState == LOCKED) {
       activeSessionId = sessionId;
-      durationMin     = (uint16_t)durMin;
+      durationMin = (uint16_t)durMin;
       Serial.printf("[CMD] unlock session=%s duration=%u min\n", sessionId.c_str(), durationMin);
       gateServo.write(ANGLE_UNLOCKED);
       transitionTo(UNLOCKED);
@@ -349,9 +409,9 @@ void setup() {
   // ---- Watchdog: panic-reboot if loop() wedges for >WDT_TIMEOUT_S -----------
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   esp_task_wdt_config_t wdtCfg = {
-    .timeout_ms     = WDT_TIMEOUT_S * 1000,
+    .timeout_ms = WDT_TIMEOUT_S * 1000,
     .idle_core_mask = 0,
-    .trigger_panic  = true,
+    .trigger_panic = true,
   };
   esp_task_wdt_init(&wdtCfg);
 #else
@@ -365,7 +425,7 @@ void setup() {
   gateServo.setPeriodHertz(50);
   gateServo.attach(SERVO_PIN, 500, 2400);
   bool gateOpen = (gateState == UNLOCKED || gateState == RETURN_UNLOCKED);
-  int  initAngle = gateOpen ? ANGLE_UNLOCKED : ANGLE_LOCKED;
+  int initAngle = gateOpen ? ANGLE_UNLOCKED : ANGLE_LOCKED;
   gateServo.write(initAngle);
   Serial.printf("[INIT] servo at %ddeg (%s)\n", initAngle, stateName(gateState));
 
@@ -382,17 +442,12 @@ void setup() {
   eventsChar = service->createCharacteristic(
     EVENTS_CHAR_UUID, NIMBLE_PROPERTY::NOTIFY);
 
-  NimBLECharacteristic* infoChar = service->createCharacteristic(
+  infoChar = service->createCharacteristic(
     INFO_CHAR_UUID, NIMBLE_PROPERTY::READ);
 
-  JsonDocument info;
-  info["station_id"]  = "DEV-001";
-  info["fw"]          = "0.3.0-phase0";
-  info["gates"]       = 1;
-  info["battery_pct"] = 100;  // TODO: replace with ADC read once voltage divider is wired
-  String infoStr;
-  serializeJson(info, infoStr);
-  infoChar->setValue(infoStr);
+  // Initial snapshot — every subsequent transitionTo() refreshes this so
+  // the INFO read always reflects current firmware truth.
+  updateInfo();
 
   service->start();
 
@@ -407,8 +462,8 @@ void setup() {
 }
 
 // ---- Loop -------------------------------------------------------------------
-unsigned long lastHeartbeat   = 0;
-int           lastBtn         = HIGH;
+unsigned long lastHeartbeat = 0;
+int lastBtn = HIGH;
 unsigned long lastBtnChangeMs = 0;
 
 void loop() {

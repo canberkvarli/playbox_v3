@@ -14,10 +14,73 @@
  *     firmware's `Playbox-DEV-001`-style advertising convention.
  */
 
-import type { HardwareDriver, ProximityState, UnlockResult } from './types';
+import type { HardwareDriver, NearbyStation, ProximityState, UnlockResult } from './types';
 import { reportError } from '@/lib/telemetry';
 import { stationClient } from '@/lib/ble/stationClient';
-import { fetchSignedUnlock } from '@/lib/ble/signUnlock';
+import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
+import type { StationEvent } from '@/lib/ble/protocol';
+import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
+
+/**
+ * Dispatcher for firmware-emitted BLE notifications. Called whenever an
+ * EVENTS characteristic notification is decoded. Mutates the session store
+ * directly via zustand `getState/setState` — safe to call outside React.
+ *
+ * Guards:
+ *   - session_id mismatch → silently drop (the event is for a different
+ *     unlock attempt, possibly stale from a prior session that didn't tear
+ *     down cleanly)
+ *   - dev `ignoreFirmwareTimeouts` toggle → skip timeout-class events so
+ *     bench bring-up without reed switches doesn't spam the session
+ */
+function dispatchStationEvent(event: StationEvent): void {
+  const session = useSessionStore.getState().active;
+  const ignoreTimeouts = useDevStore.getState().ignoreFirmwareTimeouts;
+
+  switch (event.event) {
+    case 'gate_closed': {
+      if (!session || !session.bleSessionId) return;
+      if (event.session_id !== session.bleSessionId) return;
+      useSessionStore.getState().markReturnConfirmed();
+      return;
+    }
+    case 'unlock_timeout': {
+      if (ignoreTimeouts) return;
+      if (!session || !session.bleSessionId) return;
+      if (event.session_id !== session.bleSessionId) return;
+      useSessionStore.getState().markFirmwareEvent('unlock_timeout');
+      return;
+    }
+    case 'return_timeout': {
+      if (ignoreTimeouts) return;
+      if (!session || !session.bleSessionId) return;
+      if (event.session_id !== session.bleSessionId) return;
+      useSessionStore.getState().markFirmwareEvent('return_timeout');
+      return;
+    }
+    case 'ball_overdue': {
+      if (ignoreTimeouts) return;
+      if (!session || !session.bleSessionId) return;
+      if (event.session_id !== session.bleSessionId) return;
+      useSessionStore.getState().markFirmwareEvent('ball_overdue');
+      return;
+    }
+    case 'boot': {
+      // Firmware booted. If there's an active session, the station almost
+      // certainly lost its NVS state (or it was preserved — but we should
+      // surface this either way so the user can verify their gear).
+      if (!session) return;
+      useSessionStore.getState().markFirmwareEvent('station_reboot');
+      return;
+    }
+    case 'gate_opened':
+    case 'battery_low':
+      // Not consumed by app state today; safe to drop. Surfaces via
+      // serial-log monitoring for diagnostics.
+      return;
+  }
+}
 
 const BLE_STATION_NAME_OVERRIDE = process.env.EXPO_PUBLIC_BLE_STATION_NAME;
 const SCAN_TIMEOUT_MS = 8_000;
@@ -109,10 +172,19 @@ export function createBleDriver(): HardwareDriver {
           // reconnect dance.
           try {
             stationClient.subscribeToEvents(
-              () => {
-                // event payloads handled by other parts of the app
-                // (sessions, gate-closed, ball-overdue). The keepalive
-                // benefit is just the subscription existing.
+              (evt) => {
+                // Route firmware events into app state. Guards inside the
+                // dispatcher handle session-id mismatch and the
+                // bench-mode timeout-ignore toggle. Wrap in try/catch so
+                // a malformed event can never crash the watcher.
+                try {
+                  dispatchStationEvent(evt);
+                } catch (err) {
+                  reportError(err as Error, {
+                    source: 'ble.dispatch',
+                    event: evt.event,
+                  });
+                }
               },
               () => {
                 // ignore — disconnect will surface via onDisconnected
@@ -162,7 +234,50 @@ export function createBleDriver(): HardwareDriver {
       };
     },
 
-    async unlockGate({ stationId, gateId, correlationId }): Promise<UnlockResult> {
+    watchNearbyStations(onSeen) {
+      // Per-station throttling: don't re-emit unless the RSSI moved
+      // meaningfully (>5dBm) or it's been a while since the last emit (>2s).
+      // The radio fires advertisement callbacks dozens of times per second
+      // with allowDuplicates on — passing every one through to React would
+      // thrash re-renders for nothing.
+      const lastEmit = new Map<string, { rssi: number; t: number }>();
+      const RSSI_DELTA = 5;
+      const MIN_INTERVAL_MS = 2_000;
+
+      stationClient.startPassiveScan(
+        (name, rssi) => {
+          // Inverse of nameFromStationId. Override case maps to DEV-001.
+          let stationId: string;
+          if (BLE_STATION_NAME_OVERRIDE && name === BLE_STATION_NAME_OVERRIDE) {
+            stationId = 'DEV-001';
+          } else if (name.startsWith('Playbox-')) {
+            stationId = name.slice('Playbox-'.length);
+          } else {
+            return;
+          }
+          const now = Date.now();
+          const prev = lastEmit.get(stationId);
+          if (prev && now - prev.t < MIN_INTERVAL_MS && Math.abs(rssi - prev.rssi) < RSSI_DELTA) {
+            return;
+          }
+          lastEmit.set(stationId, { rssi, t: now });
+          const sighting: NearbyStation = { stationId, rssi, lastSeenAt: now };
+          onSeen(sighting);
+        },
+        (err) => {
+          reportError(err, { source: 'ble.watchNearby' });
+        },
+      );
+
+      return {
+        stop: () => {
+          stationClient.stopPassiveScan();
+          lastEmit.clear();
+        },
+      };
+    },
+
+    async unlockGate({ stationId, gateId, correlationId, durationMin }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
       const gate = parseGateIndex(gateId);
 
@@ -173,11 +288,17 @@ export function createBleDriver(): HardwareDriver {
         // session_id is the firmware's handle for matching a later
         // return_unlock to this unlock; correlationId is unique per attempt
         // and stable for the duration of the session, so it doubles as it.
+        //
+        // DEV-001 auto-bypass: the server only honors dev_bypass when
+        // station_id === 'DEV-001', so passing it for any other station is
+        // a no-op. This lets the Oyna flow work on the dev unit without a
+        // card on file (Phase 0 bench testing).
         const signed = await fetchSignedUnlock({
           stationId,
           gate,
           sessionId: correlationId,
-          durationMin: 30,
+          durationMin,
+          devBypass: stationId === 'DEV-001',
         });
 
         if (!stationClient.isConnected()) {
@@ -188,6 +309,35 @@ export function createBleDriver(): HardwareDriver {
       } catch (e) {
         const kind = classifyError(e);
         reportError(e as Error, { source: 'ble.unlock', stationId, gateId });
+        if (kind === 'bluetooth_off') return { ok: false, error: 'bluetooth_off' };
+        if (kind === 'permission_denied') return { ok: false, error: 'permission_denied' };
+        if (kind === 'unsupported') return { ok: false, error: 'unsupported' };
+        if (kind === 'out_of_range') return { ok: false, error: 'not_in_range' };
+        return { ok: false, error: 'connection_failed', message: String((e as Error)?.message ?? e) };
+      }
+    },
+
+    async returnGate({ stationId, gate, sessionId, correlationId }): Promise<UnlockResult> {
+      const targetName = nameFromStationId(stationId);
+      try {
+        // Same signing path as unlock — server enforces auth, then signs the
+        // return_unlock payload bound to gate + sessionId. The phone replays
+        // the exact session_id the firmware is holding, otherwise firmware
+        // silently rejects. DEV-001 auto-bypass mirrors unlockGate.
+        const signed = await fetchSignedReturnUnlock({
+          stationId,
+          gate,
+          sessionId,
+          devBypass: stationId === 'DEV-001',
+        });
+        if (!stationClient.isConnected()) {
+          await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
+        }
+        await stationClient.returnUnlock(signed);
+        return { ok: true, openedAt: Date.now() };
+      } catch (e) {
+        const kind = classifyError(e);
+        reportError(e as Error, { source: 'ble.return', stationId, gate, correlationId });
         if (kind === 'bluetooth_off') return { ok: false, error: 'bluetooth_off' };
         if (kind === 'permission_denied') return { ok: false, error: 'permission_denied' };
         if (kind === 'unsupported') return { ok: false, error: 'unsupported' };

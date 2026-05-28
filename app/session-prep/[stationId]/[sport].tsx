@@ -59,12 +59,22 @@ export default function SessionPrep() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { stationId, sport, mode } = useLocalSearchParams<{
+  const { stationId, sport, mode, duration } = useLocalSearchParams<{
     stationId: string;
     sport: Sport;
     mode?: 'start' | 'howto';
+    duration?: string;
   }>();
   const isHowto = mode === 'howto';
+  // Duration arrives as a string param from /station/[id] (slider value the user
+  // picked). Clamp to a sane range so an out-of-band value can't corrupt the
+  // session or break the firmware's overdue calc. 30 is the historical default
+  // used before duration was plumbed through.
+  const durationMinutes = (() => {
+    const n = Number.parseInt(duration ?? '', 10);
+    if (!Number.isFinite(n) || n < 1) return 30;
+    return Math.min(n, 240);
+  })();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
   const startSession = useSessionStore((s) => s.startSession);
@@ -248,6 +258,7 @@ export default function SessionPrep() {
       gateId,
       sessionToken,
       correlationId,
+      durationMin: durationMinutes,
     });
     if (!unlockRes.ok) {
       if (holdId) {
@@ -297,12 +308,19 @@ export default function SessionPrep() {
     await hx.punch();
     await new Promise((r) => setTimeout(r, 250));
     await hx.yes();
+    // `correlationId` was the value the BLE driver passed to sign-unlock as
+    // session_id; the firmware now stores it in activeSessionId[gate-1]. The
+    // return_unlock flow on /(tabs)/play MUST replay this exact value or
+    // firmware will silently drop the command. Persist both this and the
+    // 1-indexed gate so the return path has everything it needs.
     const result = startSession({
       stationId: station.id,
       stationName: station.name,
       sport,
-      durationMinutes: 30,
+      durationMinutes,
       holdId,
+      gate: Math.max(1, gateIndex + 1),
+      bleSessionId: correlationId,
     });
     // Shouldn't fail after the pre-flight, but guard against a race where a
     // session was started in another surface between preflight and this call.
@@ -320,7 +338,7 @@ export default function SessionPrep() {
     // before the planned end + at the planned end. Cancelled on endSession.
     scheduleSessionEndAlerts({
       stationName: station.name,
-      durationMinutes: 30,
+      durationMinutes,
       startedAt: Date.now(),
     }).catch(() => {});
     router.replace('/(tabs)/play');

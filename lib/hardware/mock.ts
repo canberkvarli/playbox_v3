@@ -39,13 +39,36 @@ export function createMockDriver(): HardwareDriver {
       };
     },
 
-    async unlockGate({ stationId, gateId, correlationId }): Promise<UnlockResult> {
+    watchNearbyStations(onSeen) {
+      // Pretend DEV-001 is always within reach so the dev UI can be exercised
+      // without a real ESP32. Real driver fires per-advert; we fire on a
+      // 3s interval to mimic that without spamming React.
+      const tick = () => onSeen({ stationId: 'DEV-001', rssi: -55, lastSeenAt: Date.now() });
+      tick();
+      const id = setInterval(tick, 3_000);
+      return {
+        stop: () => clearInterval(id),
+      };
+    },
+
+    async unlockGate({ stationId, gateId, correlationId, durationMin }): Promise<UnlockResult> {
       await new Promise((r) => setTimeout(r, UNLOCK_DELAY_MS));
       if (SIMULATE_UNLOCK_FAIL) {
         return { ok: false, error: SIMULATE_UNLOCK_FAIL };
       }
       if (__DEV__) {
-        console.log('[hardware/mock] unlock', { stationId, gateId, correlationId });
+        console.log('[hardware/mock] unlock', { stationId, gateId, correlationId, durationMin });
+      }
+      return { ok: true, openedAt: Date.now() };
+    },
+
+    async returnGate({ stationId, gate, sessionId, correlationId }): Promise<UnlockResult> {
+      await new Promise((r) => setTimeout(r, UNLOCK_DELAY_MS));
+      if (SIMULATE_UNLOCK_FAIL) {
+        return { ok: false, error: SIMULATE_UNLOCK_FAIL };
+      }
+      if (__DEV__) {
+        console.log('[hardware/mock] return', { stationId, gate, sessionId, correlationId });
       }
       return { ok: true, openedAt: Date.now() };
     },

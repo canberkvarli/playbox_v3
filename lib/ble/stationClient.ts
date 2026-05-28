@@ -23,6 +23,17 @@ class StationClient {
   // they fight; using the watcher's already-known device avoids that.
   private lastSeenDevice: Device | null = null;
 
+  // Passive scan that emits any "Playbox-*" advert it sees, used by the
+  // map screen to show "nearby" badges before the user taps a station.
+  // Only one passive scan can run at a time, and scanAndConnect will
+  // pause it (iOS allows one active scan); we restart it automatically
+  // once the targeted scan finishes.
+  private passiveScan: {
+    onSeen: (name: string, rssi: number) => void;
+    onError?: (err: Error) => void;
+  } | null = null;
+  private passiveScanActive = false;
+
   private get manager(): BleManager {
     if (!this._manager) this._manager = new BleManager();
     return this._manager;
@@ -97,6 +108,63 @@ class StationClient {
     };
   }
 
+  /**
+   * Begin a continuous passive scan that fires `onSeen(name, rssi)` for any
+   * device advertising a name beginning with "Playbox-". Caller is expected
+   * to filter/translate the name into a known station ID. Idempotent — calling
+   * twice replaces the previous callbacks. `stopPassiveScan()` ends it.
+   *
+   * Coordinated with scanAndConnect: when a targeted scan starts, the OS scan
+   * is stopped; we restart the passive scan automatically once the targeted
+   * scan settles (whether it connected or timed out).
+   */
+  startPassiveScan(
+    onSeen: (name: string, rssi: number) => void,
+    onError?: (err: Error) => void,
+  ): void {
+    this.passiveScan = { onSeen, onError };
+    this.runPassiveScan();
+  }
+
+  stopPassiveScan(): void {
+    this.passiveScan = null;
+    if (this.passiveScanActive) {
+      this.passiveScanActive = false;
+      try {
+        this.manager.stopDeviceScan();
+      } catch {
+        // already stopped — ignore
+      }
+    }
+  }
+
+  private runPassiveScan(): void {
+    if (!this.passiveScan) return;
+    if (this.passiveScanActive) return;
+    const { onSeen, onError } = this.passiveScan;
+    this.passiveScanActive = true;
+    try {
+      this.manager.startDeviceScan(
+        null,
+        { allowDuplicates: true },
+        (err, scanned) => {
+          if (err) {
+            onError?.(err);
+            return;
+          }
+          if (!scanned?.name) return;
+          // Cheap prefix check — saves a per-station regex per packet.
+          if (!scanned.name.startsWith('Playbox-')) return;
+          this.lastSeenDevice = scanned;
+          onSeen(scanned.name, scanned.rssi ?? -70);
+        },
+      );
+    } catch (e) {
+      this.passiveScanActive = false;
+      onError?.(e as Error);
+    }
+  }
+
   async scanAndConnect(stationName: string, timeoutMs = 8000): Promise<Device> {
     // Already connected to the SAME device? Hand back the live handle.
     // The name check is critical — without it, opening ist-taksim while
@@ -132,6 +200,8 @@ class StationClient {
     // Slow path: stop whatever scan was running (the proximity watcher
     // will restart on the next screen mount) and run a fresh scan
     // targeted at this device name.
+    const passiveWasActive = this.passiveScanActive;
+    this.passiveScanActive = false;
     try {
       this.manager.stopDeviceScan();
     } catch {
@@ -144,7 +214,16 @@ class StationClient {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        this.manager.stopDeviceScan();
+        try {
+          this.manager.stopDeviceScan();
+        } catch {
+          // ignore
+        }
+        // Resume the passive scan if it was paused — keeps the map's
+        // nearby badges accurate without the caller knowing it happened.
+        if (passiveWasActive && this.passiveScan) {
+          this.runPassiveScan();
+        }
         fn();
       };
 

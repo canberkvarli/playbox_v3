@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
@@ -37,6 +37,8 @@ import { StationSheet, type StationSheetHandle } from '@/components/StationSheet
 import { useMenuStore } from '@/stores/menuStore';
 import { ReservationsPanel } from '@/components/ReservationsPanel';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
+import { getDriver } from '@/lib/hardware';
+import { useIsNearby, useNearbyStore } from '@/stores/nearbyStore';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -59,6 +61,11 @@ function StationMarkerView({
   dimmed?: boolean;
 }) {
   const enter = useSharedValue(0);
+  // Live BLE sighting — driven by the passive scan started on map focus.
+  // When true: stronger border, larger animated badge so the user can
+  // visually scan a busy map and find the station that's literally in
+  // front of them without tapping.
+  const nearby = useIsNearby(station.id);
 
   useEffect(() => {
     enter.value = withDelay(
@@ -95,12 +102,12 @@ function StationMarkerView({
           alignItems: 'center',
           justifyContent: 'center',
           gap: 2,
-          borderWidth: 2,
-          borderColor: palette.ink,
-          shadowColor: palette.ink,
+          borderWidth: nearby ? 3 : 2,
+          borderColor: nearby ? palette.coral : palette.ink,
+          shadowColor: nearby ? palette.coral : palette.ink,
           shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.22,
-          shadowRadius: 5,
+          shadowOpacity: nearby ? 0.45 : 0.22,
+          shadowRadius: nearby ? 8 : 5,
           elevation: 5,
         },
         style,
@@ -123,16 +130,17 @@ function StationMarkerView({
           +{overflow}
         </Text>
       ) : null}
-      {station.availableNow && (
+      {(station.availableNow || nearby) && (
         <View
           style={{
             position: 'absolute',
             top: -4,
             right: -4,
-            width: 12,
-            height: 12,
-            borderRadius: 6,
-            backgroundColor: palette.coral,
+            width: nearby ? 14 : 12,
+            height: nearby ? 14 : 12,
+            borderRadius: 7,
+            // Live BLE sighting trumps the static "availableNow" hint.
+            backgroundColor: nearby ? '#22c55e' : palette.coral,
             borderWidth: 2,
             borderColor: palette.paper,
           }}
@@ -1219,6 +1227,24 @@ export default function Map() {
   useEffect(() => {
     if (allStations.length) cacheStations(allStations);
   }, [allStations, cacheStations]);
+
+  // Passive BLE scan while the map tab is focused — pipes any Playbox-*
+  // advertisement into the nearby store so markers can show a live cue.
+  // Stops on blur so we're not burning radio when the user is on another
+  // tab or backgrounded the app. Scoped to focus, not mount, so navigating
+  // to /station/[id] and back resumes cleanly.
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((sighting) => {
+        useNearbyStore.getState().record(sighting);
+      });
+      return () => {
+        sub.stop();
+        useNearbyStore.getState().clear();
+      };
+    }, []),
+  );
 
   // Search filters hard (hide) but sport filter is soft (dim). Keep non-matching
   // stations around so users still see where stuff exists — picking volleyball

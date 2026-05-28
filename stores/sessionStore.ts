@@ -10,6 +10,55 @@ export type ActiveSession = {
   startedAt: number; // Date.now() ms
   durationMinutes: number; // planned duration
   holdId?: string | null; // Iyzico preauth paymentId, when a card hold was placed at start
+  /**
+   * 1-indexed compartment number this session was unlocked from. Persisted so
+   * the return flow can address the same gate, and so the UI can show "K2"
+   * etc. without re-deriving from sport order.
+   */
+  gate?: number;
+  /**
+   * BLE session_id the phone signed for `unlock` and the firmware now holds in
+   * `activeSessionId[gate-1]`. The return_unlock command MUST replay this
+   * exact value or the firmware will silently ignore it. Persisted across
+   * cold-launch via zustand persist so a phone restart doesn't lose the
+   * ability to close a session.
+   */
+  bleSessionId?: string;
+  /**
+   * True once the firmware has acknowledged the door was closed (the
+   * `gate_closed` event arrived after a `return_unlock`). Drives the UI past
+   * "kapıyı kapat" into "seans tamamlandı". Defaults to false / undefined
+   * before any event arrives.
+   */
+  returnConfirmed?: boolean;
+  /**
+   * Firmware reported the initial UNLOCKED state expired without the user
+   * grabbing the gear (no door-closed reed transition within
+   * UNLOCKED_TIMEOUT_MS). Implies the session should be cancelled and the
+   * payment hold released. Surfaced as a "kapıyı kapatmadın" banner.
+   */
+  unlockTimedOut?: boolean;
+  /**
+   * Firmware reported the return UNLOCKED state expired without the user
+   * closing the door (no reed transition within RETURN_UNLOCKED_TIMEOUT_MS).
+   * Door is still mechanically open; firmware reverted to IN_USE. UI should
+   * prompt user to push the door shut or try again.
+   */
+  returnTimedOut?: boolean;
+  /**
+   * Firmware reported the planned duration was exceeded. App already shows
+   * overtime from its own timer, this is a redundant signal that confirms
+   * the firmware agrees on time-exceeded — useful for diagnostics and
+   * future server-side overdue penalties.
+   */
+  overdue?: boolean;
+  /**
+   * Firmware emitted a `boot` event after the session started — almost
+   * certainly means the station rebooted (battery dropout, watchdog kick).
+   * The app should not silently continue; surface this so the user knows
+   * to check that the door is still locked and equipment is accounted for.
+   */
+  stationRebooted?: boolean;
 };
 
 export type EndedSession = ActiveSession & { endedAt: number };
@@ -43,6 +92,21 @@ type SessionStore = {
   /** Pre-flight check: can the user start a session at this station right now? */
   canStart: (stationId: string) => StartResult;
   hasActive: () => boolean;
+  /**
+   * Mark the firmware-confirmed return on the active session. Set by the
+   * BLE event listener when a `gate_closed` notification arrives for the
+   * matching session_id. Idempotent.
+   */
+  markReturnConfirmed: () => void;
+  /**
+   * Apply a firmware event flag to the active session. Called by the BLE
+   * event dispatcher. No-op if there's no active session or the flag is
+   * already set (events can arrive duplicated when multiple subscribers
+   * are attached to the same characteristic).
+   */
+  markFirmwareEvent: (
+    kind: 'unlock_timeout' | 'return_timeout' | 'ball_overdue' | 'station_reboot'
+  ) => void;
 };
 
 export const useSessionStore = create<SessionStore>()(
@@ -79,6 +143,9 @@ export const useSessionStore = create<SessionStore>()(
             durationMinutes: s.durationMinutes,
             startedAt: s.startedAt ?? Date.now(),
             holdId: s.holdId ?? null,
+            gate: s.gate,
+            bleSessionId: s.bleSessionId,
+            returnConfirmed: false,
           },
         });
         return { ok: true };
@@ -92,6 +159,30 @@ export const useSessionStore = create<SessionStore>()(
         });
       },
       acknowledgeEnded: () => set({ lastEnded: null }),
+      markReturnConfirmed: () => {
+        const cur = get().active;
+        if (!cur || cur.returnConfirmed) return;
+        set({ active: { ...cur, returnConfirmed: true } });
+      },
+      markFirmwareEvent: (kind) => {
+        const cur = get().active;
+        if (!cur) return;
+        const next = { ...cur };
+        if (kind === 'unlock_timeout') {
+          if (cur.unlockTimedOut) return;
+          next.unlockTimedOut = true;
+        } else if (kind === 'return_timeout') {
+          if (cur.returnTimedOut) return;
+          next.returnTimedOut = true;
+        } else if (kind === 'ball_overdue') {
+          if (cur.overdue) return;
+          next.overdue = true;
+        } else if (kind === 'station_reboot') {
+          if (cur.stationRebooted) return;
+          next.stationRebooted = true;
+        }
+        set({ active: next });
+      },
     }),
     {
       name: 'playbox.session',

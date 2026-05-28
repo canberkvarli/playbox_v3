@@ -36,6 +36,13 @@ export type UnlockError =
   | 'unsupported'            // running on a platform without BLE
   | 'unknown';
 
+/** One sighting of a Playbox-* BLE advertisement during a passive scan. */
+export type NearbyStation = {
+  stationId: string;
+  rssi: number;
+  lastSeenAt: number;
+};
+
 export type HardwareDriver = {
   /**
    * Begin watching for a specific station's BLE advertisement. Returns a
@@ -43,6 +50,20 @@ export type HardwareDriver = {
    * radio hot.
    */
   watchStation(stationId: string, onChange: (s: ProximityState) => void): {
+    stop: () => void;
+  };
+
+  /**
+   * Begin a continuous passive scan that fires `onSeen` per advertisement
+   * for any Playbox-* device the radio picks up. Used by the map screen
+   * to show "nearby" badges before the user taps a station. Caller is
+   * responsible for calling `stop()` when the screen loses focus.
+   *
+   * The driver coordinates with `unlockGate`/`returnGate`/`watchStation`
+   * so a targeted scan can briefly take over the radio without the caller
+   * needing to stop the passive scan first.
+   */
+  watchNearbyStations(onSeen: (station: NearbyStation) => void): {
     stop: () => void;
   };
 
@@ -61,6 +82,32 @@ export type HardwareDriver = {
     /** JWT for the active Supabase session — gates verify this server-side. */
     sessionToken: string;
     /** Idempotency key, generated client-side, stable across retries. */
+    correlationId: string;
+    /**
+     * Planned duration in minutes. Signed into the unlock payload and stored
+     * on the firmware so the `ball_overdue` event fires at the right time
+     * instead of always at the legacy 30-minute default.
+     */
+    durationMin: number;
+  }): Promise<UnlockResult>;
+
+  /**
+   * Pulse the latch again so the user can put the gear back. Firmware
+   * requires the same session_id that was signed at unlock time — caller is
+   * responsible for passing what's been persisted on the active session.
+   * Same error semantics as `unlockGate`.
+   */
+  returnGate(args: {
+    stationId: string;
+    /** 1-indexed compartment number. */
+    gate: number;
+    /**
+     * BLE session id from the original unlock. Must match what the firmware
+     * is holding in `activeSessionId[gate-1]` — a mismatch is a silent
+     * firmware-side rejection, so we surface it as `auth_rejected`.
+     */
+    sessionId: string;
+    sessionToken: string;
     correlationId: string;
   }): Promise<UnlockResult>;
 

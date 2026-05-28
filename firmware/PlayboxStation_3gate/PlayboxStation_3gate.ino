@@ -3,11 +3,17 @@
 // =============================================================================
 // Hardware:
 //   - ESP32 WROOM-32 (board: "NodeMCU-32S")
-//   - 3x 12V solenoid latches (Door 1: GPIO 13, Door 2: GPIO 12, Door 3: GPIO 14)
-//     Each solenoid is driven via a logic-level N-channel MOSFET. Flyback
-//     diode across each coil is mandatory — no diode = MOSFET dies.
+//   - 3x 12V solenoid latches driven via a TLS Robotik 4-channel optocoupler
+//     relay module (active-LOW). ESP32 GPIO → relay IN; relay NO/COM switches
+//     +12V into the solenoid coil. Flyback is handled inside the relay module.
+//       Door 1: GPIO 13 → IN1
+//       Door 2: GPIO 12 → IN2
+//       Door 3: GPIO 14 → IN3
 //   - 3x reed switches (Door 1: GPIO 18, Door 2: GPIO 19, Door 3: GPIO 21)
 //     Wired between GPIO and GND; INPUT_PULLUP. LOW = magnet near (door closed).
+//     OPTIONAL during bench bring-up — without reeds the gate auto-locks on
+//     UNLOCKED_TIMEOUT_MS and the RETURN path can't transition. Wire them
+//     before soft-launch.
 //   - Onboard LED on GPIO 2 (heartbeat blink)
 //
 // Mechanical model:
@@ -50,11 +56,18 @@
 static const uint8_t SOLENOID_PINS[NUM_GATES] = { 13, 12, 14 };
 static const uint8_t REED_PINS[NUM_GATES]     = { 18, 19, 21 };
 
+// ---- Relay polarity ---------------------------------------------------------
+// TLS Robotik 4-channel module is ACTIVE-LOW (LOW on IN energises the relay,
+// closing NO→COM and powering the solenoid). HIGH on IN means relay off,
+// solenoid de-energised, latch holds the door closed.
+#define RELAY_ACTIVE   LOW
+#define RELAY_INACTIVE HIGH
+
 // ---- Timing -----------------------------------------------------------------
 // 300ms is a safe pulse for most 12V door-latch solenoids. Some need 500ms;
 // bump if your latch doesn't reliably retract.
 #define SOLENOID_PULSE_MS            300UL
-#define UNLOCKED_TIMEOUT_MS          30000UL  // door open, user didn't take ball
+#define UNLOCKED_TIMEOUT_MS          300000UL // door open, user didn't take ball (5min — bench-friendly until reeds are wired)
 #define RETURN_UNLOCKED_TIMEOUT_MS   60000UL  // door open, user didn't return ball
 #define WDT_TIMEOUT_S                30
 #define DEFAULT_DURATION_MIN         30
@@ -188,7 +201,7 @@ void transitionTo(int g, GateState next) {
 
 // ---- Solenoid driver (non-blocking) ---------------------------------------
 void triggerSolenoid(int g) {
-  digitalWrite(SOLENOID_PINS[g], HIGH);
+  digitalWrite(SOLENOID_PINS[g], RELAY_ACTIVE);
   solenoidEndMs[g] = millis() + SOLENOID_PULSE_MS;
   Serial.printf("[SOL] gate %d energised for %lums\n", g + 1, SOLENOID_PULSE_MS);
 }
@@ -196,7 +209,7 @@ void triggerSolenoid(int g) {
 void tickSolenoids() {
   for (int g = 0; g < NUM_GATES; g++) {
     if (solenoidEndMs[g] != 0 && millis() >= solenoidEndMs[g]) {
-      digitalWrite(SOLENOID_PINS[g], LOW);
+      digitalWrite(SOLENOID_PINS[g], RELAY_INACTIVE);
       solenoidEndMs[g] = 0;
       Serial.printf("[SOL] gate %d released\n", g + 1);
     }
@@ -251,13 +264,17 @@ void checkTimeouts() {
   for (int g = 0; g < NUM_GATES; g++) {
     unsigned long elapsed = now - stateEnteredMs[g];
     if (gateState[g] == UNLOCKED && elapsed > UNLOCKED_TIMEOUT_MS) {
-      Serial.printf("[TIMEOUT] gate %d UNLOCKED expired — auto-locking\n", g + 1);
-      // Door is mechanically held open by gas strut. The user walked away
-      // without grabbing. We emit a timeout event so the backend can
-      // refund / cancel the session. The door physically stays open until
-      // someone pushes it shut — there's no firmware "close" action.
+      Serial.printf("[TIMEOUT] gate %d UNLOCKED expired — assuming taken (no reed)\n", g + 1);
+      // Door is mechanically held open by the gas strut and there is no
+      // firmware "close" action. The historical behavior was to drop back to
+      // LOCKED and clear the session, but on bench (no reed switches wired)
+      // that path makes the subsequent return_unlock impossible: firmware
+      // only accepts return_unlock from IN_USE, and the cleared session_id
+      // would mismatch anyway. Assume the user took the ball, surface the
+      // timeout event for diagnostics, and keep the session alive so the app
+      // can still issue return_unlock.
       emitGateTimeout("unlock_timeout", g + 1, activeSessionId[g]);
-      transitionTo(g, LOCKED);
+      transitionTo(g, IN_USE);
     } else if (gateState[g] == RETURN_UNLOCKED && elapsed > RETURN_UNLOCKED_TIMEOUT_MS) {
       Serial.printf("[TIMEOUT] gate %d RETURN_UNLOCKED expired — reverting to IN_USE\n", g + 1);
       emitGateTimeout("return_timeout", g + 1, activeSessionId[g]);
@@ -406,10 +423,14 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
 
-  // Solenoid pins start LOW (latch engaged, door held shut).
+  // Active-LOW relay: drive pin HIGH on boot so the relay stays off and the
+  // solenoid stays de-energised (latch engaged, door held shut). Set the
+  // level BEFORE pinMode so we never glitch the relay LOW during the brief
+  // moment the pin defaults to LOW after configure-as-output.
   for (int g = 0; g < NUM_GATES; g++) {
+    digitalWrite(SOLENOID_PINS[g], RELAY_INACTIVE);
     pinMode(SOLENOID_PINS[g], OUTPUT);
-    digitalWrite(SOLENOID_PINS[g], LOW);
+    digitalWrite(SOLENOID_PINS[g], RELAY_INACTIVE);
   }
   initReeds();
 
