@@ -44,3 +44,6 @@ android/
 supabase/.temp/
 supabase/.branches/
 .firecrawl/
+
+# Git worktrees (isolated workspaces for parallel feature work)
+.worktrees/
