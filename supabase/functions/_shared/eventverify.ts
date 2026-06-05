@@ -28,6 +28,9 @@ export async function verifyEventSig(
 ): Promise<boolean> {
   const sig = ev.sig;
   if (typeof sig !== "string") return false;
+  // ASYMMETRY: a malformed (non-64-hex) station secret throws here (a server
+  // config error), unlike the Node verifyEventSig which returns false. Acceptable
+  // because the secret is server-controlled config, not attacker wire input.
   const expected = await hmacSha256Hex(secretHex, eventSigningPayload(ev));
   const got = sig.toLowerCase();
   if (got.length !== expected.length) return false;

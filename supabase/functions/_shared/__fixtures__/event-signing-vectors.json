@@ -31,5 +31,27 @@
     },
     "canonical": "battery_low|||7|200|11900",
     "sig": "ac24c55c0bae44c1c4b142c71f4657d1f1ce930e44d0421a302cc748811f50ea"
+  },
+  {
+    "secretHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "event": {
+      "event": "battery_critical",
+      "mv": 11500,
+      "seq": 9,
+      "ts": 300
+    },
+    "canonical": "battery_critical|||9|300|11500",
+    "sig": "d027eee69c1f7a49a7107e4ddda50ba9aff8bb940b8f60f230c5eaebe1c2f306"
+  },
+  {
+    "secretHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "event": {
+      "event": "unlock_timeout",
+      "session_id": "s1",
+      "seq": 5,
+      "ts": 250
+    },
+    "canonical": "unlock_timeout||s1|5|250|",
+    "sig": "e43d33ec10ecc05500ca5a3b0d04f7da2640c039ef7d7615e920333a0622ed7f"
   }
 ]

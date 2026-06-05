@@ -164,7 +164,7 @@ export type StationEvent =
 // trust boundary).
 export function eventSigningPayload(e: StationEvent): string {
   const gate = "gate" in e ? String(e.gate) : "";
-  const session = "session_id" in e ? e.session_id : "";
+  const session = "session_id" in e ? String(e.session_id) : "";
   const extra =
     e.event === "battery_low" || e.event === "battery_critical"
       ? String(e.mv)
