@@ -48,7 +48,7 @@ import { handleOptions, json } from "../_shared/cors.ts";
 import { getBearerToken, getUserIdFromRequest } from "../_shared/auth.ts";
 import { verifyEventSig } from "../_shared/eventverify.ts";
 import { reconcileEvent, computeAckedSeq } from "./reconcile.ts";
-import { SupabaseReconcileStore } from "./store.ts";
+import { SupabaseReconcileStore } from "../_shared/reconcile-store.ts";
 
 type Ack = { acked_seq: number };
 type Input = {

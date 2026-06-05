@@ -1,11 +1,14 @@
 // @ts-nocheck — Deno runtime
 //
 // Supabase-backed implementation of the PURE `ReconcileStore` port (defined in
-// ./reconcile.ts). All the domain logic lives in reconcile.ts; this file is
-// thin I/O glue against supabase-js. It is NOT Jest-tested (it needs Deno +
-// a live DB); the in-memory FakeStore in lib/server/reconcile.test.ts exercises
-// the same port surface.
-import type { ReconcileStore, Reservation } from "./reconcile.ts";
+// ../ingest-events/reconcile.ts). All the domain logic lives in reconcile.ts;
+// this file is thin I/O glue against supabase-js. It is NOT Jest-tested (it needs
+// Deno + a live DB); the in-memory FakeStore in lib/server/reconcile.test.ts
+// exercises the same port surface.
+//
+// Lives in _shared/ so BOTH callers import it: ingest-events (Step B reconcile)
+// and session-sweep (Pass 2 backstop drain of stations gone quiet).
+import type { ReconcileStore, Reservation } from "../ingest-events/reconcile.ts";
 
 // A station_events queue row, as the ingest orchestration needs it to rebuild a
 // StationEvent for reconcile. Distinct from the domain `ReconcileStore` port.
