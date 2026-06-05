@@ -1,6 +1,7 @@
 import {
   encodeCommand,
   decodeEvent,
+  eventSigningPayload,
   SERVICE_UUID,
   UNLOCK_CHAR_UUID,
   EVENTS_CHAR_UUID,
@@ -88,6 +89,23 @@ describe("decodeEvent", () => {
     expect(() => decodeEvent('{"event":"gate_closed","ts":1}')).toThrow(
       /required/i,
     );
+  });
+});
+
+describe("eventSigningPayload", () => {
+  it("builds canonical string for gate_closed (no extra)", () => {
+    const e = { event: "gate_closed", gate: 2, session_id: "s1", seq: 7, ts: 1000, sig: "x" } as const;
+    expect(eventSigningPayload(e)).toBe("gate_closed|2|s1|7|1000|");
+  });
+
+  it("builds canonical string for boot (no gate, no session)", () => {
+    const e = { event: "boot", seq: 1, ts: 50, sig: "x" } as const;
+    expect(eventSigningPayload(e)).toBe("boot|||1|50|");
+  });
+
+  it("includes millivolts as extra for battery_low", () => {
+    const e = { event: "battery_low", mv: 11900, seq: 3, ts: 200, sig: "x" } as const;
+    expect(eventSigningPayload(e)).toBe("battery_low|||3|200|11900");
   });
 });
 

@@ -32,56 +32,76 @@ export function signingPayload(cmd: Command): string {
   return `${cmd.cmd}|${cmd.gate}|${cmd.session_id}|${duration}|${cmd.ts}`;
 }
 
-export type GateClosedEvent = {
+// Station→phone events are signed + sequenced so they can be relayed by
+// untrusted "courier" phones and verified server-side.
+//   seq: monotonic per-station counter (replay/ordering protection)
+//   ts:  event wall-clock unix seconds
+//   sig: hex-encoded HMAC-SHA256 over `eventSigningPayload(event)`
+type EventBase = { seq: number; ts: number; sig: string };
+
+export type GateClosedEvent = EventBase & {
   event: "gate_closed";
   gate: number;
   session_id: string;
-  ts: number;
 };
 
-export type GateOpenedEvent = {
+export type GateOpenedEvent = EventBase & {
   event: "gate_opened";
   gate: number;
-  ts: number;
+  session_id: string;
 };
 
-export type BatteryLowEvent = {
+export type BatteryLowEvent = EventBase & {
   event: "battery_low";
-  v: number;
-  ts: number;
+  mv: number;
 };
 
-export type BootEvent = {
+export type BatteryCriticalEvent = EventBase & {
+  event: "battery_critical";
+  mv: number;
+};
+
+export type BootEvent = EventBase & {
   event: "boot";
-  ts: number;
 };
 
-export type UnlockTimeoutEvent = {
+export type UnlockTimeoutEvent = EventBase & {
   event: "unlock_timeout";
   session_id: string;
-  ts: number;
 };
 
-export type ReturnTimeoutEvent = {
+export type ReturnTimeoutEvent = EventBase & {
   event: "return_timeout";
   session_id: string;
-  ts: number;
 };
 
-export type BallOverdueEvent = {
+export type BallOverdueEvent = EventBase & {
   event: "ball_overdue";
   session_id: string;
-  ts: number;
 };
 
 export type StationEvent =
   | GateClosedEvent
   | GateOpenedEvent
   | BatteryLowEvent
+  | BatteryCriticalEvent
   | BootEvent
   | UnlockTimeoutEvent
   | ReturnTimeoutEvent
   | BallOverdueEvent;
+
+// Canonical string the firmware + server both HMAC over. Must match exactly.
+//   `${event}|${gate ?? ""}|${session_id ?? ""}|${seq}|${wall_ts}|${extra}`
+// where extra is integer millivolts for battery events, "" otherwise.
+export function eventSigningPayload(e: StationEvent): string {
+  const gate = "gate" in e ? String(e.gate) : "";
+  const session = "session_id" in e ? e.session_id : "";
+  const extra =
+    e.event === "battery_low" || e.event === "battery_critical"
+      ? String(e.mv)
+      : "";
+  return `${e.event}|${gate}|${session}|${e.seq}|${e.ts}|${extra}`;
+}
 
 export function encodeCommand(cmd: Command): string {
   return JSON.stringify(cmd);
