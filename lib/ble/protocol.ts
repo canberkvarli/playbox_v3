@@ -27,6 +27,12 @@ export type ReturnUnlockCommand = {
 export type Command = UnlockCommand | ReturnUnlockCommand;
 
 // Canonical string the firmware HMACs over. Must match exactly on both sides.
+//
+// INVARIANT: `session_id` MUST be restricted to [A-Za-z0-9-] (no `|`). The
+// signing string is pipe-delimited, so a `|` inside session_id would let two
+// distinct commands collapse to the same canonical string (signature collision).
+// This is a documented contract the firmware + server must honor; the server is
+// the trust boundary, so we do NOT sanitize in this hot path.
 export function signingPayload(cmd: Command): string {
   const duration = cmd.cmd === "unlock" ? cmd.duration_min : 0;
   return `${cmd.cmd}|${cmd.gate}|${cmd.session_id}|${duration}|${cmd.ts}`;
@@ -51,6 +57,9 @@ export type GateOpenedEvent = EventBase & {
   session_id: string;
 };
 
+// INVARIANT: `mv` is integer millivolts (never fractional). The signing payload
+// renders it via String(mv); String(11900.5) would not match the firmware's
+// integer rendering and would break signature verification.
 export type BatteryLowEvent = EventBase & {
   event: "battery_low";
   mv: number;
@@ -93,6 +102,12 @@ export type StationEvent =
 // Canonical string the firmware + server both HMAC over. Must match exactly.
 //   `${event}|${gate ?? ""}|${session_id ?? ""}|${seq}|${wall_ts}|${extra}`
 // where extra is integer millivolts for battery events, "" otherwise.
+//
+// INVARIANT: `session_id` MUST be restricted to [A-Za-z0-9-] (no `|`). This
+// canonical string is pipe-delimited, so a `|` inside session_id would let two
+// distinct events collapse to the same signing string (signature collision).
+// Documented contract for firmware + server; not sanitized here (server is the
+// trust boundary).
 export function eventSigningPayload(e: StationEvent): string {
   const gate = "gate" in e ? String(e.gate) : "";
   const session = "session_id" in e ? e.session_id : "";
@@ -113,25 +128,28 @@ export function decodeEvent(raw: string): StationEvent {
 
   switch (kind) {
     case "gate_closed":
-      requireFields(parsed, ["gate", "session_id", "ts"], "gate_closed");
+      requireFields(parsed, ["gate", "session_id", "seq", "ts", "sig"], "gate_closed");
       return parsed as GateClosedEvent;
     case "gate_opened":
-      requireFields(parsed, ["gate", "ts"], "gate_opened");
+      requireFields(parsed, ["gate", "session_id", "seq", "ts", "sig"], "gate_opened");
       return parsed as GateOpenedEvent;
     case "battery_low":
-      requireFields(parsed, ["v", "ts"], "battery_low");
+      requireFields(parsed, ["mv", "seq", "ts", "sig"], "battery_low");
       return parsed as BatteryLowEvent;
+    case "battery_critical":
+      requireFields(parsed, ["mv", "seq", "ts", "sig"], "battery_critical");
+      return parsed as BatteryCriticalEvent;
     case "boot":
-      requireFields(parsed, ["ts"], "boot");
+      requireFields(parsed, ["seq", "ts", "sig"], "boot");
       return parsed as BootEvent;
     case "unlock_timeout":
-      requireFields(parsed, ["session_id", "ts"], "unlock_timeout");
+      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "unlock_timeout");
       return parsed as UnlockTimeoutEvent;
     case "return_timeout":
-      requireFields(parsed, ["session_id", "ts"], "return_timeout");
+      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "return_timeout");
       return parsed as ReturnTimeoutEvent;
     case "ball_overdue":
-      requireFields(parsed, ["session_id", "ts"], "ball_overdue");
+      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "ball_overdue");
       return parsed as BallOverdueEvent;
     default:
       throw new Error(`unknown event kind: ${kind}`);

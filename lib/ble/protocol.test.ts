@@ -49,30 +49,66 @@ describe("encodeCommand", () => {
 describe("decodeEvent", () => {
   it("parses a gate_closed notification", () => {
     const event = decodeEvent(
-      '{"event":"gate_closed","gate":2,"session_id":"sess-abc","ts":1712345678}',
+      '{"event":"gate_closed","gate":2,"session_id":"sess-abc","seq":11,"ts":1712345678,"sig":"ab12"}',
     );
     expect(event).toEqual({
       event: "gate_closed",
       gate: 2,
       session_id: "sess-abc",
+      seq: 11,
       ts: 1712345678,
+      sig: "ab12",
     });
   });
 
   it("parses a battery_low notification", () => {
     const event = decodeEvent(
-      '{"event":"battery_low","v":11.2,"ts":1712345678}',
+      '{"event":"battery_low","mv":11200,"seq":12,"ts":1712345678,"sig":"ab12"}',
     );
     expect(event).toEqual({
       event: "battery_low",
-      v: 11.2,
+      mv: 11200,
+      seq: 12,
       ts: 1712345678,
+      sig: "ab12",
     });
   });
 
   it("parses a boot notification", () => {
-    const event = decodeEvent('{"event":"boot","ts":1712345678}');
-    expect(event).toEqual({ event: "boot", ts: 1712345678 });
+    const event = decodeEvent(
+      '{"event":"boot","seq":1,"ts":1712345678,"sig":"ab12"}',
+    );
+    expect(event).toEqual({
+      event: "boot",
+      seq: 1,
+      ts: 1712345678,
+      sig: "ab12",
+    });
+  });
+
+  it("requires seq and sig on every event", () => {
+    const raw = JSON.stringify({ event: "boot", ts: 5 }); // no seq/sig
+    expect(() => decodeEvent(raw)).toThrow(
+      /missing required field: (seq|sig)/,
+    );
+  });
+
+  it("parses a fully-signed gate_opened with session_id", () => {
+    const raw = JSON.stringify({
+      event: "gate_opened",
+      gate: 1,
+      session_id: "s9",
+      seq: 4,
+      ts: 99,
+      sig: "ab12",
+    });
+    const e = decodeEvent(raw);
+    expect(e).toMatchObject({
+      event: "gate_opened",
+      session_id: "s9",
+      seq: 4,
+      sig: "ab12",
+    });
   });
 
   it("throws on malformed JSON", () => {
@@ -106,6 +142,16 @@ describe("eventSigningPayload", () => {
   it("includes millivolts as extra for battery_low", () => {
     const e = { event: "battery_low", mv: 11900, seq: 3, ts: 200, sig: "x" } as const;
     expect(eventSigningPayload(e)).toBe("battery_low|||3|200|11900");
+  });
+
+  it("includes millivolts as extra for battery_critical", () => {
+    const e = { event: "battery_critical", mv: 11500, seq: 2, ts: 300, sig: "x" } as const;
+    expect(eventSigningPayload(e)).toBe("battery_critical|||2|300|11500");
+  });
+
+  it("builds canonical string for an event with session_id but no gate", () => {
+    const e = { event: "unlock_timeout", session_id: "s1", seq: 5, ts: 400, sig: "x" } as const;
+    expect(eventSigningPayload(e)).toBe("unlock_timeout||s1|5|400|");
   });
 });
 
