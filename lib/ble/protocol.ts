@@ -62,6 +62,9 @@ export function signingPayload(cmd: Command): string {
 //        NOT use wall_ts for billing or duration — derive durations from
 //        event-delta (seq-ordered) timing only.
 //   sig: hex-encoded HMAC-SHA256 over `eventSigningPayload(event)`
+// See the "Firmware serialization contract" block above `eventSigningPayload`
+// for the EXACT byte-level rendering of seq / ts / mv / sig the firmware must
+// reproduce.
 type EventBase = { seq: number; ts: number; sig: string };
 
 export type GateClosedEvent = EventBase & {
@@ -78,7 +81,9 @@ export type GateOpenedEvent = EventBase & {
 
 // INVARIANT: `mv` is integer millivolts (never fractional). The signing payload
 // renders it via String(mv); String(11900.5) would not match the firmware's
-// integer rendering and would break signature verification.
+// integer rendering and would break signature verification. See the "Firmware
+// serialization contract" block above `eventSigningPayload` for the exact `mv`
+// rendering rules (decimal digits only, no fractional / scientific notation).
 export type BatteryLowEvent = EventBase & {
   event: "battery_low";
   mv: number;
@@ -119,8 +124,38 @@ export type StationEvent =
   | BallOverdueEvent;
 
 // Canonical string the firmware + server both HMAC over. Must match exactly.
-//   `${event}|${gate ?? ""}|${session_id ?? ""}|${seq}|${wall_ts}|${extra}`
+//   `${event}|${gate}|${session_id}|${seq}|${wall_ts}|${extra}`
 // where extra is integer millivolts for battery events, "" otherwise.
+//
+// Empty slots are PRESENCE-based, not nullish: a field renders as the
+// stringified value when its KEY IS PRESENT on the event, and as the empty
+// string "" when the key is ABSENT. (Events are constructed by firmware with
+// exactly the fields their type declares, so absent == empty slot; e.g. a
+// `boot` event — no gate, no session_id, not a battery event — renders as
+// `boot|||<seq>|<ts>|`.) Note this differs from `?? ""`: a key present but
+// null would render as the string "null", not "".
+//
+// ── Firmware serialization contract ──────────────────────────────────────
+// The C++ firmware MUST serialize each field exactly as below so the canonical
+// string (and the JSON it emits) match this TS side byte-for-byte; any
+// mismatch breaks HMAC verification:
+//   • seq         — uint32_t, decimal digits only, no leading zeros, no sign.
+//                   Monotonic + NVS-persisted; firmware MUST NEVER reset seq
+//                   across reboots. (Wraparound at 2^32 isn't expected within
+//                   device lifetime, but if it ever wrapped, the server dedupe
+//                   key `${stationId}:${seq}` would collide.)
+//   • ts          — uint32_t UNIX SECONDS, decimal digits only, NEVER
+//                   fractional. Computed as `boot_epoch + millis()/1000`
+//                   (integer division).
+//   • mv          — integer millivolts (e.g. 11900), decimal digits only,
+//                   NEVER fractional, NEVER scientific notation. Fits int
+//                   (well under int32).
+//   • sig         — lowercase hex of HMAC-SHA256. No `0x` prefix, no
+//                   separators. (Server verify is case-insensitive on input,
+//                   but firmware SHOULD emit lowercase.)
+//   • separator   — a single ASCII pipe `|` between fields.
+//   • empties     — when an event type has no gate / no session_id, that slot
+//                   is the empty string (see `boot` example above).
 //
 // INVARIANT: `session_id` MUST be restricted to [A-Za-z0-9-] (no `|`). This
 // canonical string is pipe-delimited, so a `|` inside session_id would let two
