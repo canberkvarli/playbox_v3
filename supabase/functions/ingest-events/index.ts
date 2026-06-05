@@ -7,15 +7,25 @@
 // `sig` (verified against the per-station secret), NOT by who uploaded them.
 // Any authenticated user may courier.
 //
-// For each event we:
-//   1. verify the HMAC sig (Deno _shared/eventverify.ts) — invalid => rejected.
-//   2. upsert into station_events with onConflict (station_id, seq),
-//      ignoreDuplicates — the courier dedupe key. NEW row => reconcile + accept;
-//      duplicate => deduped (no reconcile, so effects apply exactly once).
-//   3. run the PURE reconcileEvent() against a Supabase-backed store, applying
-//      the event's domain effects to the reservation lifecycle.
-// Then we advance the station's contiguous acked_seq so the courier can safely
-// drop buffered events whose seq <= acked_seq.
+// DURABLE INGEST is DECOUPLED from RECONCILIATION so a failed reconcile is
+// never masked by the (station_id,seq) dedupe gate:
+//   Step A (durable ingest): for each event verify the HMAC sig
+//      (_shared/eventverify.ts) — invalid => rejected. Valid => upsert into
+//      station_events onConflict (station_id,seq) ignoreDuplicates, with
+//      reconciled_at left NULL. `accepted` = rows newly inserted this call,
+//      `deduped` = rows already present. These counts describe INGEST only —
+//      NOT whether anything was reconciled.
+//   Step B (reconcile the queue): SELECT all station_events for this station
+//      where reconciled_at IS NULL (seq-ascending), run the PURE reconcileEvent()
+//      per row, and on success set reconciled_at = now on that row. A row left
+//      from a PRIOR failed reconcile is drained here too — the retry path the
+//      dedupe gate can't see. One poisoned event is logged + skipped; it does
+//      NOT block the rest. `reconciled` = rows succeeded THIS call.
+//   Step C (cursor): advance acked_seq over CONTIGUOUS *reconciled* seqs only,
+//      so we never ack past an event we stored but haven't reconciled.
+// A later sweep (Phase 1 Task 5) can also drain reconciled_at IS NULL for
+// stations getting no further courier traffic; this ingest-time drain is the
+// primary path, the sweep is a backstop.
 //
 // MONEY SEAM: this function NEVER calls iyzico. reconcileEvent only sets the
 // `*_eligible_at` flags + writes audit rows. See the `// PHASE 2:` markers below
@@ -26,7 +36,7 @@
 // without a Supabase session, redeploy --no-verify-jwt and rely solely on sig.)
 //
 // Request:  { station_id, events: StationEvent[], ack?: { acked_seq } }
-// Success:  { ok: true, accepted, deduped, rejected, acked_seq }
+// Success:  { ok: true, accepted, deduped, rejected, reconciled, acked_seq }
 //
 // Required env:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (autopopulated)
@@ -128,9 +138,15 @@ Deno.serve(async (req) => {
   let accepted = 0;
   let deduped = 0;
   let rejected = 0;
+  let reconciled = 0;
 
+  // ---- Step A: durable ingest -------------------------------------------
+  // Verify each event's sig, then upsert it with reconciled_at left NULL. We do
+  // NOT reconcile here — reconciliation is driven purely by reconciled_at IS
+  // NULL in Step B, so a row left un-reconciled by a prior failed reconcile is
+  // re-driven even though its (station_id,seq) is now a dedupe hit (isNew=false).
   for (const ev of events) {
-    // 1. verify HMAC — never trust uploader, only the signature.
+    // verify HMAC — never trust uploader, only the signature.
     let ok = false;
     try {
       ok = await verifyEventSig(ev, secretHex);
@@ -151,9 +167,10 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // 2. dedupe-insert. onConflict (station_id, seq) + ignoreDuplicates means a
-    //    re-relayed event collapses to the existing row. We detect "was it new?"
-    //    by selecting the inserted rows back: an ignored duplicate returns none.
+    // dedupe-insert. onConflict (station_id, seq) + ignoreDuplicates means a
+    // re-relayed event collapses to the existing row. isNew (selected back) just
+    // distinguishes accepted vs deduped for the response — it NO LONGER gates
+    // reconciliation. reconciled_at is left NULL for Step B to pick up.
     const { data: inserted, error: insErr } = await admin
       .from("station_events")
       .upsert(
@@ -179,57 +196,85 @@ Deno.serve(async (req) => {
     }
 
     const isNew = Array.isArray(inserted) && inserted.length > 0;
-    if (!isNew) {
-      // Duplicate courier relay — already reconciled when first seen.
-      deduped += 1;
-      continue;
-    }
-
-    // 3. apply domain effects exactly once (new row only).
-    try {
-      await reconcileEvent(store, stationId, ev, nowISO);
-      // PHASE 2: consume *_eligible_at via iyzico here — e.g. when reconcile set
-      // release_eligible_at (unlock_timeout / gate_closed) trigger a release, and
-      // when reversal_eligible_at is set (late_return_after_penalty) reverse the
-      // penalty. No money moves in Phase 1.
-      accepted += 1;
-    } catch (e) {
-      // The event is durably stored; reconcile is retryable. Count rejected so
-      // the courier doesn't treat it as fully acked, but keep processing.
-      console.error("[ingest-events] reconcile failed", { seq, event: ev.event, e });
-      rejected += 1;
-    }
+    if (isNew) accepted += 1;
+    else deduped += 1;
   }
 
-  // Advance the contiguous acked cursor. Load all stored seqs for this station
-  // and compute the highest gap-free seq from the current acked_seq.
+  // ---- Step B: reconcile the durable queue ------------------------------
+  // Drain every station_events row with reconciled_at IS NULL, seq-ascending.
+  // This is the retry path the dedupe gate can't mask: failed reconciles stay
+  // null and get re-driven on the next call. Each row's reconciled_at is set
+  // ONLY after reconcileEvent succeeds. One poisoned event is logged + skipped
+  // (its reconciled_at stays null for next time) and must NOT block the rest.
+  try {
+    const pending = await store.getUnreconciledEvents(stationId);
+    for (const row of pending) {
+      try {
+        // The raw payload is the verified StationEvent we stored.
+        await reconcileEvent(store, stationId, row.raw as any, nowISO);
+        // PHASE 2: consume *_eligible_at via iyzico here — when reconcile set
+        // release_eligible_at (unlock_timeout / gate_closed) trigger a release,
+        // and when reversal_eligible_at is set (late_return_after_penalty)
+        // reverse the penalty. No money moves in Phase 1.
+        //
+        // KNOWN MINOR (acceptable, do not add cross-table transactions): if
+        // updateReservation succeeded but appendReservationEvent then threw, a
+        // retry sees returned_at already set => gate_closed short-circuits to
+        // already_returned, so the audit row is never re-appended. State +
+        // release_eligible_at are still correct => no wrongful penalty; only the
+        // audit row is missing. Acceptable degradation.
+        await store.markReconciled(row.id, nowISO);
+        reconciled += 1;
+      } catch (e) {
+        // Leave reconciled_at NULL so the next ingest call / sweep retries this
+        // exact row. Continue — a single poisoned event must not block others.
+        console.error("[ingest-events] reconcile failed", { seq: row.seq, e });
+      }
+    }
+  } catch (e) {
+    // Listing the queue failed; nothing reconciled this call. The rows are
+    // durably stored, so a later call retries. Don't fail the whole request.
+    console.error("[ingest-events] queue drain threw", e);
+  }
+
+  // ---- Step C: advance the acked cursor over RECONCILED seqs only --------
+  // computeAckedSeq walks CONTIGUOUS reconciled seqs, so acked_seq can never
+  // pass a seq we stored but haven't reconciled — the courier won't drop an
+  // event the server hasn't durably applied.
   let ackedSeq = station.acked_seq ?? 0;
   let lastEventSeq = ackedSeq;
   try {
+    const reconciledSeqs = await store.getReconciledSeqs(stationId);
+    ackedSeq = computeAckedSeq(station.acked_seq ?? 0, reconciledSeqs);
+
+    // last_event_seq tracks the highest seq ever OBSERVED (stored), reconciled
+    // or not — a separate concern from the acked cursor.
     const { data: seqRows, error: seqErr } = await admin
       .from("station_events")
       .select("seq")
-      .eq("station_id", stationId);
+      .eq("station_id", stationId)
+      .order("seq", { ascending: false })
+      .limit(1);
     if (seqErr) {
-      console.error("[ingest-events] seq load failed", seqErr);
+      console.error("[ingest-events] max seq load failed", seqErr);
+      lastEventSeq = Math.max(ackedSeq, ...reconciledSeqs.length ? reconciledSeqs : [ackedSeq]);
     } else {
-      const storedSeqs = (seqRows ?? []).map((r: any) => Number(r.seq));
-      ackedSeq = computeAckedSeq(station.acked_seq ?? 0, storedSeqs);
-      lastEventSeq = storedSeqs.length ? Math.max(...storedSeqs) : ackedSeq;
-      const { error: updErr } = await admin
-        .from("stations")
-        .update({
-          acked_seq: ackedSeq,
-          last_event_seq: lastEventSeq,
-          last_seen_at: nowISO,
-          updated_at: nowISO,
-        })
-        .eq("station_id", stationId);
-      if (updErr) console.error("[ingest-events] station cursor update failed", updErr);
+      lastEventSeq = seqRows?.length ? Number(seqRows[0].seq) : ackedSeq;
     }
+
+    const { error: updErr } = await admin
+      .from("stations")
+      .update({
+        acked_seq: ackedSeq,
+        last_event_seq: lastEventSeq,
+        last_seen_at: nowISO,
+        updated_at: nowISO,
+      })
+      .eq("station_id", stationId);
+    if (updErr) console.error("[ingest-events] station cursor update failed", updErr);
   } catch (e) {
     console.error("[ingest-events] cursor advance threw", e);
   }
 
-  return json({ ok: true, accepted, deduped, rejected, acked_seq: ackedSeq });
+  return json({ ok: true, accepted, deduped, rejected, reconciled, acked_seq: ackedSeq });
 });

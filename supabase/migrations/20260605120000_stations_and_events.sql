@@ -12,6 +12,15 @@
 --                    phones. `unique (station_id, seq)` is the courier dedupe
 --                    key: the same physical event relayed by multiple phones
 --                    collapses to a single row.
+--                    DURABILITY VS RECONCILIATION are decoupled: a row is
+--                    inserted durably FIRST with `reconciled_at` null
+--                    (stored-but-not-yet-reconciled). Reconciliation sets
+--                    `reconciled_at` only on success; a reconcile FAILURE leaves
+--                    it null so the next ingest call (or the Phase 1 Task 5
+--                    sweep) re-drives it. This is the key correctness property:
+--                    the (station_id,seq) dedupe gate never masks an
+--                    un-reconciled event, because reconcile is driven by
+--                    `reconciled_at is null`, NOT by whether the insert was new.
 --
 -- This migration also links reservations to the BLE session / physical gate
 -- that fulfils them, and adds the reconciliation lifecycle timestamps
@@ -71,11 +80,18 @@ create table if not exists public.station_events (
   raw          jsonb not null,
   received_by  uuid,                                       -- phone/user that couriered this event
   received_at  timestamptz not null default now(),
+  reconciled_at timestamptz,                                -- null => stored but not yet reconciled (retry queue)
   unique (station_id, seq)                                 -- courier dedupe key
 );
 
 create index if not exists station_events_session
   on public.station_events(session_id);
+
+-- Partial index for the reconcile/retry drain: cheaply find the un-reconciled
+-- rows for a station, ordered by seq. Failed reconciles stay null and are
+-- retried by the next ingest call or the Phase 1 Task 5 sweep.
+create index if not exists station_events_unreconciled_idx
+  on public.station_events (station_id, seq) where reconciled_at is null;
 
 alter table public.station_events enable row level security;
 -- No policies: only the service role (which bypasses RLS) may read/write.

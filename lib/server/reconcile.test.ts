@@ -368,4 +368,13 @@ describe("computeAckedSeq", () => {
   it("unordered + duplicate stored seqs still walk contiguously", () => {
     expect(computeAckedSeq(0, [3, 1, 2, 2, 5])).toBe(3);
   });
+
+  // Correctness guard for the reconciled_at retry queue: index.ts passes ONLY
+  // the RECONCILED seqs here, never the merely-stored ones. If seqs 1 and 2 are
+  // reconciled but 3 is stored-but-unreconciled (its reconcile threw and left
+  // reconciled_at null), it is NOT in this array, so acked_seq stops at 2 — the
+  // courier never drops the un-applied event 3, and event 3 is retried next call.
+  it("does NOT advance past an unreconciled gap: reconciled [1,2], 3 stored-unreconciled => 2", () => {
+    expect(computeAckedSeq(0, [1, 2])).toBe(2);
+  });
 });
