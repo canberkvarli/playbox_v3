@@ -32,6 +32,8 @@ export type Command = UnlockCommand | ReturnUnlockCommand;
 // advisory only; the server computes durations from event deltas, not wall_ts.
 // Deliberately NOT part of the signable `Command` union and never passed to
 // `signingPayload`.
+//
+// A hostile/buggy phone can send a bogus set_time `now`, so the station wall clock (and every event's wall_ts) is NON-AUTHORITATIVE. The server MUST NOT use wall_ts for billing or duration — derive durations from event-delta (seq-ordered) timing only.
 export type SetTimeCommand = { cmd: "set_time"; now: number };
 
 // Everything writable over the unlock characteristic: the signable commands plus
@@ -54,7 +56,11 @@ export function signingPayload(cmd: Command): string {
 // Station→phone events are signed + sequenced so they can be relayed by
 // untrusted "courier" phones and verified server-side.
 //   seq: monotonic per-station counter (replay/ordering protection)
-//   ts:  event wall-clock unix seconds
+//   ts:  event wall-clock unix seconds (a.k.a. wall_ts) — NON-AUTHORITATIVE.
+//        A hostile/buggy phone can send a bogus set_time `now`, so the station
+//        wall clock (and every event's wall_ts) is untrusted. The server MUST
+//        NOT use wall_ts for billing or duration — derive durations from
+//        event-delta (seq-ordered) timing only.
 //   sig: hex-encoded HMAC-SHA256 over `eventSigningPayload(event)`
 type EventBase = { seq: number; ts: number; sig: string };
 

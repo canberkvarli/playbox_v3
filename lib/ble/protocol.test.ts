@@ -66,6 +66,11 @@ describe("signingPayload", () => {
     });
     expect(payload).toBe("unlock|2|sess-abc|60|1712345678");
   });
+
+  it("rejects set_time at the type level (signingPayload is not widenable to AnyCommand)", () => {
+    // @ts-expect-error set_time is intentionally non-signable
+    expect(() => signingPayload({ cmd: "set_time", now: 1 })).toBeDefined();
+  });
 });
 
 describe("decodeEvent", () => {
