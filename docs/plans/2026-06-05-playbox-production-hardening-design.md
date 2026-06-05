@@ -117,7 +117,7 @@ Sealed lead-acid has hard rules that must shape firmware + ops:
   - Hard floor (~11.0–11.3V): protect the battery; never deep-discharge below ~10.5V.
 - **Servo brownout guard:** measure battery before actuating; if below the actuation floor, report `battery_critical` rather than browning out mid-move. Keep the separate buck supply (LM2596) for the servo rail.
 - **Fail-safe on power loss:** gates hold their last physical position (servo unpowered). Define operationally: a station that dies mid-session leaves that gate physically as-is until serviced; the session auto-closes server-side on the abandoned-timer, and support reconciles the deposit when the gear is recovered.
-- **Recharge cadence is an operational metric.** Battery telemetry couriered out = the "go service station X" signal (equip's "easy to maintain" parallel). Track runtime/discharge rate per station in the ops view.
+- **Recharge cadence is an operational metric.** Recharge is **manual / on-site (jumper-cable style)** — no solar, no battery swap. So battery telemetry couriered out = the "go service station X" signal (equip's "easy to maintain" parallel), and it must give **enough lead time for a human to travel out** before the station hits `battery_critical`. Set `battery_low` conservatively (≈40% / ~11.9V) and track per-station discharge rate so the ops view can predict "service by date X."
 
 ---
 
@@ -203,8 +203,8 @@ Protocol codec (exists) + signing/seq · reconciliation dedupe/idempotency · si
 
 ## 13. Open questions / risks
 
-- **Recharge logistics:** how is the 12V 7Ah recharged — solar trickle, swap, or mains service visit? Determines battery-telemetry alerting cadence.
-- **Deposit amount & local payment rails** in Turkey (Clerk handles auth, but which PSP for holds/captures — iyzico? Stripe TR?).
+- **Recharge logistics:** ✅ Resolved — **manual on-site recharge (jumper-cable style)**, no solar/swap. Implication: battery alerting must give human travel lead time (see §7); track discharge rate per station to predict service-by dates.
+- **Payment rails:** ✅ Resolved — **iyzico** (Turkey), wired in Phase 2. Deposit amount TBD.
 - **NVS wear:** ring-buffer write frequency vs flash endurance — bound writes (batch, only on state change).
 - **Time-anchor trust:** is `set_time` signed, or trusted-on-connect? A malicious phone skewing `boot_epoch` only affects advisory `wall_ts` (durations come from deltas), but worth deciding.
 - **Multi-gate secret scope:** one secret per station vs per gate.

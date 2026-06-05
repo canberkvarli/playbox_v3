@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx eas-cli:*)",
+      "Bash([ -s \"$F\" ])",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts, null, 2\\)\\)\")",
+      "Bash(npx eas-cli@latest update --branch production --message \"feat\\(theme\\): app-wide palette → navy #1a1f3a / orange #e87527 / purple #a85a8e to match hardware\" --non-interactive)",
+      "Bash(npx eas-cli@latest update --branch preview --message \"feat\\(theme\\): app-wide palette → navy #1a1f3a / orange #e87527 / purple #a85a8e to match hardware\" --non-interactive)",
+      "Bash(npx eas-cli@latest build:list --platform ios --limit 5 --json --non-interactive)",
+      "Bash(python3 -c \"import json,sys; bs=json.load\\(sys.stdin\\); [print\\(b.get\\('buildNumber'\\),b.get\\('appVersion'\\),'channel=',b.get\\('channel'\\),'runtime=',b.get\\('runtimeVersion'\\),'profile=',b.get\\('buildProfile'\\),'status=',b.get\\('status'\\),'updates=',b.get\\('updatesChannelInfo'\\)\\) for b in bs]\")",
+      "Bash(python3 -c \"import json,sys; bs=json.load\\(sys.stdin\\); print\\(list\\(bs[0].keys\\(\\)\\)\\)\")",
+      "Bash(npx eas-cli@latest build:list --platform ios --limit 10 --json --non-interactive)",
+      "Bash(python3 -c \"import json,sys; bs=json.load\\(sys.stdin\\); [print\\('build',b['appBuildVersion'],'ver',b['appVersion'],'chan',b['channel'],'rt',b['runtimeVersion'],'fp',b['fingerprint']['hash'][:10] if b.get\\('fingerprint'\\) else None,'profile',b['buildProfile'],'status',b['status']\\) for b in bs]\")",
+      "Bash(npx eas-cli@latest channel:view production --json --non-interactive)",
+      "Bash(npx eas-cli@latest update --branch production --message \"feat\\(settings\\): force-pull OTA button + theme palette\" --non-interactive)",
+      "Bash(npx eas-cli@latest update --branch preview --message \"feat\\(settings\\): force-pull OTA button + theme palette\" --non-interactive)",
+      "Bash(npx eas-cli@latest build --platform ios --profile production --auto-submit --non-interactive --no-wait)",
+      "Bash(gh auth:*)",
+      "Bash(gh api:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/canberkvarli/Development/playbox-web",
+      "/Users/canberkvarli/.claude"
+    ]
+  }
+}
