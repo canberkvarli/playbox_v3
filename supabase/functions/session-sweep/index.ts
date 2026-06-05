@@ -39,6 +39,10 @@ import { shouldFlagAbandoned } from "./abandoned.ts";
 // Fallback when app_config has no `max_session_in_use_min` row (minutes).
 const DEFAULT_MAX_SESSION_IN_USE_MIN = 90;
 
+// Max abandoned-candidate rows scanned per cron sweep. If a sweep returns
+// exactly this many rows, a backlog likely exists and is drained next run.
+const ABANDONED_SCAN_LIMIT = 200;
+
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
   if (opt) return opt;
@@ -88,13 +92,18 @@ Deno.serve(async (req) => {
       .not("opened_at", "is", null)
       .is("returned_at", null)
       .is("penalty_eligible_at", null)
-      .limit(isServiceRole ? 200 : 5);
+      .limit(isServiceRole ? ABANDONED_SCAN_LIMIT : 5);
     if (!isServiceRole) q = q.eq("user_id", userId);
 
     const { data: rows, error } = await q;
     if (error) {
       console.error("[session-sweep] abandoned query failed", error);
     } else {
+      if (isServiceRole && (rows?.length ?? 0) === ABANDONED_SCAN_LIMIT) {
+        console.warn(
+          `[session-sweep] abandoned Pass 1 hit row cap (${ABANDONED_SCAN_LIMIT}) — backlog may exist, will continue next run`,
+        );
+      }
       for (const r of rows ?? []) {
         if (!shouldFlagAbandoned(r, nowMs, maxInUseMs)) continue;
         try {

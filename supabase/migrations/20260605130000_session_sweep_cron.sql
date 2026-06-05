@@ -35,6 +35,9 @@ insert into public.app_config (key, value) values
   ('max_session_in_use_min', '90'::jsonb)
 on conflict (key) do nothing;
 
+-- make re-apply idempotent: drop any existing job of this name first
+select cron.unschedule('session-sweep') where exists (select 1 from cron.job where jobname = 'session-sweep');
+
 select cron.schedule(
   'session-sweep',
   '* * * * *',
