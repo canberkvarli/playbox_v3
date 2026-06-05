@@ -27,6 +27,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { handleOptions, json } from '../_shared/cors.ts';
 import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
 import { signUnlock, signReturnUnlock } from '../_shared/blesign.ts';
+import { selectReservationToLink } from './link-session.ts';
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -39,6 +40,7 @@ Deno.serve(async (req) => {
     session_id?: string;
     duration_min?: number;
     dev_bypass?: boolean;
+    ts?: number;
   };
   try {
     body = await req.json();
@@ -101,13 +103,77 @@ Deno.serve(async (req) => {
     console.log('[sign-unlock] dev_bypass for DEV-001 — skipping hold check');
   }
 
+  let signed: string;
   try {
-    const signed = cmd === 'unlock'
+    signed = cmd === 'unlock'
       ? await signUnlock({ station_id, gate, session_id, duration_min })
       : await signReturnUnlock({ station_id, gate, session_id });
-    return json({ ok: true, payload: signed });
   } catch (e) {
     console.error('[sign-unlock] signing failed', e);
     return json({ ok: false, error: 'sign_failed', detail: String(e?.message ?? e) }, 500);
   }
+
+  // Best-effort: persist the BLE session<->reservation linkage so the server
+  // can later tie an incoming `gate_closed`/`gate_opened` event (which carries
+  // only session_id) back to the reservation it fulfils. This is the keystone
+  // of server-side reconciliation, but it is SECONDARY to the unlock itself:
+  // if anything below fails we log and continue — the unlock payload has
+  // already been signed and the user must still be able to open the gate.
+  //
+  // We only do this for a real `unlock` from an authenticated user (the
+  // DEV-001 dev_bypass path has no reservation to link).
+  //
+  // The actual decision (which reservation, idempotency, conflict handling)
+  // lives in the pure, Jest-tested ./link-session.ts; here we only do I/O.
+  if (cmd === 'unlock' && userId) {
+    try {
+      const { data: candidates, error: candErr } = await admin
+        .from('reservations')
+        .select('id, status, gate_id, ble_session_id, created_at')
+        .eq('user_id', userId)
+        .eq('station_id', station_id)
+        .in('status', ['active', 'consumed'])
+        .order('created_at', { ascending: false });
+
+      if (candErr) {
+        console.error('[sign-unlock] reservation lookup failed (non-blocking)', candErr);
+      } else {
+        // The signed unlock targets a specific physical gate. reservations.gate_id
+        // is the gate identifier (TEXT). The BLE payload carries `gate` as a
+        // number; we compare against gate_id as a string.
+        const gateId = String(gate);
+        const decision = selectReservationToLink(candidates ?? [], gateId, session_id);
+
+        if ('reservationId' in decision) {
+          // Guard with user_id so we can never touch another user's row.
+          const { error: updErr } = await admin
+            .from('reservations')
+            .update({ ble_session_id: session_id })
+            .eq('id', decision.reservationId)
+            .eq('user_id', userId);
+
+          if (updErr) {
+            console.error('[sign-unlock] ble_session_id update failed (non-blocking)', updErr);
+          } else {
+            // opened_at stays null until the gate_opened event arrives.
+            const { error: evtErr } = await admin.from('reservation_events').insert({
+              reservation_id: decision.reservationId,
+              kind: 'unlock_signed',
+              payload: { session_id, gate_id: gateId, ts: body.ts ?? null },
+            });
+            if (evtErr) {
+              console.error('[sign-unlock] reservation_events insert failed (non-blocking)', evtErr);
+            }
+          }
+        } else {
+          console.log('[sign-unlock] no linkage applied', decision);
+        }
+      }
+    } catch (linkErr) {
+      // Reconciliation is secondary — never fail the unlock for it.
+      console.error('[sign-unlock] linkage step threw (non-blocking)', linkErr);
+    }
+  }
+
+  return json({ ok: true, payload: signed });
 });
