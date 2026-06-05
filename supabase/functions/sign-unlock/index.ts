@@ -37,6 +37,9 @@ Deno.serve(async (req) => {
     cmd?: 'unlock' | 'return_unlock';
     station_id?: string;
     gate?: number;
+    // Reservation slug (e.g. "DEV-001-football-1") the client holds from the
+    // reserve flow. Used ONLY for reservation linkage, never for signing.
+    gate_id?: string;
     session_id?: string;
     duration_min?: number;
     dev_bypass?: boolean;
@@ -57,7 +60,15 @@ Deno.serve(async (req) => {
   }
 
   const cmd = body.cmd ?? 'unlock';
-  const { station_id, gate, session_id } = body;
+  // NOTE on the two gate identifiers:
+  //   `gate`    — numeric 1-indexed physical solenoid. Used for the BLE HMAC
+  //               signature (firmware addresses solenoids by number). NEVER
+  //               touched by linkage.
+  //   `gate_id` — the reservation slug (e.g. "DEV-001-football-1") the client
+  //               already used to reserve. Used ONLY to link the reservation.
+  //               Matching by the exact slug avoids the multi-sport numeric
+  //               ambiguity (football-1 vs basketball-1 both end in "1").
+  const { station_id, gate, gate_id, session_id } = body;
   const duration_min = body.duration_min ?? 30;
   const dev_bypass = body.dev_bypass === true;
 
@@ -123,10 +134,26 @@ Deno.serve(async (req) => {
   // We only do this for a real `unlock` from an authenticated user (the
   // DEV-001 dev_bypass path has no reservation to link).
   //
+  // Linkage is keyed off the OPTIONAL `gate_id` slug the client sends — NOT the
+  // numeric `gate`. reservations.gate_id is a slug like "DEV-001-football-1"
+  // (`${stationId}-${sport}-${n}`), so matching against the bare number ("1")
+  // would never match — and would be ambiguous across sports even if it did.
+  // If the client omits gate_id we skip linkage entirely (best-effort): we do
+  // NOT guess from the numeric gate.
+  //
+  // PHASE 3 (client wiring): the app's
+  //   supabase.functions.invoke('sign-unlock', { body: { ... } })
+  // call MUST include `gate_id` (the same reservation slug it used to reserve)
+  // for linkage to fire. Until then, linkage no-ops safely (logged below) and
+  // the unlock itself is unaffected.
+  //
   // The actual decision (which reservation, idempotency, conflict handling)
   // lives in the pure, Jest-tested ./link-session.ts; here we only do I/O.
   if (cmd === 'unlock' && userId) {
     try {
+      if (!gate_id) {
+        console.log('[sign-unlock] linkage skipped: no gate_id in request');
+      } else {
       const { data: candidates, error: candErr } = await admin
         .from('reservations')
         .select('id, status, gate_id, ble_session_id, created_at')
@@ -138,10 +165,9 @@ Deno.serve(async (req) => {
       if (candErr) {
         console.error('[sign-unlock] reservation lookup failed (non-blocking)', candErr);
       } else {
-        // The signed unlock targets a specific physical gate. reservations.gate_id
-        // is the gate identifier (TEXT). The BLE payload carries `gate` as a
-        // number; we compare against gate_id as a string.
-        const gateId = String(gate);
+        // Link by the EXACT reservation slug the client holds (e.g.
+        // "DEV-001-football-1"). The numeric `gate` is for the BLE HMAC only.
+        const gateId = gate_id;
         const decision = selectReservationToLink(candidates ?? [], gateId, session_id);
 
         if ('reservationId' in decision) {
@@ -168,6 +194,7 @@ Deno.serve(async (req) => {
         } else {
           console.log('[sign-unlock] no linkage applied', decision);
         }
+      }
       }
     } catch (linkErr) {
       // Reconciliation is secondary — never fail the unlock for it.

@@ -56,9 +56,15 @@ const STATUS_RANK: Record<string, number> = {
  * Selects which of the caller's candidate reservations to link to `sessionId`
  * for the target `gateId`, or returns a skip reason.
  *
+ * `gateId` is the reservation SLUG (e.g. "DEV-001-football-1"), NOT a number.
+ * reservations.gate_id is `${stationId}-${sport}-${n}`, so matching is done on
+ * the exact slug — this avoids the multi-sport numeric ambiguity (football-1
+ * vs basketball-1 both trail "1"). The caller passes the slug the client held
+ * from the reserve flow; the numeric physical gate is only used for signing.
+ *
  * Rules (pure, total — no I/O, no throws for normal input):
  *  1. Filter to candidates whose status is linkable (active/consumed) AND
- *     whose gate_id === gateId.
+ *     whose gate_id === gateId (exact slug match).
  *  2. If none remain → `{ skip: 'no_match' }`.
  *  3. Otherwise pick the best: prefer `consumed` over `active`; within the same
  *     status, prefer the most-recent by `created_at` (later wins; missing
