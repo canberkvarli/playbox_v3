@@ -122,34 +122,38 @@ export function encodeCommand(cmd: Command): string {
   return JSON.stringify(cmd);
 }
 
+// Every station event carries these signed/sequenced base fields. Single-sourced
+// so adding an event can't silently drop one (drift risk).
+const BASE_FIELDS = ["seq", "ts", "sig"] as const;
+
 export function decodeEvent(raw: string): StationEvent {
   const parsed = JSON.parse(raw);
   const kind = parsed?.event;
 
   switch (kind) {
     case "gate_closed":
-      requireFields(parsed, ["gate", "session_id", "seq", "ts", "sig"], "gate_closed");
+      requireFields(parsed, [...BASE_FIELDS, "gate", "session_id"], "gate_closed");
       return parsed as GateClosedEvent;
     case "gate_opened":
-      requireFields(parsed, ["gate", "session_id", "seq", "ts", "sig"], "gate_opened");
+      requireFields(parsed, [...BASE_FIELDS, "gate", "session_id"], "gate_opened");
       return parsed as GateOpenedEvent;
     case "battery_low":
-      requireFields(parsed, ["mv", "seq", "ts", "sig"], "battery_low");
+      requireFields(parsed, [...BASE_FIELDS, "mv"], "battery_low");
       return parsed as BatteryLowEvent;
     case "battery_critical":
-      requireFields(parsed, ["mv", "seq", "ts", "sig"], "battery_critical");
+      requireFields(parsed, [...BASE_FIELDS, "mv"], "battery_critical");
       return parsed as BatteryCriticalEvent;
     case "boot":
-      requireFields(parsed, ["seq", "ts", "sig"], "boot");
+      requireFields(parsed, [...BASE_FIELDS], "boot");
       return parsed as BootEvent;
     case "unlock_timeout":
-      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "unlock_timeout");
+      requireFields(parsed, [...BASE_FIELDS, "session_id"], "unlock_timeout");
       return parsed as UnlockTimeoutEvent;
     case "return_timeout":
-      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "return_timeout");
+      requireFields(parsed, [...BASE_FIELDS, "session_id"], "return_timeout");
       return parsed as ReturnTimeoutEvent;
     case "ball_overdue":
-      requireFields(parsed, ["session_id", "seq", "ts", "sig"], "ball_overdue");
+      requireFields(parsed, [...BASE_FIELDS, "session_id"], "ball_overdue");
       return parsed as BallOverdueEvent;
     default:
       throw new Error(`unknown event kind: ${kind}`);

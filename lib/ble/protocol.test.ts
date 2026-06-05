@@ -86,6 +86,12 @@ describe("decodeEvent", () => {
     });
   });
 
+  it("parses a fully-signed battery_critical", () => {
+    const raw = JSON.stringify({ event: "battery_critical", mv: 11500, seq: 8, ts: 120, sig: "ff00" });
+    const e = decodeEvent(raw);
+    expect(e).toMatchObject({ event: "battery_critical", mv: 11500, seq: 8, sig: "ff00" });
+  });
+
   it("requires seq and sig on every event", () => {
     const raw = JSON.stringify({ event: "boot", ts: 5 }); // no seq/sig
     expect(() => decodeEvent(raw)).toThrow(
