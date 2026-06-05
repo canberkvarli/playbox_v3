@@ -12,7 +12,7 @@
 // Phase 0: secrets are pulled from env vars by station_id. Phase 1+ will
 // store them in a `stations` table and look them up per-station.
 
-async function hmacSha256Hex(secretHex: string, payload: string): Promise<string> {
+export async function hmacSha256Hex(secretHex: string, payload: string): Promise<string> {
   // Station secrets are stored as 64-char hex strings (= 32 raw bytes).
   // Decode to bytes before importing — using the hex-string representation
   // as the key directly would still "work" but firmware-side mbedtls expects

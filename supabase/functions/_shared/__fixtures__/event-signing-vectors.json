@@ -1,0 +1,35 @@
+[
+  {
+    "secretHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "event": {
+      "event": "gate_closed",
+      "gate": 1,
+      "session_id": "s1",
+      "seq": 2,
+      "ts": 100
+    },
+    "canonical": "gate_closed|1|s1|2|100|",
+    "sig": "33414e3eb9a1788c3c19cf620e5d064cb549f5a8b377b02d465ff3285fd6fd85"
+  },
+  {
+    "secretHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "event": {
+      "event": "boot",
+      "seq": 1,
+      "ts": 50
+    },
+    "canonical": "boot|||1|50|",
+    "sig": "37785915bc2d36e877a1c77fcd51c5fe6c505c5afff411f719c5dd99313cbb32"
+  },
+  {
+    "secretHex": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+    "event": {
+      "event": "battery_low",
+      "mv": 11900,
+      "seq": 7,
+      "ts": 200
+    },
+    "canonical": "battery_low|||7|200|11900",
+    "sig": "ac24c55c0bae44c1c4b142c71f4657d1f1ce930e44d0421a302cc748811f50ea"
+  }
+]
