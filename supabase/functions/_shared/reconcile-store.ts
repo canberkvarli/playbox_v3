@@ -24,6 +24,12 @@ export type UnreconciledRow = {
 // success, and reporting which seqs ARE reconciled (so the cursor never acks
 // past an un-reconciled gap). reconcile.ts stays unaware of any of this.
 export interface EventQueueStore {
+  upsertStationEvent(row: {
+    stationId: string;
+    seq: number;
+    event: Record<string, unknown>;
+    receivedBy?: string | null;
+  }): Promise<{ inserted: boolean }>;
   getUnreconciledEvents(stationId: string): Promise<UnreconciledRow[]>;
   markReconciled(eventId: number, nowISO: string): Promise<void>;
   getReconciledSeqs(stationId: string): Promise<number[]>;
@@ -35,6 +41,39 @@ export class SupabaseReconcileStore implements ReconcileStore, EventQueueStore {
   constructor(private readonly admin: any) {}
 
   // --- EventQueueStore (ingest orchestration; not the domain port) ---------
+
+  // Dedupe-insert one verified event with reconciled_at left NULL. onConflict
+  // (station_id,seq) + ignoreDuplicates means a re-relayed event collapses to
+  // the existing row; the selected-back rows tell us inserted (new) vs deduped.
+  // This does NOT gate reconciliation — Step B re-drives any reconciled_at-NULL
+  // row regardless of inserted.
+  async upsertStationEvent(row: {
+    stationId: string;
+    seq: number;
+    event: Record<string, unknown>;
+    receivedBy?: string | null;
+  }): Promise<{ inserted: boolean }> {
+    const ev = row.event as any;
+    const { data, error } = await this.admin
+      .from("station_events")
+      .upsert(
+        {
+          station_id: row.stationId,
+          seq: row.seq,
+          event: ev.event,
+          gate: ev.gate ?? null,
+          session_id: ev.session_id ?? null,
+          wall_ts: ev.ts ?? 0,
+          sig: ev.sig,
+          raw: ev,
+          received_by: row.receivedBy ?? null,
+        },
+        { onConflict: "station_id,seq", ignoreDuplicates: true },
+      )
+      .select("id");
+    if (error) throw error;
+    return { inserted: Array.isArray(data) && data.length > 0 };
+  }
 
   // All station_events for this station still awaiting reconciliation,
   // seq-ascending so effects apply in physical order. Includes both rows just
