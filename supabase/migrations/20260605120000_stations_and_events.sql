@@ -17,6 +17,19 @@
 -- that fulfils them, and adds the reconciliation lifecycle timestamps
 -- (opened / returned / release / penalty / reversal eligibility).
 --
+-- New reservation_events `kind`s introduced across Phase 1 (audit rows written
+-- by sign-unlock + the ingest-events reconciler; no schema change needed since
+-- reservation_events.kind is free-text):
+--   unlock_signed            — server signed a BLE unlock for this reservation
+--   gate_opened              — station reported the gate physically opened
+--   gate_closed              — station reported the gate physically closed
+--   unlock_timeout           — gate never opened before the unlock window lapsed
+--   return_timeout           — return window lapsed (session kept open)
+--   ball_overdue             — borrowed ball not returned in time
+--   abandoned                — session abandoned (no open / no return)
+--   late_return_after_penalty — gate_closed arrived after penalty was eligible
+--                               (drives reversal_eligible_at)
+--
 -- Secrets: each station's HMAC signing key lives in Supabase Vault, referenced
 -- by `stations.secret_vault_id` (vault.secrets.id). It is nullable; when null,
 -- the server falls back to an environment-variable shared secret. All access
