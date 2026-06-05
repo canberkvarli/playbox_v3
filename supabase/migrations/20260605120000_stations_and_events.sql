@@ -68,13 +68,15 @@ alter table public.station_events enable row level security;
 -- No policies: only the service role (which bypasses RLS) may read/write.
 
 ------------------------------------------------------------
--- reservations: link to the BLE session / physical gate + reconciliation
--- lifecycle timestamps. `station_id` already exists (text not null) and is
--- left untouched; `gate_id text` also already exists. We add a numeric `gate`
--- column distinct from the existing textual `gate_id`.
+-- reservations: link to the BLE session + reconciliation lifecycle
+-- timestamps. `station_id` already exists (text not null) and is left
+-- untouched.
+--
+-- gate identity stays on the existing reservations.gate_id (text); events
+-- reconcile by ble_session_id, so no numeric gate column is added here.
+-- station_events.gate holds the raw numeric gate from the BLE payload.
 ------------------------------------------------------------
 alter table public.reservations add column if not exists ble_session_id        text;
-alter table public.reservations add column if not exists gate                  int;
 alter table public.reservations add column if not exists opened_at             timestamptz;
 alter table public.reservations add column if not exists returned_at           timestamptz;
 alter table public.reservations add column if not exists release_eligible_at   timestamptz;
