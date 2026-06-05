@@ -108,6 +108,11 @@ alter table public.station_events enable row level security;
 alter table public.reservations add column if not exists ble_session_id        text;
 alter table public.reservations add column if not exists opened_at             timestamptz;
 alter table public.reservations add column if not exists returned_at           timestamptz;
+-- PHASE 2 settlement precedence (money seam — Phase 1 only sets these flags, never moves money):
+--   reversal_eligible_at  => a penalty may have been captured; REFUND it. Wins over penalty.
+--   penalty_eligible_at   => capture the safety deposit/penalty (abandoned/not returned). Cleared on late return.
+--   release_eligible_at    => baseline: release the hold (on-time/confirmed return or void).
+-- A returned ball must never be penalized: gate_closed clears penalty_eligible_at when setting reversal_eligible_at.
 alter table public.reservations add column if not exists release_eligible_at   timestamptz;
 alter table public.reservations add column if not exists penalty_eligible_at   timestamptz;
 alter table public.reservations add column if not exists reversal_eligible_at  timestamptz;

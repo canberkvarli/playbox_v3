@@ -127,9 +127,17 @@ async function gateClosed(
 
   // Late return: the penalty window already elapsed (penalty_eligible_at was
   // set, presumably by a sweep). The ball/gate DID come back, so the penalty is
-  // reversible — flag reversal_eligible_at and audit the late return.
+  // reversible — flag reversal_eligible_at and audit the late return. We ALSO
+  // clear penalty_eligible_at in the SAME update: reversal_eligible_at tells
+  // Phase 2 "refund any penalty already captured", and clearing
+  // penalty_eligible_at prevents Phase 2 from capturing a penalty that hasn't
+  // been processed yet. Together they make the returned-ball-still-penalized
+  // state impossible regardless of Phase-2 read order.
   const late = r.penalty_eligible_at != null;
-  if (late) fields.reversal_eligible_at = nowISO;
+  if (late) {
+    fields.reversal_eligible_at = nowISO;
+    fields.penalty_eligible_at = null;
+  }
 
   await store.updateReservation(r.id, fields);
   await store.appendReservationEvent(r.id, "gate_closed", {

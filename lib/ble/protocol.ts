@@ -167,7 +167,7 @@ export function eventSigningPayload(e: StationEvent): string {
   const session = "session_id" in e ? String(e.session_id) : "";
   const extra =
     e.event === "battery_low" || e.event === "battery_critical"
-      ? String(e.mv)
+      ? (e.mv == null ? "" : String(e.mv))
       : "";
   return `${e.event}|${gate}|${session}|${e.seq}|${e.ts}|${extra}`;
 }

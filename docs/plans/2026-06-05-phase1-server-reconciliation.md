@@ -229,3 +229,12 @@ export async function verifyEventSig(ev, secretHex) {
 - Abandoned sweep flags penalty-eligible sessions.
 - **Simulator: all 7 scenarios green** — the loop is provably correct before hardware arrives.
 ```
+
+## Phase 1 follow-ups / Phase 2 preconditions
+
+From the holistic review. These are documented, NOT implemented in Phase 1.
+
+- **Audit-row concurrency (Important):** ingest Step B and sweep Pass 2 can both drain the same `reconciled_at IS NULL` row concurrently → duplicate `reservation_events` audit rows (money flags stay correct; this is audit-only). Recommended fix before production: a partial unique index on `reservation_events(reservation_id, kind)` (or `(reservation_id, kind, (payload->>'seq'))`) for the reconcile-derived kinds, with the append using `ON CONFLICT DO NOTHING`; OR claim the queue row with `FOR UPDATE SKIP LOCKED` during drain.
+- **`session_id` pipe invariant unenforced** (defense-in-depth; the `|`-collision attack needs the station secret to exploit, so low risk — but enforce the `[A-Za-z0-9-]` contract server-side eventually).
+- **`getStationAckedSeq` closes over a pre-fetched value** and ignores its arg in `index.ts` (harmless while it's single-station-per-request; fix if that dep is ever reused for multiple stations).
+- **Type-duplicated contracts** (`EventQueueStore`/`UnreconciledRow` across `process.ts` & `reconcile-store.ts`; env secret-name convention across ingest `index.ts` & `blesign.ts`) — only the canonical string has a parity test; the others fail-closed or are TS-checked at the Deno boundary, so drift is caught, but consider single-sourcing.

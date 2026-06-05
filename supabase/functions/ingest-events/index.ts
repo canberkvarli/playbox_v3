@@ -50,6 +50,12 @@ import { verifyEventSig } from "../_shared/eventverify.ts";
 import { SupabaseReconcileStore } from "../_shared/reconcile-store.ts";
 import { processIngest } from "./process.ts";
 
+// DoS guard: cap the number of events processed per request. sig-verification
+// already prevents poisoning (every event is HMAC-checked against the station
+// secret), but this bound caps the per-request verify + DB cost an authenticated
+// courier can force in a single call.
+const MAX_EVENTS_PER_BATCH = 256;
+
 type Ack = { acked_seq: number };
 type Input = {
   station_id?: string;
@@ -108,6 +114,10 @@ Deno.serve(async (req) => {
   const stationId = input.station_id;
   const events = Array.isArray(input.events) ? input.events : null;
   if (!stationId || !events) return json({ ok: false, error: "bad_request" }, 400);
+  // Bound the batch before any verify/DB work (see MAX_EVENTS_PER_BATCH above).
+  if (events.length > MAX_EVENTS_PER_BATCH) {
+    return json({ ok: false, error: "too_many_events" }, 400);
+  }
 
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

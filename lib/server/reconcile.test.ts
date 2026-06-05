@@ -190,6 +190,9 @@ describe("reconcileEvent — gate_closed", () => {
     expect(store.res("r1").returned_at).toBe(NOW);
     expect(store.res("r1").release_eligible_at).toBe(NOW);
     expect(store.res("r1").reversal_eligible_at).toBe(NOW);
+    // penalty_eligible_at MUST be cleared so Phase 2 cannot capture a penalty on
+    // a ball that has been returned (returned-ball-still-penalized is impossible).
+    expect(store.res("r1").penalty_eligible_at).toBeNull();
     expect(store.appendsOf("gate_closed")).toHaveLength(1);
     expect(store.appendsOf("late_return_after_penalty")).toHaveLength(1);
   });
