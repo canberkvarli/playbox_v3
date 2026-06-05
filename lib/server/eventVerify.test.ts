@@ -31,6 +31,12 @@ it("rejects a malformed (non-hex/garbage) sig without throwing", () => {
   expect(verifyEventSig({ ...e, sig: "abc" }, SECRET)).toBe(false); // odd-length
 });
 
+it("returns false (no throw) when sig is non-string (adversarial wire JSON)", () => {
+  const e = sign({ event: "boot", seq: 1, ts: 50, sig: "" });
+  expect(verifyEventSig({ ...e, sig: undefined as any }, SECRET)).toBe(false);
+  expect(verifyEventSig({ ...e, sig: 12345 as any }, SECRET)).toBe(false);
+});
+
 it("dedupes by (station_id, seq)", () => {
   const seen = new Set<string>();
   expect(isDuplicate(seen, "DEV-001", 2)).toBe(false); // first time
