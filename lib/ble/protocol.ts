@@ -26,6 +26,19 @@ export type ReturnUnlockCommand = {
 
 export type Command = UnlockCommand | ReturnUnlockCommand;
 
+// UNSIGNED. Written on connect to anchor the station's wall clock
+// (boot_epoch = now − millis()/1000). The phone cannot sign this — it holds no
+// station secret — and that's safe because the resulting `wall_ts` on events is
+// advisory only; the server computes durations from event deltas, not wall_ts.
+// Deliberately NOT part of the signable `Command` union and never passed to
+// `signingPayload`.
+export type SetTimeCommand = { cmd: "set_time"; now: number };
+
+// Everything writable over the unlock characteristic: the signable commands plus
+// the unsigned set_time. `encodeCommand` accepts this wider set; `signingPayload`
+// stays narrowed to `Command`.
+export type AnyCommand = Command | SetTimeCommand;
+
 // Canonical string the firmware HMACs over. Must match exactly on both sides.
 //
 // INVARIANT: `session_id` MUST be restricted to [A-Za-z0-9-] (no `|`). The
@@ -118,7 +131,7 @@ export function eventSigningPayload(e: StationEvent): string {
   return `${e.event}|${gate}|${session}|${e.seq}|${e.ts}|${extra}`;
 }
 
-export function encodeCommand(cmd: Command): string {
+export function encodeCommand(cmd: AnyCommand): string {
   return JSON.stringify(cmd);
 }
 

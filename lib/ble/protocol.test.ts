@@ -1,5 +1,6 @@
 import {
   encodeCommand,
+  signingPayload,
   decodeEvent,
   eventSigningPayload,
   SERVICE_UUID,
@@ -43,6 +44,27 @@ describe("encodeCommand", () => {
       ts: 1712345678,
       sig: "cafebabe".repeat(8),
     });
+  });
+
+  it("encodes set_time as an unsigned command", () => {
+    const cmd = { cmd: "set_time", now: 1717600000 } as const;
+    expect(JSON.parse(encodeCommand(cmd))).toEqual({ cmd: "set_time", now: 1717600000 });
+  });
+});
+
+describe("signingPayload", () => {
+  // Regression guard: signingPayload must keep accepting only signable
+  // commands (unlock/return_unlock). set_time is intentionally NOT signable.
+  it("builds the canonical signing string for an unlock command", () => {
+    const payload = signingPayload({
+      cmd: "unlock",
+      gate: 2,
+      session_id: "sess-abc",
+      duration_min: 60,
+      ts: 1712345678,
+      sig: "deadbeef".repeat(8),
+    });
+    expect(payload).toBe("unlock|2|sess-abc|60|1712345678");
   });
 });
 
