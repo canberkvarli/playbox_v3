@@ -28,6 +28,7 @@ import {
   refundConversationId,
   releaseConversationId,
 } from "./refundConversationId.ts";
+import { isSettlementBlocked, shouldQuarantine } from "./guards.ts";
 
 // ── PORT: iyzico money ops. Each returns { ok } — true ONLY on a confirmed
 // money move (the Deno adapter maps iyzico status==='success' -> ok:true). ──
@@ -63,6 +64,13 @@ export type SettlementCandidate = {
   release_eligible_at: string | null;
   penalty_eligible_at: string | null;
   reversal_eligible_at: string | null;
+  // Phase 4 abuse/quarantine guards. A non-null disputed_at (operator review) or
+  // quarantined_at (parked after repeated settle failures) makes the row BLOCKED:
+  // it is skipped before decide/iyzico (isSettlementBlocked). settle_attempts is
+  // the running count of failed settlement attempts driving the quarantine.
+  disputed_at: string | null;
+  quarantined_at: string | null;
+  settle_attempts: number;
 };
 
 // ── PORT: persistence. getCandidates is the actionable scan; markSettled flips
@@ -81,6 +89,13 @@ export type SettlementStore = {
     expectedFrom: DepositState,
   ): Promise<void>;
   appendReservationEvent(id: string, kind: string, payload: unknown): Promise<void>;
+  // ── Phase 4 quarantine ports. recordFailedAttempt bumps settle_attempts and
+  // stores settle_last_error on EVERY iyzico failure (ok:false / throw). When
+  // the bumped count reaches settle_max_attempts, quarantine parks the row by
+  // setting quarantined_at so the worker stops retrying it forever. NEITHER is
+  // called on the success path — state flips still ride only on a confirmed move.
+  recordFailedAttempt(id: string, errorText: string): Promise<void>;
+  quarantine(id: string, nowISO: string): Promise<void>;
 };
 
 export type SettlementCounts = {
@@ -89,6 +104,8 @@ export type SettlementCounts = {
   refunded: number;
   failed: number;
   skipped: number;
+  // Rows parked this sweep after hitting settle_max_attempts failures.
+  quarantined: number;
 };
 
 const DEFAULT_LIMIT = 200;
@@ -120,9 +137,11 @@ export async function processSettlement(deps: {
   now: () => string;
   ip: string;
   priceTry: string;
+  // Failure count at which a deposit is quarantined (parked) instead of retried.
+  maxAttempts: number;
   limit?: number;
 }): Promise<SettlementCounts> {
-  const { store, iyzico, now, ip, priceTry } = deps;
+  const { store, iyzico, now, ip, priceTry, maxAttempts } = deps;
   const limit = deps.limit ?? DEFAULT_LIMIT;
 
   const counts: SettlementCounts = {
@@ -131,6 +150,7 @@ export async function processSettlement(deps: {
     refunded: 0,
     failed: 0,
     skipped: 0,
+    quarantined: 0,
   };
 
   const candidates = await store.getCandidates(limit);
@@ -140,6 +160,15 @@ export async function processSettlement(deps: {
     // NEVER abort the sweep — it's treated exactly like an ok:false and the
     // remaining candidates still settle.
     try {
+      // ── Phase 4 GUARD (before decide / any iyzico call): a disputed or
+      // quarantined row must NEVER be auto-settled. Skip it entirely — no
+      // decision, no money op, no state flip, no audit. (index.ts also excludes
+      // these in the candidate query; this is defense in depth.)
+      if (isSettlementBlocked(c)) {
+        counts.skipped++;
+        continue;
+      }
+
       const decision = decideDepositSettlement(flagsOf(c), c.deposit_state);
       const action = decision.action;
 
@@ -182,6 +211,7 @@ export async function processSettlement(deps: {
             reason: "iyzico_not_ok",
           });
           counts.failed++;
+          await recordFailureAndMaybeQuarantine(store, c, "iyzico_not_ok", now, maxAttempts, counts);
         }
       } else {
         // action === 'refund'
@@ -212,16 +242,19 @@ export async function processSettlement(deps: {
             reason: "iyzico_not_ok",
           });
           counts.failed++;
+          await recordFailureAndMaybeQuarantine(store, c, "iyzico_not_ok", now, maxAttempts, counts);
         }
       }
     } catch (err) {
       // A throw is treated EXACTLY like ok:false: state UNCHANGED (no
       // markSettled was reached), audit the failure, count it, and continue.
+      const errorText = err instanceof Error ? err.message : String(err);
       await store.appendReservationEvent(c.id, "deposit_settle_failed", {
         reason: "iyzico_threw",
-        error: err instanceof Error ? err.message : String(err),
+        error: errorText,
       });
       counts.failed++;
+      await recordFailureAndMaybeQuarantine(store, c, errorText, now, maxAttempts, counts);
     }
   }
 
@@ -255,6 +288,39 @@ export async function processSettlement(deps: {
 // re-charges (deposit_state is already terminal -> next decision is 'none').
 // expectedFrom = the ORIGINAL deposit_state the decision rode on, so the write
 // is conditional (lost-update guard above).
+// ─────────────────────────────────────────────────────────────────────────
+// QUARANTINE-ON-REPEATED-FAILURE (the Phase 2 failing-candidate follow-up).
+//
+// Called ONLY on an iyzico FAILURE (ok:false or throw) — NEVER on success, so it
+// can't touch the no-double-charge contract (deposit_state still flips only after
+// a confirmed move; quarantine never flips deposit_state at all). On each failure:
+//   1. recordFailedAttempt -> settle_attempts += 1, settle_last_error = errorText.
+//   2. newAttempts = c.settle_attempts + 1 (the value AFTER this failure).
+//   3. if shouldQuarantine(newAttempts, maxAttempts): quarantine the row
+//      (set quarantined_at) + audit deposit_quarantined + counts.quarantined++.
+// A permanently-failing deposit (e.g. a deleted iyzico ref) thus stops retrying
+// once it crosses the threshold, instead of looping forever every tick.
+async function recordFailureAndMaybeQuarantine(
+  store: SettlementStore,
+  c: SettlementCandidate,
+  errorText: string,
+  now: () => string,
+  maxAttempts: number,
+  counts: SettlementCounts,
+): Promise<void> {
+  await store.recordFailedAttempt(c.id, errorText);
+  const newAttempts = c.settle_attempts + 1;
+  if (shouldQuarantine(newAttempts, maxAttempts)) {
+    const nowISO = now();
+    await store.quarantine(c.id, nowISO);
+    await store.appendReservationEvent(c.id, "deposit_quarantined", {
+      attempts: newAttempts,
+      lastError: errorText,
+    });
+    counts.quarantined++;
+  }
+}
+
 async function finishSuccess(
   store: SettlementStore,
   c: SettlementCandidate,

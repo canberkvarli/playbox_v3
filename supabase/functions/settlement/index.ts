@@ -36,6 +36,7 @@ import {
 
 const SCAN_LIMIT = 200;
 const DEFAULT_HOLD_TRY = '20';
+const DEFAULT_SETTLE_MAX_ATTEMPTS = 5;
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -80,6 +81,24 @@ Deno.serve(async (req) => {
   if (!Number.isFinite(priceNum) || priceNum <= 0) priceNum = Number(DEFAULT_HOLD_TRY);
   priceTry = priceNum.toFixed(2);
 
+  // settle_max_attempts from app_config (default 5): after this many failed
+  // settlement attempts a deposit is quarantined (parked) instead of retried
+  // forever. Guard the parse — a junk value must never disable quarantine.
+  let maxAttempts = DEFAULT_SETTLE_MAX_ATTEMPTS;
+  try {
+    const { data } = await supabaseAdmin
+      .from('app_config')
+      .select('value')
+      .eq('key', 'settle_max_attempts')
+      .maybeSingle();
+    if (data?.value != null) {
+      const n = Number(data.value);
+      if (Number.isFinite(n) && n >= 1) maxAttempts = Math.floor(n);
+    }
+  } catch (_e) {
+    // fall back to default — never block settlement on a config read.
+  }
+
   // ── Real SettlementStore: supabase-backed implementation of the pure port. ──
   const store: SettlementStore = {
     async getCandidates(limit: number): Promise<SettlementCandidate[]> {
@@ -89,11 +108,16 @@ Deno.serve(async (req) => {
       //   - held rows with ANY flag set may release / capture / release.
       //   - captured rows with reversal set are refund-pending.
       // (Matches the reservations_settlement_idx partial index from Task 1.)
+      // Phase 4 defense-in-depth: never even scan a disputed or quarantined row
+      // (the pure core's isSettlementBlocked also skips them). SELECT the new
+      // guard columns so the core can re-check + drive quarantine.
       const { data, error } = await supabaseAdmin
         .from('reservations')
         .select(
-          'id, deposit_state, hold_id, hold_txn_id, release_eligible_at, penalty_eligible_at, reversal_eligible_at',
+          'id, deposit_state, hold_id, hold_txn_id, release_eligible_at, penalty_eligible_at, reversal_eligible_at, disputed_at, quarantined_at, settle_attempts',
         )
+        .is('disputed_at', null)
+        .is('quarantined_at', null)
         .or('deposit_state.eq.held,and(deposit_state.eq.captured,reversal_eligible_at.not.is.null)')
         .or('release_eligible_at.not.is.null,penalty_eligible_at.not.is.null,reversal_eligible_at.not.is.null')
         .limit(limit);
@@ -139,6 +163,36 @@ Deno.serve(async (req) => {
         .insert({ reservation_id: id, kind, payload: payload ?? null });
       if (error) console.error('[settlement] appendReservationEvent failed', error);
     },
+
+    // Phase 4 quarantine ports. Called by the pure core ONLY on an iyzico failure
+    // (never on success) — they touch settle_attempts/settle_last_error and, at
+    // the threshold, quarantined_at; they NEVER touch deposit_state, so the
+    // no-double-charge contract is untouched.
+    async recordFailedAttempt(id, errorText): Promise<void> {
+      // Read-then-increment settle_attempts + store the last error. (A small race
+      // between two concurrent sweeps may under-count by one bump, which only
+      // DELAYS quarantine by a tick — it never moves money — so a plain UPDATE is
+      // acceptable here; the money-side dedupe is iyzico's conversationId.)
+      const { data: row } = await supabaseAdmin
+        .from('reservations')
+        .select('settle_attempts')
+        .eq('id', id)
+        .maybeSingle();
+      const next = (Number(row?.settle_attempts) || 0) + 1;
+      const { error: updErr } = await supabaseAdmin
+        .from('reservations')
+        .update({ settle_attempts: next, settle_last_error: errorText })
+        .eq('id', id);
+      if (updErr) console.error('[settlement] recordFailedAttempt failed', updErr);
+    },
+
+    async quarantine(id, nowISO): Promise<void> {
+      const { error } = await supabaseAdmin
+        .from('reservations')
+        .update({ quarantined_at: nowISO })
+        .eq('id', id);
+      if (error) console.error('[settlement] quarantine failed', error);
+    },
   };
 
   // ── Real SettlementIyzico: adapt postauth/cancel/refund, mapping iyzico
@@ -180,6 +234,7 @@ Deno.serve(async (req) => {
     now: () => new Date().toISOString(),
     ip: '0.0.0.0',
     priceTry,
+    maxAttempts,
     limit: SCAN_LIMIT,
   });
 

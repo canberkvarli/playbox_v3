@@ -105,6 +105,19 @@ function makeStore(initial: SettlementCandidate[]) {
       events.push({ id, kind, payload });
       return Promise.resolve();
     },
+    // Phase 4 quarantine ports: bump settle_attempts on failure; park on
+    // quarantine. maxAttempts in deps is high, so these lifecycle scenarios
+    // (single transient failure) never trip quarantine — behavior unchanged.
+    recordFailedAttempt(id, _errorText) {
+      const cur = map.get(id);
+      if (cur) map.set(id, { ...cur, settle_attempts: cur.settle_attempts + 1 });
+      return Promise.resolve();
+    },
+    quarantine(id, nowISO) {
+      const cur = map.get(id);
+      if (cur) map.set(id, { ...cur, quarantined_at: nowISO });
+      return Promise.resolve();
+    },
   };
   const mutate = (id: string, patch: Partial<SettlementCandidate>) => {
     const cur = map.get(id);
@@ -123,6 +136,9 @@ function candidate(over: Partial<SettlementCandidate> & { id: string }): Settlem
     release_eligible_at: null,
     penalty_eligible_at: null,
     reversal_eligible_at: null,
+    disputed_at: null,
+    quarantined_at: null,
+    settle_attempts: 0,
     ...over,
   };
 }
@@ -133,6 +149,8 @@ const deps = (store: SettlementStore, iyzico: SettlementIyzico) => ({
   now: () => NOW,
   ip: "0.0.0.0",
   priceTry: "20.00",
+  // High enough that the lifecycle's single transient failures never quarantine.
+  maxAttempts: 1000,
 });
 
 // One sweep tick = one processSettlement call over the CURRENT candidate rows.

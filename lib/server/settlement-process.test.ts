@@ -66,9 +66,26 @@ function makeStore(initial: SettlementCandidate[]) {
   for (const c of initial) map.set(c.id, { ...c });
   const events: RecordedEvent[] = [];
   const settled: Array<{ id: string; nextState: DepositState; nowISO: string; expectedFrom: DepositState }> = [];
+  const failedAttempts: Array<{ id: string; errorText: string }> = [];
+  const quarantined: Array<{ id: string; nowISO: string }> = [];
   const store: SettlementStore = {
     getCandidates(_limit: number) {
       return Promise.resolve([...map.values()]);
+    },
+    // recordFailedAttempt: increments settle_attempts + stores last error, so a
+    // follow-up sweep sees a higher attempt count (mirrors the real UPDATE).
+    recordFailedAttempt(id, errorText) {
+      failedAttempts.push({ id, errorText });
+      const cur = map.get(id);
+      if (cur) map.set(id, { ...cur, settle_attempts: cur.settle_attempts + 1 });
+      return Promise.resolve();
+    },
+    // quarantine: parks the row so isSettlementBlocked skips it forever after.
+    quarantine(id, nowISO) {
+      quarantined.push({ id, nowISO });
+      const cur = map.get(id);
+      if (cur) map.set(id, { ...cur, quarantined_at: nowISO });
+      return Promise.resolve();
     },
     markSettled(id, nextState, nowISO, expectedFrom) {
       settled.push({ id, nextState, nowISO, expectedFrom });
@@ -86,7 +103,7 @@ function makeStore(initial: SettlementCandidate[]) {
       return Promise.resolve();
     },
   };
-  return { store, events, settled, map };
+  return { store, events, settled, failedAttempts, quarantined, map };
 }
 
 function candidate(over: Partial<SettlementCandidate> & { id: string }): SettlementCandidate {
@@ -97,6 +114,9 @@ function candidate(over: Partial<SettlementCandidate> & { id: string }): Settlem
     release_eligible_at: null,
     penalty_eligible_at: null,
     reversal_eligible_at: null,
+    disputed_at: null,
+    quarantined_at: null,
+    settle_attempts: 0,
     ...over,
   };
 }
@@ -107,6 +127,7 @@ const deps = (store: SettlementStore, iyzico: SettlementIyzico, over: Partial<Pa
   now: () => NOW,
   ip: "0.0.0.0",
   priceTry: "20.00",
+  maxAttempts: 5,
   ...over,
 });
 
@@ -293,5 +314,92 @@ describe("processSettlement — graceful degrade + safety", () => {
     expect(map.get("b")!.deposit_state).toBe("held"); // failed, unchanged
     expect(map.get("c")!.deposit_state).toBe("refunded"); // unaffected by b's failure
     expect(counts).toMatchObject({ released: 1, refunded: 1, captured: 0, failed: 1 });
+  });
+});
+
+describe("processSettlement — Phase 4 guards: skip blocked rows, quarantine repeat failures", () => {
+  it("disputed candidate -> skipped BEFORE any iyzico call (ZERO calls, no state flip, no audit)", async () => {
+    const { store, events, settled, map } = makeStore([
+      // Has a real release flag set, so WITHOUT the guard it would settle. The
+      // dispute must short-circuit it before decide / iyzico are ever reached.
+      candidate({ id: "d1", deposit_state: "held", release_eligible_at: ISO, disputed_at: ISO }),
+    ]);
+    const { iyzico, calls } = makeIyzico();
+    const counts = await processSettlement(deps(store, iyzico));
+
+    expect(calls).toHaveLength(0); // never reached iyzico
+    expect(settled).toHaveLength(0); // never flipped state
+    expect(events).toHaveLength(0); // no audit for a blocked skip
+    expect(map.get("d1")!.deposit_state).toBe("held"); // money frozen
+    expect(counts).toMatchObject({ skipped: 1, released: 0, failed: 0, quarantined: 0 });
+  });
+
+  it("quarantined candidate -> skipped, ZERO iyzico calls", async () => {
+    const { store, settled, map } = makeStore([
+      candidate({ id: "q1", deposit_state: "held", penalty_eligible_at: ISO, quarantined_at: ISO }),
+    ]);
+    const { iyzico, calls } = makeIyzico();
+    const counts = await processSettlement(deps(store, iyzico));
+
+    expect(calls).toHaveLength(0);
+    expect(settled).toHaveLength(0);
+    expect(map.get("q1")!.deposit_state).toBe("held");
+    expect(counts).toMatchObject({ skipped: 1, quarantined: 0 });
+  });
+
+  it("iyzico failure pushing settle_attempts+1 to maxAttempts -> quarantined ONCE (audit deposit_quarantined), then later run SKIPS it", async () => {
+    // settle_attempts starts at 4; maxAttempts 5. This failure makes it 5 ->
+    // quarantine fires.
+    const { store, events, settled, failedAttempts, quarantined, map } = makeStore([
+      candidate({ id: "f1", deposit_state: "held", penalty_eligible_at: ISO, settle_attempts: 4 }),
+    ]);
+    const failTick = makeIyzico({ capture: "fail" });
+    const c1 = await processSettlement(deps(store, failTick.iyzico, { maxAttempts: 5 }));
+
+    expect(failTick.calls).toHaveLength(1); // it DID attempt the money move
+    expect(settled).toHaveLength(0); // HARD CONTRACT: no flip on failure
+    expect(map.get("f1")!.deposit_state).toBe("held"); // state UNCHANGED
+    expect(failedAttempts).toEqual([{ id: "f1", errorText: "iyzico_not_ok" }]);
+    expect(map.get("f1")!.settle_attempts).toBe(5); // incremented
+    expect(quarantined).toEqual([{ id: "f1", nowISO: NOW }]); // parked exactly once
+    expect(map.get("f1")!.quarantined_at).toBe(NOW);
+    expect(events.map((e) => e.kind)).toEqual(["deposit_settle_failed", "deposit_quarantined"]);
+    const qEvent = events.find((e) => e.kind === "deposit_quarantined");
+    expect(qEvent!.payload).toMatchObject({ attempts: 5, lastError: "iyzico_not_ok" });
+    expect(c1).toMatchObject({ failed: 1, captured: 0, quarantined: 1 });
+
+    // Follow-up run: now quarantined -> skipped, ZERO new iyzico calls.
+    const second = makeIyzico();
+    const c2 = await processSettlement(deps(store, second.iyzico, { maxAttempts: 5 }));
+    expect(second.calls).toHaveLength(0);
+    expect(c2).toMatchObject({ skipped: 1, quarantined: 0, failed: 0 });
+  });
+
+  it("iyzico failure BELOW the threshold -> failed++ but NOT quarantined (still retried next tick)", async () => {
+    const { store, events, quarantined, map } = makeStore([
+      candidate({ id: "f2", deposit_state: "held", penalty_eligible_at: ISO, settle_attempts: 1 }),
+    ]);
+    const failTick = makeIyzico({ capture: "fail" });
+    const counts = await processSettlement(deps(store, failTick.iyzico, { maxAttempts: 5 }));
+
+    expect(failTick.calls).toHaveLength(1);
+    expect(map.get("f2")!.settle_attempts).toBe(2); // 1 -> 2, below 5
+    expect(quarantined).toHaveLength(0); // NOT parked yet
+    expect(map.get("f2")!.quarantined_at).toBeNull();
+    expect(events.map((e) => e.kind)).toEqual(["deposit_settle_failed"]); // no quarantine audit
+    expect(counts).toMatchObject({ failed: 1, quarantined: 0 });
+  });
+
+  it("a normal (un-flagged) candidate still settles unchanged alongside the guards", async () => {
+    const { store, map } = makeStore([
+      candidate({ id: "n1", deposit_state: "held", release_eligible_at: ISO }),
+    ]);
+    const { iyzico, calls } = makeIyzico();
+    const counts = await processSettlement(deps(store, iyzico));
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].op).toBe("release");
+    expect(map.get("n1")!.deposit_state).toBe("released");
+    expect(counts).toMatchObject({ released: 1, skipped: 0, quarantined: 0, failed: 0 });
   });
 });
