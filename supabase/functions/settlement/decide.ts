@@ -26,6 +26,15 @@
 //   terminal/target state, or no eligibility flag is set yet. The decision is
 //   TOTAL: every (flags, depositState) combination returns a value and never
 //   throws, so the worker can replay it safely.
+//
+// ─────────────────────────────────────────────────────────────────────────
+// CONSUMER CONTRACT — The settlement orchestrator (Task 4) MUST persist
+//   `nextState` to the DB ONLY AFTER the returned `action`'s iyzico op confirms
+//   success. Writing nextState on a failed/unknown iyzico result would flip
+//   deposit_state (e.g. to 'captured') while no money moved, and the next
+//   sweep's idempotency guard would then silently skip the real op. On iyzico
+//   failure, leave deposit_state unchanged and retry next tick.
+// ─────────────────────────────────────────────────────────────────────────
 
 export type DepositState = "held" | "released" | "captured" | "refunded";
 
@@ -51,6 +60,15 @@ function isSet(flag: string | null | undefined): boolean {
 
 function noop(state: DepositState, reason: string): SettlementDecision {
   return { action: "none", nextState: state, reason };
+}
+
+// Compile-time exhaustiveness guard. If a 5th DepositState is ever added, the
+// `switch` arms below stop covering the union and TypeScript fails to compile
+// the `assertNever(depositState)` call (its arg is no longer `never`) — forcing
+// the new state to be handled here instead of silently making a wrong money
+// decision. Unreachable today: all 4 states are handled before each default.
+function assertNever(x: never): never {
+  throw new Error("unreachable deposit_state: " + String(x));
 }
 
 /**
@@ -95,6 +113,8 @@ export function decideDepositSettlement(
           "refunded",
           "reversal: already refunded — idempotent no-op",
         );
+      default:
+        return assertNever(depositState);
     }
   }
 
@@ -122,6 +142,8 @@ export function decideDepositSettlement(
           "refunded",
           "penalty: already refunded (terminal) — don't re-capture",
         );
+      default:
+        return assertNever(depositState);
     }
   }
 
@@ -146,6 +168,8 @@ export function decideDepositSettlement(
           "refunded",
           "release: already refunded — idempotent no-op",
         );
+      default:
+        return assertNever(depositState);
     }
   }
 

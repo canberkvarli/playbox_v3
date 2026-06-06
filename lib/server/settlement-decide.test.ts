@@ -267,4 +267,67 @@ describe("decideDepositSettlement", () => {
       expect(combos).toBe(2 * 2 * 2 * ALL_STATES.length); // 32 combos
     });
   });
+
+  // ---- REASON UNIQUENESS: each distinct money-decision has a distinct reason ----
+  // Iterate all 2x2x2 flag-combos x 4 deposit_states (32 combos), collect every
+  // returned decision, and prove the audit `reason` string uniquely identifies
+  // the money-decision it came from: no two distinct (action, nextState) pairs
+  // may share a reason, and no reason may be empty. This guards against a future
+  // edit collapsing two distinct money-reasons into one ambiguous audit string.
+  describe("reason uniqueness (distinct money-decisions => distinct reasons)", () => {
+    const BOOLS = [false, true];
+
+    test("reason string uniquely identifies each (action, nextState) decision", () => {
+      // reason -> set of distinct "action|nextState" signatures seen for it.
+      const reasonToDecisions = new Map<string, Set<string>>();
+      // distinct (action|nextState|reason) branches actually reached.
+      const distinctBranches = new Set<string>();
+
+      for (const rel of BOOLS) {
+        for (const pen of BOOLS) {
+          for (const rev of BOOLS) {
+            for (const state of ALL_STATES) {
+              const d = decideDepositSettlement(
+                flags({
+                  release_eligible_at: rel ? ISO : null,
+                  penalty_eligible_at: pen ? ISO : null,
+                  reversal_eligible_at: rev ? ISO : null,
+                }),
+                state,
+              );
+
+              // Every reason must be a non-empty string.
+              expect(typeof d.reason).toBe("string");
+              expect(d.reason.length).toBeGreaterThan(0);
+
+              // A money-decision is characterized by its `action`; for moves
+              // (action !== 'none') the resulting nextState is also meaningful.
+              // For a no-op, nextState merely echoes the input deposit_state, so
+              // it is NOT part of the decision identity — otherwise the single
+              // "nothing to settle" branch would look like 4 decisions.
+              const decisionSig =
+                d.action === "none" ? "none" : `${d.action}|${d.nextState}`;
+              distinctBranches.add(`${decisionSig}|${d.reason}`);
+
+              const seen = reasonToDecisions.get(d.reason) ?? new Set<string>();
+              seen.add(decisionSig);
+              reasonToDecisions.set(d.reason, seen);
+            }
+          }
+        }
+      }
+
+      // No reason may map to more than one distinct money-decision.
+      for (const [reason, decisions] of reasonToDecisions) {
+        expect({ reason, decisions: [...decisions] }).toEqual({
+          reason,
+          decisions: [...decisions].slice(0, 1),
+        });
+      }
+
+      // The number of DISTINCT reasons equals the number of distinct decision
+      // branches reached — i.e. reason <-> branch is a bijection.
+      expect(reasonToDecisions.size).toBe(distinctBranches.size);
+    });
+  });
 });
