@@ -233,6 +233,28 @@ export function cancel(req: CancelRequest) {
   return iyzicoPost<CancelRequest, CancelResponse>('/payment/cancel', req);
 }
 
+// ---------- /payment/refund (refund a captured transaction) ----------
+// Refund keys on paymentTransactionId (the transaction inside a payment), NOT paymentId,
+// and takes the amount to refund. Used to reverse a captured deposit/penalty on a late return.
+//
+// NOTE: Field names (paymentTransactionId + price) reflect iyzico's documented v2
+// /payment/refund shape — confirm against iyzico's current /payment/refund docs before
+// go-live, as the v2 API occasionally tweaks field names. The settlement orchestration
+// (Task 4) degrades gracefully if `hold_txn_id` is missing (we simply can't auto-refund
+// and fall back to a manual/alternate path rather than failing the settlement).
+export type RefundRequest = {
+  locale: 'tr' | 'en';
+  conversationId: string;
+  paymentTransactionId: string;
+  price: string;          // amount to refund, e.g. "20.00"
+  ip: string;
+  currency: 'TRY';
+};
+export type RefundResponse = IyzicoBase & { paymentId?: string; paymentTransactionId?: string; price?: number };
+export function refund(req: RefundRequest) {
+  return iyzicoPost<RefundRequest, RefundResponse>('/payment/refund', req);
+}
+
 // ---------- Helpers ----------
 
 export function prettyBrand(cardAssociation?: string): string {

@@ -233,6 +233,19 @@ Deno.serve(async (req) => {
   // 9. Insert. The unique partial indexes do the final race-safety —
   //    if two creates land on the same gate at the same instant, one
   //    fails with 23505 and we compensate by releasing its hold.
+  //
+  // Best-effort: persist paymentTransactionId → hold_txn_id alongside the
+  // paymentId → hold_id. The settlement refund (Task 4) keys on this
+  // transaction id. If the preauth response omits it, store null and log —
+  // a missing hold_txn_id must NOT fail reservation create; Task 4's
+  // orchestration degrades gracefully when it's absent.
+  const holdTxnId = iyz.paymentTransactionId ?? null;
+  if (!holdTxnId) {
+    console.warn('[reservation-create] preauth response missing paymentTransactionId', {
+      userId,
+      paymentId: iyz.paymentId,
+    });
+  }
   const expiresAt = new Date(Date.now() + cfg.reservation_lock_min * 60 * 1000).toISOString();
   const { data: created, error: insErr } = await supabaseAdmin
     .from('reservations')
@@ -242,6 +255,7 @@ Deno.serve(async (req) => {
       sport: input.sport,
       gate_id: input.gate_id,
       hold_id: iyz.paymentId,
+      hold_txn_id: holdTxnId,
       hold_amount_try: cfg.reservation_hold_try,
       terms_version: cfg.terms_version,
       status: 'active',
