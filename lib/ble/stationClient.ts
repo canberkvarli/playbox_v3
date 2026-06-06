@@ -13,6 +13,7 @@ import {
   type UnlockCommand,
   type ReturnUnlockCommand,
 } from "./protocol";
+import { backoffSchedule, classifyBleError, jitter } from "./retry";
 
 class StationClient {
   private _manager: BleManager | null = null;
@@ -273,16 +274,71 @@ class StationClient {
     );
   }
 
+  /**
+   * Write `cmd` with a bounded exponential-backoff+jitter retry, but ONLY for
+   * transient failures (GATT/connection/timeout). Terminal failures — radio
+   * off, unauthorized, signature rejected, or anything unrecognized — rethrow
+   * immediately so the UI's `classifyError` mapping still fires with the right
+   * localized prompt (retrying those would just hammer the radio / firmware).
+   *
+   * The pure retry policy lives in ./retry (Jest-tested). Math.random is only
+   * called HERE, at the call site, to feed the jitter fraction — the policy
+   * module stays deterministic. If the link dropped mid-write
+   * (`this.device` cleared by onDisconnected), we re-scan/reconnect by name
+   * before the next attempt, mirroring the proximity reconnect path; the fresh
+   * handshake runs discoverAllServicesAndCharacteristics so the next write
+   * targets a valid characteristic.
+   */
+  private async writeCommandWithRetry(
+    cmd: Command,
+    stationName?: string,
+  ): Promise<void> {
+    const delays = backoffSchedule();
+    // Total attempts = 1 initial + delays.length retries.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.writeCommand(cmd);
+        return;
+      } catch (e) {
+        const cls = classifyBleError(e);
+        const retriesLeft = attempt < delays.length;
+        if (cls !== "retryable" || !retriesLeft) {
+          // Terminal, or out of attempts — let the caller/UI handle it.
+          throw e;
+        }
+        // Jitter fraction from real RNG (kept out of the pure module).
+        const wait = jitter(delays[attempt], Math.random());
+        await new Promise((r) => setTimeout(r, wait));
+        // If the link dropped, re-establish the device handle before retrying.
+        if (!this.device) {
+          const name = stationName ?? this.lastSeenDevice?.name;
+          if (name) {
+            try {
+              await this.scanAndConnect(name);
+              // Re-read INFO to confirm the reconnected handle is live, matching
+              // how the proximity layer revalidates after a reconnect.
+              await this.readInfo().catch(() => {});
+            } catch {
+              // Reconnect failed this round — fall through and retry the write,
+              // which will throw "Not connected" and be re-classified.
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Both methods take a pre-signed payload obtained from the `sign-unlock`
   // edge function. The phone is intentionally a dumb pipe — it never
   // computes the HMAC, never holds the station secret. See
-  // supabase/functions/sign-unlock for the signing path.
-  unlock(payload: UnlockCommand) {
-    return this.writeCommand(payload);
+  // supabase/functions/sign-unlock for the signing path. Public API unchanged:
+  // same signature/return; the retry is internal.
+  unlock(payload: UnlockCommand, stationName?: string) {
+    return this.writeCommandWithRetry(payload, stationName);
   }
 
-  returnUnlock(payload: ReturnUnlockCommand) {
-    return this.writeCommand(payload);
+  returnUnlock(payload: ReturnUnlockCommand, stationName?: string) {
+    return this.writeCommandWithRetry(payload, stationName);
   }
 
   subscribeToEvents(

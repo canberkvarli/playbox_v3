@@ -45,7 +45,7 @@ export function buildSignUnlockBody(args: {
     gate: args.gate,
     session_id: args.sessionId,
   };
-  if (args.cmd === 'unlock') {
+  if (args.cmd === 'unlock' && typeof args.durationMin === 'number') {
     body.duration_min = args.durationMin;
   }
   if (args.devBypass === true) {
