@@ -269,8 +269,9 @@ declare
   v_exists boolean;
 begin
   update public.reservations
-  set quarantined_at  = null,
-      settle_attempts = 0
+  set quarantined_at   = null,
+      settle_attempts  = 0,
+      settle_last_error = null
   where id = p_reservation_id;
 
   get diagnostics v_exists = row_count;
@@ -363,7 +364,7 @@ as $$
          s.last_seen_at,
          (s.last_event_seq - s.acked_seq) as seq_drift,
          (s.battery_pct is not null and s.battery_pct <= 30) as battery_low,
-         (s.last_seen_at < now() - interval '1 hour')        as stale
+         (s.last_seen_at is null or s.last_seen_at < now() - interval '1 hour') as stale
   from public.stations s
   order by s.battery_pct asc nulls last, s.last_seen_at asc nulls last;
 $$;
