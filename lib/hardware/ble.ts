@@ -21,7 +21,12 @@ import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
 import { canAttemptBle } from '@/lib/ble/btState';
 import type { StationEvent } from '@/lib/ble/protocol';
-import { buildIngestBatch, pickAckedSeq } from './relay';
+import { buildIngestBatch, pickAckedSeq, isSignedEvent } from './relay';
+import {
+  planGossipDrain,
+  buildAckCommand,
+  coalesceRelayQueue,
+} from './gossip';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import {
@@ -123,6 +128,105 @@ async function relayStationEvents(
   } catch (e) {
     // Best-effort: swallow + log. Local UX is unaffected.
     reportError(e as Error, { source: 'ble.relay.ingest', stationId });
+  }
+}
+
+/**
+ * Per-station debounce queue for coalescing courier relays (Task 7 follow-up).
+ * Instead of one `ingest-events` POST per EVENTS notification, signed events are
+ * buffered per station and flushed as ONE batch after a short delay (or once a
+ * size cap is hit), via the same best-effort `relayStationEvents` path.
+ *
+ * Unsigned events are NEVER queued (the signed-shape gate filters them), so
+ * today's firmware still no-ops. Local dispatch always runs FIRST + is
+ * unaffected — this queue only feeds the additive server relay.
+ */
+const RELAY_DEBOUNCE_MS = 400;
+const RELAY_MAX_BATCH = 25;
+
+type RelayQueue = {
+  events: StationEvent[];
+  timer: ReturnType<typeof setTimeout> | null;
+};
+const relayQueueByStation = new Map<string, RelayQueue>();
+
+/** Flush a station's coalesced relay queue as one batch (best-effort). */
+function flushRelayQueue(stationId: string): void {
+  const q = relayQueueByStation.get(stationId);
+  if (!q) return;
+  if (q.timer) {
+    clearTimeout(q.timer);
+    q.timer = null;
+  }
+  const pending = q.events;
+  q.events = [];
+  if (pending.length === 0) return;
+  // Dedupe-by-seq + sort ascending so a batch is clean even if the same event
+  // arrived twice (e.g. notification + drain overlap).
+  const batch = coalesceRelayQueue(pending);
+  // Fire-and-forget; relayStationEvents swallows all failures internally.
+  void relayStationEvents(stationId, batch);
+}
+
+/**
+ * Enqueue a single firmware event for coalesced relay. No-ops for unsigned
+ * events (they'd be filtered server-side anyway). Flushes immediately once the
+ * queue reaches RELAY_MAX_BATCH, otherwise debounces by RELAY_DEBOUNCE_MS.
+ */
+function enqueueRelayEvent(stationId: string, evt: StationEvent): void {
+  if (!isSignedEvent(evt)) return; // unsigned → never queued (still a no-op today)
+  let q = relayQueueByStation.get(stationId);
+  if (!q) {
+    q = { events: [], timer: null };
+    relayQueueByStation.set(stationId, q);
+  }
+  q.events.push(evt);
+  if (q.events.length >= RELAY_MAX_BATCH) {
+    flushRelayQueue(stationId);
+    return;
+  }
+  if (!q.timer) {
+    q.timer = setTimeout(() => flushRelayQueue(stationId), RELAY_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * Gossip-sync drain on ANY station connect (Phase 3 Task 8): even a passive
+ * connection for a DIFFERENT user makes this phone a backstop courier. Steps:
+ *   (a) read the station's pending SIGNED-event buffer,
+ *   (b) plan what to drain (signed + seq > lastAckedSeq, sorted/deduped),
+ *   (c) POST it to `ingest-events` (reuses relayStationEvents),
+ *   (d) write the resulting unsigned `ack` back so the station drops events
+ *       ≤ acked_seq from its NVS buffer.
+ *
+ * FIRMWARE-GATED NO-OP TODAY: `readPendingBuffer` returns [] because the
+ * BUFFER characteristic is Phase 0 firmware Task 5 (not built) → `planGossipDrain`
+ * yields [] → nothing is POSTed and no ack is written. Lights up automatically
+ * once firmware Task 5 exposes the buffer-drain + ack characteristics.
+ *
+ * BEST-EFFORT: every step is wrapped so a gossip/ack failure can NEVER affect
+ * the user's own session/UX.
+ */
+async function gossipSyncOnConnect(stationId: string): Promise<void> {
+  try {
+    // (a) Read the station's pending buffer. Returns [] today (no characteristic).
+    const buffer = await stationClient.readPendingBuffer();
+    // (b) Plan the drain against our last-known ack cursor for this station.
+    const toDrain = planGossipDrain(buffer, getLastAckedSeq(stationId));
+    if (toDrain.length === 0) return; // nothing to drain → no POST, no ack (no-op)
+
+    // (c) POST via the existing best-effort ingest path. It stashes acked_seq
+    //     into lastAckedSeqByStation on success.
+    await relayStationEvents(stationId, toDrain);
+
+    // (d) Relay the ack cursor back so the station drops acked events. Guarded:
+    //     no-ops when there's nothing to ack, and writeAck swallows the case
+    //     where the firmware ack handler doesn't exist yet (Task 5).
+    const ack = buildAckCommand(getLastAckedSeq(stationId));
+    if (ack) await stationClient.writeAck(ack);
+  } catch (e) {
+    // Best-effort: a gossip/ack failure must never touch the user's session.
+    reportError(e as Error, { source: 'ble.gossipSync', stationId });
   }
 }
 
@@ -429,12 +533,12 @@ export function createBleDriver(): HardwareDriver {
                 }
                 // Additive, best-effort courier relay — runs AFTER the local
                 // dispatch above so local UX is first + completely unaffected.
-                // relayStationEvents gates on the signed shape: today's
-                // UNSIGNED firmware events make buildIngestBatch return null,
-                // so NOTHING is posted (verified no-op). This lights up
-                // automatically once firmware Task 5 emits signed events.
-                // Fire-and-forget; failures are swallowed inside.
-                void relayStationEvents(stationId, [evt]);
+                // COALESCED (Task 7 follow-up): instead of one POST per event,
+                // enqueue into a per-station debounce queue that flushes as ONE
+                // batch after ~400ms (or at a size cap). Unsigned events are
+                // never queued, so today's UNSIGNED firmware is still a verified
+                // no-op; this lights up once firmware Task 5 emits signed events.
+                enqueueRelayEvent(stationId, evt);
               },
               () => {
                 // ignore — disconnect will surface via onDisconnected
@@ -443,6 +547,15 @@ export function createBleDriver(): HardwareDriver {
           } catch {
             // subscribe failure isn't fatal — the unlock still works
           }
+
+          // Gossip-sync drain (Task 8): on ANY connect — even a passive watch
+          // for a different user — act as a backstop courier: drain the
+          // station's pending signed-event buffer, POST it, and ack back so the
+          // station can drop acked events. Fire-and-forget + best-effort:
+          // failures are swallowed inside and can't touch the user's session.
+          // NO-OPS today — the BUFFER characteristic is firmware Task 5, so
+          // readPendingBuffer() returns [] → planGossipDrain() yields [].
+          void gossipSyncOnConnect(stationId);
 
           cleanupDisconnect();
           disconnectSub = device.onDisconnected(() => {

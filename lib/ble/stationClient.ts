@@ -6,9 +6,12 @@ import {
   UNLOCK_CHAR_UUID,
   EVENTS_CHAR_UUID,
   INFO_CHAR_UUID,
+  BUFFER_CHAR_UUID,
   encodeCommand,
   decodeEvent,
   type Command,
+  type AnyCommand,
+  type AckCommand,
   type StationEvent,
   type UnlockCommand,
   type ReturnUnlockCommand,
@@ -265,7 +268,9 @@ class StationClient {
     });
   }
 
-  async writeCommand(cmd: Command): Promise<void> {
+  // Accepts the wider `AnyCommand` (signable commands plus the UNSIGNED
+  // set_time / ack) — it only JSON-encodes + writes, so widening is safe.
+  async writeCommand(cmd: AnyCommand): Promise<void> {
     if (!this.device) throw new Error("Not connected to a station");
     const b64 = Buffer.from(encodeCommand(cmd), "utf-8").toString("base64");
     await this.device.writeCharacteristicWithResponseForService(
@@ -273,6 +278,51 @@ class StationClient {
       UNLOCK_CHAR_UUID,
       b64,
     );
+  }
+
+  /**
+   * Read the station's pending SIGNED-event gossip buffer (Phase 3 Task 8).
+   *
+   * FIRMWARE-GATED: the BUFFER characteristic is Phase 0 firmware Task 5 and
+   * does NOT exist yet, so the read will throw on today's firmware — we CATCH
+   * and return [] so the gossip drain is a safe no-op. Once the firmware
+   * exposes BUFFER_CHAR_UUID returning a JSON array of buffered events, this
+   * lights up automatically (the caller filters via `planGossipDrain`).
+   *
+   * Best-effort + non-throwing by contract: any failure → [].
+   */
+  async readPendingBuffer(): Promise<unknown[]> {
+    if (!this.device) return [];
+    try {
+      const char = await this.device.readCharacteristicForService(
+        SERVICE_UUID,
+        BUFFER_CHAR_UUID,
+      );
+      if (!char.value) return [];
+      const parsed = JSON.parse(
+        Buffer.from(char.value, "base64").toString("utf-8"),
+      );
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // No BUFFER characteristic yet (firmware Task 5) or malformed → no-op.
+      return [];
+    }
+  }
+
+  /**
+   * Write the UNSIGNED `ack` command back to the station so it can drop
+   * buffered events ≤ seq (Phase 3 Task 8). FIRMWARE-GATED: the firmware ack
+   * handler is Phase 0 Task 5 — until then this either errors (caught) or is a
+   * harmless write the firmware ignores. Best-effort + non-throwing: any
+   * failure → swallowed. A lost ack is advisory — the station just re-sends.
+   */
+  async writeAck(ack: AckCommand): Promise<void> {
+    if (!this.device) return;
+    try {
+      await this.writeCommand(ack);
+    } catch {
+      // No ack handler yet (firmware Task 5) → no-op.
+    }
   }
 
   /**
