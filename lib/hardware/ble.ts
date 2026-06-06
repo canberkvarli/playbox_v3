@@ -299,6 +299,10 @@ export function createBleDriver(): HardwareDriver {
           sessionId: correlationId,
           durationMin,
           devBypass: stationId === 'DEV-001',
+          // The reservation-linkage slug (e.g. DEV-001-football-1). The server
+          // only links the unlock to a reservation when this is present; the
+          // numeric `gate` above stays as-is for the BLE HMAC.
+          gateId,
         });
 
         if (!stationClient.isConnected()) {
