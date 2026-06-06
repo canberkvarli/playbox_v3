@@ -1,3 +1,17 @@
+-- ⚠️ SETTLEMENT CRON IS INTENTIONALLY DISABLED — DO NOT ENABLE until the go-live blockers below are resolved.
+-- Holistic review (2026-06-06) found the deposit hold is VOIDED by reservation-consume at QR-scan,
+-- so settlement would try to capture/refund a dead hold → permanent per-minute failures + cross-path
+-- double-capture risk (legacy sweep/cancel use different conversationIds, so iyzico won't dedupe).
+-- BLOCKERS (must all be resolved + verified before uncommenting the cron.schedule below):
+--   1. Money model: the deposit hold must stay LIVE through the session (consume must NOT void it),
+--      OR a new in-session hold is placed at unlock and recorded as the settlement target,
+--      OR the abandonment penalty moves off the preauth to a different instrument.
+--   2. Legacy functions (reservation-sweep/-consume/-cancel/-force-release) must set `deposit_state`
+--      consistently so new rows don't desync (sweep→captured, consume→released, cancel→released/captured, force-release→released).
+--   3. Confirm iyzico /payment/refund field names (paymentTransactionId + price) vs current v2 docs.
+--   4. Add a failing-candidate quarantine/alert (max attempts) so a dead-hold row can't spam reservation_events forever.
+-- The pure engine (decide.ts/process.ts) + its tests are correct and merge-safe; only the live trigger is gated.
+--
 -- Schedules the settlement Edge Function via pg_cron.
 -- Mirrors 20260426130000_reservation_cron.sql + 20260605130000_session_sweep_cron.sql.
 --
@@ -36,17 +50,20 @@ create extension if not exists pg_net;
 -- make re-apply idempotent: drop any existing job of this name first
 select cron.unschedule('settlement') where exists (select 1 from cron.job where jobname = 'settlement');
 
-select cron.schedule(
-  'settlement',
-  '* * * * *',
-  $cmd$
-    select net.http_post(
-      url := (select decrypted_secret from vault.decrypted_secrets where name = 'settlement_url' limit 1),
-      headers := jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
-      ),
-      body := '{}'::jsonb
-    );
-  $cmd$
-);
+-- ⚠️ DISABLED pending go-live blockers (see header). The unschedule guard above stays
+-- ACTIVE so re-applying this migration always removes any stale 'settlement' job.
+-- To ENABLE: resolve all blockers above, then uncomment the cron.schedule below.
+-- select cron.schedule(
+--   'settlement',
+--   '* * * * *',
+--   $cmd$
+--     select net.http_post(
+--       url := (select decrypted_secret from vault.decrypted_secrets where name = 'settlement_url' limit 1),
+--       headers := jsonb_build_object(
+--         'Content-Type', 'application/json',
+--         'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key' limit 1)
+--       ),
+--       body := '{}'::jsonb
+--     );
+--   $cmd$
+-- );

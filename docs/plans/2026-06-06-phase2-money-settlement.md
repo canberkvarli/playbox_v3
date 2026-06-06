@@ -111,3 +111,23 @@ Green = the deposit settlement is provably correct + idempotent before any real 
 - `decideDepositSettlement` implements the precedence table, fully Jest-tested.
 - `settlement` function settles eligible reservations idempotently, best-effort, no double-charge; pure core + orchestration Jest-tested with a recording fake iyzico (the no-double-charge proof); cron scheduled.
 - **Money-safety invariant holds: a returned ball is never net-penalized** (reversal always refunds/releases).
+
+---
+
+## ⚠️ Phase 2 go-live blockers (from holistic review)
+
+A holistic review (2026-06-06) confirmed the pure engine (`decide.ts`/`process.ts`) and the migrations are **correct and merge-safe**, but found that the settlement integrates onto a broken money-model assumption. The settlement cron is therefore **DISABLED** in `supabase/migrations/20260606130000_settlement_cron.sql` (the `cron.schedule(...)` call is commented out; the idempotent `cron.unschedule(...)` guard stays active). It must NOT be enabled until the blockers below are resolved and verified.
+
+- **CRITICAL #1 — deposit hold voided at consume:** `reservation-consume` calls `iyzicoRelease`/`cancel` on `hold_id` at QR-scan, so **no live hold exists** by the time `session-sweep`/`gate_closed` set the `*_eligible_at` flags. With the hold already voided, settlement can't actually collect the abandonment penalty (capture) or refund it — it would just fail every minute against a dead hold. The abandonment penalty cannot collect money as-is. **Resolution options (needs a PRODUCT/ARCH decision):** (a) `consume` keeps the hold live through the session; (b) place a NEW in-session hold at unlock and record it as the settlement target; (c) move the penalty onto a separate instrument.
+
+- **CRITICAL #3 — legacy `deposit_state` desync:** the legacy money flows (`reservation-sweep`/`-consume`/`-cancel`/`-force-release`) don't write `reservation.deposit_state`. They MUST going forward (not just the one-time backfill in the Task 1 migration), otherwise settlement will read a stale `held` state and act on a hold that legacy code has already captured/released → double-move. Required writes: sweep→`captured`, consume→`released`, cancel→`released`/`captured`, force-release→`released`.
+
+- **IMPORTANT #4 — cross-path `conversationId` (no iyzico dedupe):** legacy ops use `conversationId` like `sweep:…`/`cancel:…`/`consume:…` while settlement uses `settle:${id}:${action}`. Because the prefixes differ, iyzico will NOT dedupe a legacy-vs-settlement double-capture of the same hold. Cross-path safety currently rests only on (unenforced) status/hold disjointness between the legacy path and the settlement path — there is no hard guard.
+
+- **MINORS:**
+  - Verify iyzico `/payment/refund` field names (`paymentTransactionId` + `price`) against current v2 docs.
+  - `hold_txn_id` is persisted best-effort at preauth; an absent value must surface to an operator (not silently skip the refund).
+  - Multi-worker safety: a settlement scan needs `FOR UPDATE SKIP LOCKED` (or a `settling_at` claim) before it can safely run with more than one worker.
+  - Add a failing-candidate alert/backoff (max attempts) so a permanently-failing (e.g. dead-hold) row can't spam `reservation_events` every minute.
+
+**Status:** The settlement cron is DISABLED pending the above; the pure engine + all migrations are merge-safe and the Jest suite stays green. Re-enable only by uncommenting the `cron.schedule(...)` after every blocker is resolved and verified.
