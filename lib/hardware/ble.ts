@@ -27,6 +27,7 @@ import {
   type GateState,
 } from './returnRecovery';
 import { extractGate } from './infoGate';
+import { shouldReattach } from './coldLaunch';
 
 /**
  * Dispatcher for firmware-emitted BLE notifications. Called whenever an
@@ -584,6 +585,100 @@ export function createBleDriver(): HardwareDriver {
       stationClient.disconnect().catch(() => {});
     },
   };
+}
+
+/**
+ * Cold-launch re-attach singleton. Holds the live proximity/EVENTS watch we
+ * spun up for a recovered session so a second `reattachActiveStationWatch`
+ * call (e.g. a Fast-Refresh re-run of the boot effect, or AppState churn) is a
+ * no-op instead of opening a duplicate subscription against the same station.
+ */
+let reattachWatch: { stationId: string; sub: { stop: () => void } } | null = null;
+
+/**
+ * Re-establish the passive watch + EVENTS subscription for a still-active
+ * persisted session on cold launch.
+ *
+ * Why this exists: the active session survives an app kill via zustand persist,
+ * but a fresh launch does NOT re-open the BLE EVENTS subscription. Without it,
+ * a `gate_closed` arriving after the user pushes the door shut would never be
+ * received and the return could not auto-confirm. This re-runs the SAME wiring
+ * a normal unlock relies on (`driver.watchStation`, which connects and calls
+ * `stationClient.subscribeToEvents` → `dispatchStationEvent` → session store),
+ * so an arriving event is handled exactly as it would be mid-session.
+ *
+ * Contract:
+ *   - RESUBSCRIBE ONLY. Performs no writes, no return_unlock, no auto-confirm.
+ *     It just makes the phone ready to *hear* an event; the existing return UI
+ *     and `dispatchStationEvent` guards do the rest.
+ *   - Idempotent. If a watch for this station is already live, it's a no-op.
+ *     A watch for a *different* station is torn down first (the active session
+ *     can only be one station).
+ *   - Best-effort. Any failure is caught + reported; it must never crash launch.
+ *
+ * Pass the live driver (via `getDriver()`) so this honors the mock/ble toggle
+ * and stays decoupled from the resolver (no circular import).
+ *
+ * @returns true if a watch was (or already is) established for the session.
+ */
+export function reattachActiveStationWatch(
+  driver: Pick<HardwareDriver, 'watchStation'>,
+  nowMs: number = Date.now(),
+): boolean {
+  try {
+    const session = useSessionStore.getState().active;
+    const decision = shouldReattach(session, nowMs);
+    if (!decision.reattach) {
+      // Nothing to resume. If a stale watch from a prior session is somehow
+      // still live (e.g. the session ended in another tab), tear it down.
+      if (reattachWatch) {
+        try {
+          reattachWatch.sub.stop();
+        } catch {
+          /* already stopped — ignore */
+        }
+        reattachWatch = null;
+      }
+      return false;
+    }
+
+    // Idempotent: a watch for this exact station already exists → no-op.
+    if (reattachWatch?.stationId === decision.stationId) return true;
+
+    // A watch for a different station is stale — replace it.
+    if (reattachWatch) {
+      try {
+        reattachWatch.sub.stop();
+      } catch {
+        /* ignore */
+      }
+      reattachWatch = null;
+    }
+
+    // Same wiring as the play screen's `useStationInRange`: watchStation
+    // connects and subscribes to EVENTS, routing notifications through
+    // dispatchStationEvent into the session store. We don't care about the
+    // ProximityState here — only the side-effect subscription — so the
+    // onChange callback is a no-op.
+    const sub = driver.watchStation(decision.stationId, () => {});
+    reattachWatch = { stationId: decision.stationId, sub };
+    return true;
+  } catch (err) {
+    // Best-effort: a re-attach failure must not crash launch.
+    reportError(err as Error, { source: 'ble.reattach' });
+    return false;
+  }
+}
+
+/** Tear down any cold-launch re-attach watch. For tests + explicit teardown. */
+export function stopActiveStationReattach(): void {
+  if (!reattachWatch) return;
+  try {
+    reattachWatch.sub.stop();
+  } catch {
+    /* ignore */
+  }
+  reattachWatch = null;
 }
 
 export type { ProximityState };
