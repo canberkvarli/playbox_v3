@@ -91,14 +91,24 @@ export default function StationDetail() {
     if (url) Linking.openURL(url).catch(() => {});
   };
 
-  const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number) => {
+  const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number, gateId?: string) => {
     // Route to the "how it works" prep slides; the last slide starts the session.
     // Duration travels through the prep flow as a route param so the slider value
     // the user picked here actually drives the session timer (and the firmware's
     // overdue clock) instead of session-prep silently defaulting to 30.
+    //
+    // gateId is the RESERVED gate's slug (the first free gate within the sport's
+    // stock). It must reach the unlock screen verbatim so sign-unlock can link
+    // the unlock to a reservation by exact slug match. Omitted when undefined so
+    // the unlock path can safely skip linkage rather than guess a wrong slug.
     router.push({
       pathname: '/session-prep/[stationId]/[sport]',
-      params: { stationId: station.id, sport, duration: String(durationMinutes) },
+      params: {
+        stationId: station.id,
+        sport,
+        duration: String(durationMinutes),
+        ...(gateId ? { gateId } : {}),
+      },
     });
   });
 

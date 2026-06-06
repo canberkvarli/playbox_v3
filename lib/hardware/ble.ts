@@ -29,6 +29,7 @@ import {
 } from './gossip';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
+import { useNearbyStore } from '@/stores/nearbyStore';
 import {
   interpretReturnRecovery,
   type GateState,
@@ -149,6 +150,22 @@ type RelayQueue = {
   timer: ReturnType<typeof setTimeout> | null;
 };
 const relayQueueByStation = new Map<string, RelayQueue>();
+
+/**
+ * Tear down ALL pending relay queues on logout/reset: cancel every per-station
+ * flush timer (so a debounced relay can NEVER fire after sign-out, against the
+ * wrong account) and drop the buffered events. Idempotent.
+ */
+function clearAllRelayQueues(): void {
+  for (const q of relayQueueByStation.values()) {
+    if (q.timer) {
+      clearTimeout(q.timer);
+      q.timer = null;
+    }
+    q.events = [];
+  }
+  relayQueueByStation.clear();
+}
 
 /** Flush a station's coalesced relay queue as one batch (best-effort). */
 function flushRelayQueue(stationId: string): void {
@@ -656,9 +673,18 @@ export function createBleDriver(): HardwareDriver {
       };
     },
 
-    async unlockGate({ stationId, gateId, correlationId, durationMin }): Promise<UnlockResult> {
+    async unlockGate({ stationId, gate: gateArg, gateId, correlationId, durationMin }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
-      const gate = parseGateIndex(gateId);
+      // Numeric gate for the BLE HMAC. Prefer the explicit 1-indexed compartment
+      // from the caller (stable, independent of the linkage slug); fall back to
+      // parsing the slug only when no explicit gate was provided (back-compat).
+      // Defaults to 1 when neither is available.
+      const gate =
+        typeof gateArg === 'number' && gateArg >= 1
+          ? Math.floor(gateArg)
+          : gateId
+          ? parseGateIndex(gateId)
+          : 1;
 
       // A fresh unlock starts a brand-new session: it must never inherit a
       // prior return's in-flight marker (e.g. a recovery loop that never
@@ -762,7 +788,25 @@ export function createBleDriver(): HardwareDriver {
     },
 
     reset() {
+      // Called on logout. Purge ALL module-global BLE state so nothing can leak
+      // across accounts/sessions: a queued relay firing for the wrong user, a
+      // stale ack cursor, a still-live cold-launch re-attach watch, or an
+      // in-flight return recovery loop.
       clearReturnInFlight();
+      // Cancel pending relay flush timers + drop buffered events so a debounced
+      // relay can't POST after the user has signed out.
+      clearAllRelayQueues();
+      // Drop the per-station server ack cursor.
+      lastAckedSeqByStation.clear();
+      // Tear down the cold-launch re-attach watch (proximity + EVENTS sub).
+      stopActiveStationReattach();
+      // Drop stale nearby sightings so a freshly-signed-in account doesn't see
+      // the prior user's last-known stations.
+      try {
+        useNearbyStore.getState().clear();
+      } catch {
+        // best-effort — never let store access block logout teardown.
+      }
       stationClient.disconnect().catch(() => {});
     },
   };

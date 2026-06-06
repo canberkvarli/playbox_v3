@@ -37,6 +37,33 @@ export function gatesForStation(station: Station, sport: Sport): Gate[] {
   }));
 }
 
+/**
+ * Canonical reservation-linkage slug for a specific gate, used as
+ * `reservations.gate_id` AND replayed at unlock time so sign-unlock's
+ * `link-session` can match `r.gate_id === gateId` EXACTLY.
+ *
+ * Format mirrors `gatesForStation`: `${station.id}-${sport}-${gateNumber}`.
+ * `gateNumber` is the 1-indexed gate within the sport's STOCK (the actual
+ * compartment the user reserved/unlocked) — NEVER the sport's ordinal in
+ * `station.sports`. Conflating the two was the linkage bug: e.g. on a station
+ * with sports `['football','volleyball','tennis']`, volleyball gate 1 must
+ * produce `...-volleyball-1`, not `...-volleyball-2` (its sport ordinal).
+ *
+ * Both producers of the slug — the reserve flow (`selectedGate.id`) and the
+ * unlock flow — route through this one helper so they can never drift.
+ */
+export function unlockGateId(
+  stationId: string,
+  sport: Sport,
+  gateNumber: number,
+): string {
+  // Clamp to a valid 1-indexed gate. A non-finite or <1 input falls back to
+  // gate 1 (the single-gate common case) rather than emitting a `-0`/`-NaN`
+  // slug that could never match a real reservation.
+  const n = Number.isFinite(gateNumber) && gateNumber >= 1 ? Math.floor(gateNumber) : 1;
+  return `${stationId}-${sport}-${n}`;
+}
+
 export const STATIONS: Station[] = [
   // ---- Local dev breadboard (matches firmware station_id "DEV-001") --------
   // EDIT lat/lng to your physical location so it shows up as nearby on the

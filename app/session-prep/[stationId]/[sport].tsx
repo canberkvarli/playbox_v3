@@ -60,12 +60,17 @@ export default function SessionPrep() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { stationId, sport, mode, duration } = useLocalSearchParams<{
-    stationId: string;
-    sport: Sport;
-    mode?: 'start' | 'howto';
-    duration?: string;
-  }>();
+  const { stationId, sport, mode, duration, gateId: reservedGateId } =
+    useLocalSearchParams<{
+      stationId: string;
+      sport: Sport;
+      mode?: 'start' | 'howto';
+      duration?: string;
+      // The RESERVED gate's slug (`${stationId}-${sport}-${n}`), passed through
+      // from the station screen's gate selector. Replayed verbatim as gate_id
+      // for reservation linkage — NOT reconstructed here.
+      gateId?: string;
+    }>();
   const isHowto = mode === 'howto';
   // Duration arrives as a string param from /station/[id] (slider value the user
   // picked). Clamp to a sane range so an out-of-band value can't corrupt the
@@ -273,10 +278,29 @@ export default function SessionPrep() {
     const { data: { session: authSession } } = await supabase.auth.getSession();
     const sessionToken = authSession?.access_token ?? '';
     const driver = getDriver();
-    const gateId = `${station.id}-${sport}-${Math.max(1, gateIndex + 1)}`;
+    // Reservation-linkage slug. This MUST equal the EXACT slug the reservation
+    // holds (`reservations.gate_id`), which is the selected gate's id
+    // (`${station.id}-${sport}-${gateNumberWithinSportStock}`) — produced by the
+    // station screen's gate selector and threaded here as the `gateId` param.
+    // The previous code rebuilt it from `gateIndex` (the SPORT'S ORDINAL in
+    // station.sports), so every non-first sport / reserved gate > 1 produced a
+    // mismatching slug and sign-unlock's `r.gate_id === gateId` linkage silently
+    // failed. We now forward the real reserved slug verbatim, or OMIT it
+    // (undefined → server logs "linkage skipped", a safe no-op) when it wasn't
+    // plumbed through — never a reconstructed guess.
+    // NOTE: this is the linkage SLUG only; the numeric `gate` used for the BLE
+    // HMAC (derived inside the driver from this slug, and persisted below) is a
+    // separate physical-compartment concern and is intentionally unchanged.
+    const gateId = reservedGateId || undefined;
+    // Numeric physical compartment for the BLE HMAC — UNCHANGED from before:
+    // still the 1-indexed gate derived from the sport's position. Passed
+    // explicitly (rather than re-parsed from the slug in the driver) so it stays
+    // stable even when the linkage slug is omitted.
+    const gate = Math.max(1, gateIndex + 1);
     const correlationId = `unlock:${station.id}:${sport}:${Date.now()}`;
     const unlockRes = await driver.unlockGate({
       stationId: station.id,
+      gate,
       gateId,
       sessionToken,
       correlationId,
