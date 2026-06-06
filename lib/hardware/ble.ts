@@ -18,6 +18,7 @@ import type { HardwareDriver, NearbyStation, ProximityState, UnlockResult } from
 import { reportError } from '@/lib/telemetry';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
+import { canAttemptBle } from '@/lib/ble/btState';
 import type { StationEvent } from '@/lib/ble/protocol';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
@@ -110,6 +111,40 @@ function classifyError(e: unknown): ProximityState['kind'] | 'connection_failed'
   if (msg.includes('unsupported')) return 'unsupported';
   if (msg.includes('timeout') || msg.includes('not found')) return 'out_of_range';
   return 'connection_failed';
+}
+
+/**
+ * Pre-flight gate: read the LIVE Bluetooth radio state before attempting an
+ * unlock/return. If the radio is not usable, throw an Error whose message is
+ * crafted so the existing `classifyError` maps it to the right localized
+ * prompt — WITHOUT firing a doomed scan/write first.
+ *
+ * Mapping into classifyError's substring matcher:
+ *   - off          → "powered off"  → bluetooth_off  ("bluetooth'u açıp tekrar dene")
+ *   - unauthorized → "unauthorized" → permission_denied
+ *   - unsupported  → "unsupported"  → unsupported
+ *   - transient    → no dedicated "try again" code exists, so fall back to
+ *                    "powered off" (bluetooth_off) per spec. The radio just
+ *                    isn't ready yet; the user retry path is the same prompt.
+ *
+ * The existing post-failure classification stays as a backstop for the case
+ * where the radio flips off mid-flight after this check passes.
+ */
+async function preflightRadio(): Promise<void> {
+  const state = await stationClient.currentState();
+  const decision = canAttemptBle(state);
+  if (decision.ok) return;
+  switch (decision.reason) {
+    case 'unauthorized':
+      throw new Error('BLE unauthorized — permission not granted');
+    case 'unsupported':
+      throw new Error('BLE unsupported on this device');
+    case 'off':
+    case 'transient':
+    default:
+      // 'transient' has no dedicated try-again code; fall back to bluetooth_off.
+      throw new Error('Bluetooth is powered off');
+  }
 }
 
 export function createBleDriver(): HardwareDriver {
@@ -282,6 +317,12 @@ export function createBleDriver(): HardwareDriver {
       const gate = parseGateIndex(gateId);
 
       try {
+        // Pre-flight: gate on the LIVE radio state before doing anything
+        // network- or scan-bound. If Bluetooth is off/unauthorized/unsupported
+        // (or not yet ready), throw early so we surface the localized prompt
+        // WITHOUT a doomed scan/write. classifyError maps the message below.
+        await preflightRadio();
+
         // Get signed BLE payload from the server. Server checks JWT + active
         // payment hold before signing — without those, no signature, no
         // unlock. Phone never holds the station secret.
@@ -308,7 +349,9 @@ export function createBleDriver(): HardwareDriver {
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
-        await stationClient.unlock(signed);
+        // Thread the station's BLE name so a mid-write reconnect can re-target
+        // it by name (otherwise the retry falls back to lastSeenDevice?.name).
+        await stationClient.unlock(signed, targetName);
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         const kind = classifyError(e);
@@ -324,6 +367,10 @@ export function createBleDriver(): HardwareDriver {
     async returnGate({ stationId, gate, sessionId, correlationId }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
       try {
+        // Pre-flight: gate on the LIVE radio state before signing/scanning so
+        // we never fire a doomed return write when Bluetooth isn't usable.
+        await preflightRadio();
+
         // Same signing path as unlock — server enforces auth, then signs the
         // return_unlock payload bound to gate + sessionId. The phone replays
         // the exact session_id the firmware is holding, otherwise firmware
@@ -337,7 +384,9 @@ export function createBleDriver(): HardwareDriver {
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
-        await stationClient.returnUnlock(signed);
+        // Thread the station's BLE name so a mid-write reconnect can re-target
+        // it by name (otherwise the retry falls back to lastSeenDevice?.name).
+        await stationClient.returnUnlock(signed, targetName);
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         const kind = classifyError(e);

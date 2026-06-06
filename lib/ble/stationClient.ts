@@ -14,6 +14,7 @@ import {
   type ReturnUnlockCommand,
 } from "./protocol";
 import { backoffSchedule, classifyBleError, jitter } from "./retry";
+import type { BtState } from "./btState";
 
 class StationClient {
   private _manager: BleManager | null = null;
@@ -373,6 +374,23 @@ class StationClient {
     );
     if (!char.value) throw new Error("INFO characteristic returned no value");
     return JSON.parse(Buffer.from(char.value, "base64").toString("utf-8"));
+  }
+
+  /**
+   * Read the LIVE Bluetooth adapter state for a pre-flight gate. ble-plx's
+   * `State` enum values are the same strings as our `BtState` union
+   * (`'PoweredOn'`, `'PoweredOff'`, ...), so we forward the raw value. If
+   * the read throws (e.g. manager not yet ready), report `Unknown` —
+   * `canAttemptBle` maps that to the `transient` "tekrar dene" path rather
+   * than a misleading "turn on Bluetooth".
+   */
+  async currentState(): Promise<BtState> {
+    try {
+      const state = await this.manager.state();
+      return state as BtState;
+    } catch {
+      return "Unknown";
+    }
   }
 
   async disconnect(): Promise<void> {
