@@ -85,9 +85,16 @@ Deno.serve(async (req) => {
       // shouldn't be punished because Iyzico glitched on their cancel.
       console.warn('[reservation-cancel] grace release failed', { userId, iyz });
     }
+    // deposit_state='released' set in the SAME update that releases the hold:
+    // keeps deposit_state consistent so the Phase 2 settlement guard correctly
+    // skips this already-moved hold (closes cross-path double-capture).
     await supabaseAdmin
       .from('reservations')
-      .update({ status: 'cancelled', terminal_at: new Date().toISOString() })
+      .update({
+        status: 'cancelled',
+        terminal_at: new Date().toISOString(),
+        deposit_state: 'released',
+      })
       .eq('id', r.id);
     await logEvent(supabaseAdmin, r.id, 'grace_cancel', {
       iyzico_status: iyz.status,
@@ -110,9 +117,17 @@ Deno.serve(async (req) => {
 
   if (iyz.status !== 'success') {
     console.warn('[reservation-cancel] capture failed', { userId, iyz });
+    // deposit_state='captured': this row is now terminal (expired_captured + hard
+    // payment_failed lock) and the hold was acted on. Keeps deposit_state
+    // consistent so the Phase 2 settlement guard skips it (closes cross-path
+    // double-capture).
     await supabaseAdmin
       .from('reservations')
-      .update({ status: 'expired_captured', terminal_at: new Date().toISOString() })
+      .update({
+        status: 'expired_captured',
+        terminal_at: new Date().toISOString(),
+        deposit_state: 'captured',
+      })
       .eq('id', r.id);
     await logEvent(supabaseAdmin, r.id, 'cancel_after_grace_capture_fail', {
       iyzico_status: iyz.status,
@@ -131,9 +146,16 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'capture_failed' }, 402);
   }
 
+  // deposit_state='captured' set in the SAME update that captures the hold:
+  // keeps deposit_state consistent so the Phase 2 settlement guard correctly
+  // skips this already-moved hold (closes cross-path double-capture).
   await supabaseAdmin
     .from('reservations')
-    .update({ status: 'expired_captured', terminal_at: new Date().toISOString() })
+    .update({
+      status: 'expired_captured',
+      terminal_at: new Date().toISOString(),
+      deposit_state: 'captured',
+    })
     .eq('id', r.id);
   await logEvent(supabaseAdmin, r.id, 'cancel_after_grace_captured', {
     hold_amount_try: r.hold_amount_try,

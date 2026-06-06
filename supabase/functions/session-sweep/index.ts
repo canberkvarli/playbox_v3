@@ -35,9 +35,18 @@ import { getAppConfig } from "../_shared/reservations.ts";
 import { reconcileEvent } from "../ingest-events/reconcile.ts";
 import { SupabaseReconcileStore } from "../_shared/reconcile-store.ts";
 import { shouldFlagAbandoned } from "./abandoned.ts";
+import { shouldReleaseStaleConsumed } from "./staleConsumed.ts";
 
 // Fallback when app_config has no `max_session_in_use_min` row (minutes).
 const DEFAULT_MAX_SESSION_IN_USE_MIN = 90;
+
+// Fallback when app_config has no `consume_to_open_min` row (minutes). Generous
+// time to scan -> walk to the gate -> open; past this a consumed-but-never-opened
+// reservation is treated as bailed and its dangling hold is RELEASED.
+const DEFAULT_CONSUME_TO_OPEN_MIN = 15;
+
+// Max stale-consumed candidate rows scanned per cron sweep (mirrors abandoned).
+const STALE_CONSUMED_SCAN_LIMIT = 200;
 
 // Max abandoned-candidate rows scanned per cron sweep. If a sweep returns
 // exactly this many rows, a backlog likely exists and is drained next run.
@@ -67,16 +76,21 @@ Deno.serve(async (req) => {
   // Read the tunable from app_config the same way reservation-sweep does. The
   // value is jsonb; default if the row is absent or non-numeric.
   let maxInUseMin = DEFAULT_MAX_SESSION_IN_USE_MIN;
+  let consumeToOpenMin = DEFAULT_CONSUME_TO_OPEN_MIN;
   try {
     const cfg = await getAppConfig(admin);
     const raw = (cfg as Record<string, unknown>).max_session_in_use_min;
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) maxInUseMin = n;
+    const rawConsume = (cfg as Record<string, unknown>).consume_to_open_min;
+    const nConsume = Number(rawConsume);
+    if (Number.isFinite(nConsume) && nConsume > 0) consumeToOpenMin = nConsume;
   } catch (e) {
-    // app_config read failed — fall back to the default rather than aborting.
+    // app_config read failed — fall back to the defaults rather than aborting.
     console.error("[session-sweep] app_config read failed; using default", e);
   }
   const maxInUseMs = maxInUseMin * 60 * 1000;
+  const maxConsumeToOpenMs = consumeToOpenMin * 60 * 1000;
   const nowMs = Date.now();
   const nowISO = new Date(nowMs).toISOString();
 
@@ -133,6 +147,68 @@ Deno.serve(async (req) => {
     console.error("[session-sweep] abandoned pass threw", e);
   }
 
+  // ----- Pass 1c: stranded consumed-never-opened (RELEASE the dangling hold) -
+  // A reservation that was CONSUMED (QR scanned, hold consumed at unlock) but
+  // whose gate was NEVER physically opened (opened_at null) is caught by NEITHER
+  // gate_closed (no return) NOR the abandoned pass above (it REQUIRES opened_at).
+  // Its live deposit hold dangles forever. The user took no equipment, so we
+  // RELEASE — never capture, no penalty. Set release_eligible_at; Phase 2
+  // settlement reads that flag and releases the hold.
+  // Idempotent: the SQL pre-filter (all eligibility flags null) + the pure guard
+  // + the `release_eligible_at is null` guard on the update make a re-run a no-op.
+  let staleConsumedReleased = 0;
+  try {
+    let q = admin
+      .from("reservations")
+      .select(
+        "id, status, opened_at, returned_at, terminal_at, release_eligible_at, penalty_eligible_at, reversal_eligible_at",
+      )
+      .eq("status", "consumed")
+      .is("opened_at", null)
+      .is("returned_at", null)
+      .is("release_eligible_at", null)
+      .is("penalty_eligible_at", null)
+      .is("reversal_eligible_at", null)
+      .not("terminal_at", "is", null)
+      .limit(isServiceRole ? STALE_CONSUMED_SCAN_LIMIT : 5);
+    if (!isServiceRole) q = q.eq("user_id", userId);
+
+    const { data: rows, error } = await q;
+    if (error) {
+      console.error("[session-sweep] stale-consumed query failed", error);
+    } else {
+      if (isServiceRole && (rows?.length ?? 0) === STALE_CONSUMED_SCAN_LIMIT) {
+        console.warn(
+          `[session-sweep] stale-consumed Pass 1c hit row cap (${STALE_CONSUMED_SCAN_LIMIT}) — backlog may exist, will continue next run`,
+        );
+      }
+      for (const r of rows ?? []) {
+        if (!shouldReleaseStaleConsumed(r, nowMs, maxConsumeToOpenMs)) continue;
+        try {
+          // Idempotent: re-filtered by `release_eligible_at is null` so a second
+          // sweep over the same row won't double-flag. RELEASE, never capture —
+          // no equipment was taken so the deposit is correctly returned.
+          await admin
+            .from("reservations")
+            .update({ release_eligible_at: nowISO })
+            .eq("id", r.id)
+            .is("release_eligible_at", null);
+          await admin.from("reservation_events").insert({
+            reservation_id: r.id,
+            kind: "consume_expired_release",
+            payload: { reason: "consumed_never_opened" },
+          });
+          staleConsumedReleased += 1;
+        } catch (e) {
+          // One row's failure must not block the rest of the pass.
+          console.error("[session-sweep] flag stale-consumed failed", { id: r.id, e });
+        }
+      }
+    }
+  } catch (e) {
+    console.error("[session-sweep] stale-consumed pass threw", e);
+  }
+
   // ----- Pass 2: reconcile backstop drain -----
   // For stations whose station_events still have reconciled_at IS NULL (no
   // further courier traffic to drive ingest-events Step B), drain them via the
@@ -177,6 +253,7 @@ Deno.serve(async (req) => {
   return json({
     ok: true,
     abandoned_flagged: abandonedFlagged,
+    stale_consumed_released: staleConsumedReleased,
     reconciled_backstop: reconciledBackstop,
     mode: isServiceRole ? "cron" : "user",
   });

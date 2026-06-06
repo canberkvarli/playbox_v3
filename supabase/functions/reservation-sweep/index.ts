@@ -110,9 +110,15 @@ Deno.serve(async (req) => {
     if (!r.hold_id) {
       // No hold to capture — release path. Shouldn't happen in normal flow
       // (create only inserts after preauth succeeds) but stay defensive.
+      // No hold existed: deposit_state='released' keeps it consistent so the
+      // Phase 2 settlement guard skips this already-terminal row.
       await supabaseAdmin
         .from('reservations')
-        .update({ status: 'expired_released', terminal_at: new Date().toISOString() })
+        .update({
+          status: 'expired_released',
+          terminal_at: new Date().toISOString(),
+          deposit_state: 'released',
+        })
         .eq('id', r.id);
       await logEvent(supabaseAdmin, r.id, 'system_fault_release_no_hold', null);
       systemFault++;
@@ -131,9 +137,16 @@ Deno.serve(async (req) => {
     });
 
     if (iyz.status === 'success') {
+      // deposit_state='captured' set in the SAME update that captures the hold:
+      // keeps deposit_state consistent so the Phase 2 settlement guard correctly
+      // skips this already-moved hold (closes cross-path double-capture).
       await supabaseAdmin
         .from('reservations')
-        .update({ status: 'expired_captured', terminal_at: new Date().toISOString() })
+        .update({
+          status: 'expired_captured',
+          terminal_at: new Date().toISOString(),
+          deposit_state: 'captured',
+        })
         .eq('id', r.id);
       await logEvent(supabaseAdmin, r.id, 'expired_capture_ok', {
         hold_amount_try: r.hold_amount_try,
@@ -153,9 +166,17 @@ Deno.serve(async (req) => {
       }
       captured++;
     } else {
+      // deposit_state='captured' even on iyzico failure: this row is now terminal
+      // (expired_captured + hard payment_failed lock) and the hold was acted on.
+      // Marking it terminal keeps deposit_state consistent so the Phase 2
+      // settlement guard skips it (closes cross-path double-capture).
       await supabaseAdmin
         .from('reservations')
-        .update({ status: 'expired_captured', terminal_at: new Date().toISOString() })
+        .update({
+          status: 'expired_captured',
+          terminal_at: new Date().toISOString(),
+          deposit_state: 'captured',
+        })
         .eq('id', r.id);
       await logEvent(supabaseAdmin, r.id, 'expired_capture_fail', {
         iyzico_status: iyz.status,

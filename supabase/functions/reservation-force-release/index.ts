@@ -91,9 +91,16 @@ Deno.serve(async (req) => {
     }
   }
 
+  // deposit_state='released' set in the SAME update that releases the hold:
+  // keeps deposit_state consistent so the Phase 2 settlement guard correctly
+  // skips this already-moved hold (closes cross-path double-capture).
   await supabaseAdmin
     .from('reservations')
-    .update({ status: 'expired_released', terminal_at: new Date().toISOString() })
+    .update({
+      status: 'expired_released',
+      terminal_at: new Date().toISOString(),
+      deposit_state: 'released',
+    })
     .eq('id', r.id);
 
   await logEvent(supabaseAdmin, r.id, 'system_fault_release', {
