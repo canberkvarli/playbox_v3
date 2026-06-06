@@ -16,10 +16,12 @@
 
 import type { HardwareDriver, NearbyStation, ProximityState, UnlockResult } from './types';
 import { reportError } from '@/lib/telemetry';
+import { supabase } from '@/lib/supabase';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
 import { canAttemptBle } from '@/lib/ble/btState';
 import type { StationEvent } from '@/lib/ble/protocol';
+import { buildIngestBatch, pickAckedSeq } from './relay';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import {
@@ -64,6 +66,64 @@ let returnInFlight: ReturnInFlight | null = null;
 
 function clearReturnInFlight(): void {
   returnInFlight = null;
+}
+
+/**
+ * Last `acked_seq` the server returned from an `ingest-events` POST. Stashed
+ * here (module-level, outside React) so Task 8's ack relay can read the cursor
+ * and write it back to the station (e.g. as a signed `ack` command). We do NOT
+ * write it back here — relay is read-only toward the station. Keyed by station
+ * so a future multi-station courier can't cross-ack. null until the first
+ * successful signed ingest.
+ */
+const lastAckedSeqByStation = new Map<string, number>();
+
+/** Read-only accessor for the stashed ack cursor (consumed by Task 8). */
+export function getLastAckedSeq(stationId: string): number | null {
+  const v = lastAckedSeqByStation.get(stationId);
+  return v === undefined ? null : v;
+}
+
+/**
+ * Relay station-signed events to the `ingest-events` Edge Function so the
+ * server can verify their HMAC and reconcile physical truth (Phase 1). The
+ * renter's phone is the primary courier.
+ *
+ * GATED ON THE SIGNED SHAPE: `buildIngestBatch` keeps only events that carry
+ * both `sig` and `seq` (the Phase 0 signed/sequenced shape) and returns null
+ * if none qualify. Today's firmware emits UNSIGNED events, so this is a safe
+ * NO-OP — nothing is posted — until firmware Task 5 lands and starts emitting
+ * signed events, at which point this lights up automatically.
+ *
+ * BEST-EFFORT: any failure (network, auth, server error) is swallowed + logged
+ * via the telemetry reporter. It must NEVER affect the local session/UX — the
+ * local `dispatchStationEvent` path runs first and is completely unaffected.
+ */
+async function relayStationEvents(
+  stationId: string,
+  events: StationEvent[],
+): Promise<void> {
+  // No-op gate: returns null when no event carries the signed shape (the case
+  // for ALL of today's unsigned firmware events) → skip the POST entirely.
+  const batch = buildIngestBatch(stationId, events);
+  if (!batch) return;
+
+  try {
+    const { data, error } = await supabase.functions.invoke('ingest-events', {
+      body: batch,
+    });
+    if (error) {
+      reportError(error as Error, { source: 'ble.relay.ingest', stationId });
+      return;
+    }
+    // Stash the server's ack cursor for Task 8's ack relay. Read-only here —
+    // we do NOT write it back to the station.
+    const acked = pickAckedSeq(data);
+    if (acked !== null) lastAckedSeqByStation.set(stationId, acked);
+  } catch (e) {
+    // Best-effort: swallow + log. Local UX is unaffected.
+    reportError(e as Error, { source: 'ble.relay.ingest', stationId });
+  }
 }
 
 function dispatchStationEvent(event: StationEvent): void {
@@ -367,6 +427,14 @@ export function createBleDriver(): HardwareDriver {
                     event: evt.event,
                   });
                 }
+                // Additive, best-effort courier relay — runs AFTER the local
+                // dispatch above so local UX is first + completely unaffected.
+                // relayStationEvents gates on the signed shape: today's
+                // UNSIGNED firmware events make buildIngestBatch return null,
+                // so NOTHING is posted (verified no-op). This lights up
+                // automatically once firmware Task 5 emits signed events.
+                // Fire-and-forget; failures are swallowed inside.
+                void relayStationEvents(stationId, [evt]);
               },
               () => {
                 // ignore — disconnect will surface via onDisconnected
