@@ -2,8 +2,18 @@
 //
 // reservation-consume
 // Called by the QR-scan flow when the user successfully scans the gate
-// they had reserved. Releases the reservation hold (the session's own
-// pre-auth takes over) and marks the reservation `consumed`.
+// they had reserved. Marks the reservation `consumed`.
+//
+// KEEP-ONE-HOLD-LIVE MODEL: the single deposit pre-auth placed at
+// reservation-create stays LIVE through consume -> session -> return.
+// Consume does NOT void the hold anymore. The same hold that served as the
+// no-show guarantee now serves as the in-session deposit (the user showed up
+// AND is using equipment, so the deposit stays held). Settlement resolves it
+// later based on the session outcome:
+//   gate_closed -> release_eligible_at -> settlement RELEASE
+//   abandoned   -> penalty_eligible_at -> settlement CAPTURE
+//   late return -> reversal_eligible_at -> settlement REFUND
+// This replaces the old void-at-consume behavior.
 //
 // The caller MUST pass the station_id and gate_id from the scanned QR so
 // we can verify it matches the reservation — specific-gate model means
@@ -22,7 +32,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { handleOptions, json } from '../_shared/cors.ts';
 import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
-import { cancel as iyzicoRelease, checkEnv } from '../_shared/iyzico.ts';
+import { checkEnv } from '../_shared/iyzico.ts';
 import { logEvent } from '../_shared/reservations.ts';
 
 type Input = {
@@ -86,27 +96,22 @@ Deno.serve(async (req) => {
   }
   if (!r.hold_id) return json({ ok: false, error: 'no_hold' }, 500);
 
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '0.0.0.0';
-  const iyz = await iyzicoRelease({
-    locale: 'tr',
-    conversationId: `consume:${r.id}`,
-    paymentId: r.hold_id,
-    ip,
-  });
-  // Release failure is non-blocking — the hold will eventually fall off
-  // Iyzico's books, and we can't refuse the user a session they earned.
-  if (iyz.status !== 'success') {
-    console.warn('[reservation-consume] release failed (non-blocking)', { userId, iyz });
-  }
-
+  // KEEP-ONE-HOLD-LIVE: do NOT void the deposit hold here. The pre-auth on
+  // r.hold_id placed at reservation-create stays live through the session and is
+  // resolved later by the settlement function (release on return, capture on
+  // abandon, refund on late return). This deliberately removes the old
+  // iyzico cancel/void call that ran at consume.
+  //
+  // deposit_state is intentionally left untouched so it stays 'held' (its
+  // create-time default); settlement moves it to a terminal state.
   await supabaseAdmin
     .from('reservations')
     .update({ status: 'consumed', terminal_at: new Date().toISOString() })
     .eq('id', r.id);
 
   await logEvent(supabaseAdmin, r.id, 'consumed', {
-    iyzico_release_status: iyz.status,
-    iyzico_error: iyz.errorMessage,
+    deposit_hold_kept_live: true,
+    note: 'deposit hold remains live for in-session settlement (release/capture/refund)',
   });
 
   return json({ ok: true, reservation_id: r.id });
