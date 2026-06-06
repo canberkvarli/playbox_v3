@@ -114,20 +114,26 @@ Green = the deposit settlement is provably correct + idempotent before any real 
 
 ---
 
-## ⚠️ Phase 2 go-live blockers (from holistic review)
+## Phase 2 go-live — code blockers RESOLVED; live-verification remaining
 
-A holistic review (2026-06-06) confirmed the pure engine (`decide.ts`/`process.ts`) and the migrations are **correct and merge-safe**, but found that the settlement integrates onto a broken money-model assumption. The settlement cron is therefore **DISABLED** in `supabase/migrations/20260606130000_settlement_cron.sql` (the `cron.schedule(...)` call is commented out; the idempotent `cron.unschedule(...)` guard stays active). It must NOT be enabled until the blockers below are resolved and verified.
+A holistic review (2026-06-06) confirmed the pure engine (`decide.ts`/`process.ts`) and the migrations are **correct and merge-safe**. The integration blockers it found are now **RESOLVED IN-CODE** (Fix A + Fix B), so the settlement cron is **ENABLED** in `supabase/migrations/20260606130000_settlement_cron.sql` (the `cron.schedule(...)` call is uncommented; the idempotent `cron.unschedule(...)` guard stays active above it). What remains is **LIVE-VERIFICATION**, not code work.
 
-- **CRITICAL #1 — deposit hold voided at consume:** `reservation-consume` calls `iyzicoRelease`/`cancel` on `hold_id` at QR-scan, so **no live hold exists** by the time `session-sweep`/`gate_closed` set the `*_eligible_at` flags. With the hold already voided, settlement can't actually collect the abandonment penalty (capture) or refund it — it would just fail every minute against a dead hold. The abandonment penalty cannot collect money as-is. **Resolution options (needs a PRODUCT/ARCH decision):** (a) `consume` keeps the hold live through the session; (b) place a NEW in-session hold at unlock and record it as the settlement target; (c) move the penalty onto a separate instrument.
+### Resolved (code blockers)
 
-- **CRITICAL #3 — legacy `deposit_state` desync:** the legacy money flows (`reservation-sweep`/`-consume`/`-cancel`/`-force-release`) don't write `reservation.deposit_state`. They MUST going forward (not just the one-time backfill in the Task 1 migration), otherwise settlement will read a stale `held` state and act on a hold that legacy code has already captured/released → double-move. Required writes: sweep→`captured`, consume→`released`, cancel→`released`/`captured`, force-release→`released`.
+- **CRITICAL #1 — deposit hold voided at consume — RESOLVED (Fix A):** `consume` now KEEPS the hold LIVE through the session instead of voiding `hold_id` at QR-scan. A live hold therefore exists when `session-sweep`/`gate_closed` set the `*_eligible_at` flags, so settlement can capture/refund a real hold. The dead-hold per-minute failure mode is gone.
 
-- **IMPORTANT #4 — cross-path `conversationId` (no iyzico dedupe):** legacy ops use `conversationId` like `sweep:…`/`cancel:…`/`consume:…` while settlement uses `settle:${id}:${action}`. Because the prefixes differ, iyzico will NOT dedupe a legacy-vs-settlement double-capture of the same hold. Cross-path safety currently rests only on (unenforced) status/hold disjointness between the legacy path and the settlement path — there is no hard guard.
+- **CRITICAL #3 — legacy `deposit_state` desync — RESOLVED (Fix B):** the legacy money flows (`reservation-sweep`/`-cancel`/`-force-release`) now write `reservation.deposit_state` consistently (sweep→`captured`, cancel→`released`/`captured`, force-release→`released`), so settlement no longer reads a stale `held` state for a hold legacy code already moved.
 
-- **MINORS:**
-  - Verify iyzico `/payment/refund` field names (`paymentTransactionId` + `price`) against current v2 docs.
-  - `hold_txn_id` is persisted best-effort at preauth; an absent value must surface to an operator (not silently skip the refund).
-  - Multi-worker safety: a settlement scan needs `FOR UPDATE SKIP LOCKED` (or a `settling_at` claim) before it can safely run with more than one worker.
-  - Add a failing-candidate alert/backoff (max attempts) so a permanently-failing (e.g. dead-hold) row can't spam `reservation_events` every minute.
+- **IMPORTANT #4 — cross-path double-capture — RESOLVED (Fix B):** closed by the `deposit_state` terminal guard rather than relying on `conversationId` dedupe. Once a row is terminal (`released`/`captured`/`refunded`), `decideDepositSettlement` returns `'none'`, so settlement cannot fire a second capture/refund against a hold the legacy path already settled.
 
-**Status:** The settlement cron is DISABLED pending the above; the pure engine + all migrations are merge-safe and the Jest suite stays green. Re-enable only by uncommenting the `cron.schedule(...)` after every blocker is resolved and verified.
+- **NEW edge found + closed — consumed-never-opened (Fix B):** a reservation that is consumed but never unlocked would otherwise be stranded as `held`. It now releases via **session-sweep Pass 1c** once `consume_to_open_min` (default **15**) elapses, so an unused-but-consumed hold is released rather than capturing the deposit.
+
+### Remaining (LIVE-VERIFICATION only — not code blockers)
+
+- Confirm iyzico `/payment/refund` field names (`paymentTransactionId` + `price`) against current v2 docs.
+- Confirm the preauth (Auth) response surfaces `paymentTransactionId` — it may be nested under `itemTransactions[]` — so `hold_txn_id` actually populates at reservation-create time. An absent value must surface to an operator (not silently skip the refund).
+- Run the iyzico-SANDBOX validation in `supabase/functions/settlement/_sim/README.md` before pointing the function at production.
+- Multi-worker safety: a settlement scan needs `FOR UPDATE SKIP LOCKED` (or a `settling_at` claim) before it can safely run with more than one worker.
+- Add a failing-candidate alert/backoff (max attempts) so a permanently-failing row can't spam `reservation_events` every minute.
+
+**Status:** Code blockers are RESOLVED and the settlement cron is ENABLED (`cron.schedule(...)` uncommented, `cron.unschedule(...)` guard intact). The function fails SAFE via `checkEnv()` — an unconfigured deploy is a no-op. The pure engine + all migrations are merge-safe and the Jest suite stays green. Only the live-verification items above remain before production money.

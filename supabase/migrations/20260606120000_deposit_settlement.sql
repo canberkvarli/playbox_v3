@@ -87,10 +87,22 @@ create index if not exists reservations_settlement_idx
 --   expired_captured -> 'captured'  (hold was captured on expiry)
 --   expired_released -> 'released'  (hold was released on expiry)
 --   cancelled        -> 'released'  (cancel voids/releases the preauth hold)
---   consumed         -> 'released'  (ASSUMPTION: consuming a reservation already
---                                    released the initial deposit hold — verify
---                                    before live apply, see report)
+--   consumed         -> 'released'  (LEGACY-ONLY mapping — see DEPLOY-ORDER note below)
 --   active / anything else        -> left as the 'held' default
+--
+-- ⚠️ consumed -> 'released' is for LEGACY rows ONLY.
+-- Under the NEW money model, consume KEEPS the hold LIVE (Fix A), so a NEW `consumed`
+-- row must stay 'held' and settle later — it must NOT be backfilled to 'released'.
+-- This mapping is correct ONLY because of deploy order: any `consumed` row that exists
+-- when this migration runs was created under the OLD void-at-consume behavior, so its
+-- hold WAS already released and 'released' is the right terminal state for it.
+--
+-- DEPLOY-ORDER (mandatory): apply this migration BEFORE deploying the updated
+-- reservation-consume function. Standard order is migrate-then-deploy-functions, so
+-- every pre-existing `consumed` row predates the new consume code and its hold was
+-- indeed voided. New `consumed` rows are only produced AFTER the new function ships, by
+-- which point this one-shot backfill has already run and will never touch them (it is
+-- guarded by `deposit_state = 'held'` and never re-rewrites a row). Do NOT reorder.
 --
 -- Guarded by `deposit_state = 'held'` so this is idempotent and safe to re-run:
 -- it only ever rewrites the freshly-added default, never an already-settled row.
