@@ -469,7 +469,9 @@
     "gate_ready": "{{sport}} kapısı hazır",
     "how_it_works": "kısa bir hatırlatma",
     "cta": "oyna!",
-    "opening": "kapı açılıyor..."
+    "opening": "kapı açılıyor...",
+    "approach": "istasyona yaklaş",
+    "approach_hint": "kapıyı açmak için istasyonun yanında ol"
   },
   "scan": {
     "title": "istasyonun qr'ını okut",

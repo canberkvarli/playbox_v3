@@ -21,6 +21,7 @@ import {
   type Sport,
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
+import { useFreshPresence } from '@/stores/nearbyStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
@@ -107,6 +108,18 @@ export default function SessionPrep() {
   ]);
   const agreed = agreedRules.every(Boolean);
 
+  // Fresh-presence cue for the unlock CTA. Called unconditionally (before the
+  // `!station` early return) so the hook order stays stable. `stationId` is
+  // always a string param; the hook decays on its own 1s tick so the CTA goes
+  // "not nearby" if the radio stops hearing this station.
+  //
+  // UX HONESTY ONLY — `present === false` SOFTENS the CTA copy and shows a
+  // "yaklaş" nudge, but does NOT disable the button. The real BLE
+  // scanAndConnect inside onOyna is the source of truth for presence: a user
+  // who taps anyway gets a genuine connect-or-fail attempt, never a hard block
+  // on a missing passive sighting.
+  const { present: freshlyPresent } = useFreshPresence(stationId);
+
   if (!station) {
     return (
       <View
@@ -191,6 +204,15 @@ export default function SessionPrep() {
 
   // Disable advance on the last slide of start-mode until user agrees
   const ctaDisabled = unlocking || (isLast && !isHowto && !agreed);
+
+  // Soft proximity cue on the unlock CTA: when the user is rules-agreed and
+  // ready to unlock but the radio hasn't freshly heard this station, we relabel
+  // the CTA to "yaklaş" and dim it — WITHOUT disabling it. Tapping still runs
+  // the real scanAndConnect (source of truth), which will connect-or-fail. This
+  // is honesty, not a security gate: never hard-block on a passive miss.
+  const isUnlockCta = isLast && !isHowto;
+  const softenForProximity =
+    isUnlockCta && agreed && !unlocking && !freshlyPresent;
 
   const onOyna = async () => {
     if (unlockingRef.current) return;
@@ -542,7 +564,8 @@ export default function SessionPrep() {
         accessibilityRole="button"
         accessibilityLabel={isLast ? t('prep.cta') : t('onb.intro_map.cta')}
         style={({ pressed }) => ({
-          opacity: ctaDisabled ? 0.45 : pressed ? 0.92 : 1,
+          // softenForProximity dims like a disabled CTA but stays tappable.
+          opacity: ctaDisabled || softenForProximity ? 0.55 : pressed ? 0.92 : 1,
         })}
       >
         <View
@@ -551,6 +574,8 @@ export default function SessionPrep() {
               ? palette.butter
               : isLast && !isHowto && !agreed
               ? palette.ink + '33' // gated grey until all rules are checked
+              : softenForProximity
+              ? palette.ink + '33' // not freshly nearby → softened "yaklaş" state
               : isLast && isHowto
               ? palette.ink
               : isLast
@@ -572,6 +597,8 @@ export default function SessionPrep() {
             name={
               unlocking
                 ? 'unlock'
+                : softenForProximity
+                ? 'map-pin'
                 : isLast && isHowto
                 ? 'check'
                 : isLast
@@ -592,6 +619,8 @@ export default function SessionPrep() {
           >
             {unlocking
               ? t('prep.opening')
+              : softenForProximity
+              ? t('prep.approach')
               : isLast && isHowto
               ? 'anladım'
               : isLast
@@ -600,6 +629,24 @@ export default function SessionPrep() {
           </Text>
         </View>
       </Pressable>
+
+      {/* Gentle proximity nudge — shown only when the unlock CTA is softened
+          because the radio hasn't freshly heard this station. Purely advisory;
+          the button above stays tappable (real connect is source of truth). */}
+      {softenForProximity ? (
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 13,
+            textAlign: 'center',
+            color: palette.ink,
+            opacity: 0.6,
+            marginTop: 10,
+          }}
+        >
+          {t('prep.approach_hint')}
+        </Text>
+      ) : null}
 
       {mustAddCardFirst ? <CardRequiredSheet holdAmountTry={PREAUTH_HOLD_TRY} /> : null}
     </View>

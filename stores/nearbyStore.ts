@@ -11,9 +11,15 @@
  * doesn't tick a timer itself — selectors apply the cutoff at read time, so
  * stale rows just stop matching without us paying a re-render cost on tick.
  */
+import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 
 import type { NearbyStation } from '@/lib/hardware/types';
+import {
+  isFreshlyPresent,
+  presenceReason,
+  type ProximityOpts,
+} from '@/lib/hardware/proximity';
 
 const STALE_MS = 15_000;
 
@@ -40,6 +46,58 @@ export function useIsNearby(stationId: string): boolean {
     if (!entry) return false;
     return Date.now() - entry.lastSeenAt < STALE_MS;
   });
+}
+
+/**
+ * Hook: is this station FRESHLY present right now — i.e. seen within a tight
+ * recency window (default 10s, see proximity.ts) — for gating the unlock CTA?
+ *
+ * Differs from `useIsNearby` in two ways:
+ *   1. It uses the tighter `isFreshlyPresent` window (10s) rather than the
+ *      store's 15s map-marker staleness, so the unlock affordance reflects
+ *      *very* recent presence.
+ *   2. It DECAYS ON ITS OWN. A zustand selector only re-renders when the store
+ *      changes, but freshness must lapse even when no new sighting arrives (the
+ *      station stopped being seen). So we drive a light 1s tick that forces a
+ *      re-evaluation against a live `Date.now()`. The tick only runs while the
+ *      latest sighting is still within the window — once it ages out there's
+ *      nothing left to decay, so we stop ticking until the next sighting.
+ *
+ * UX HONESTY ONLY: a `false` here means "don't advertise this as nearby", NOT
+ * "block the unlock". The real `scanAndConnect` during unlock is the source of
+ * truth for presence; callers should still allow a genuine attempt.
+ */
+export function useIsFreshlyPresent(
+  stationId: string,
+  opts?: ProximityOpts,
+): boolean {
+  return useFreshPresence(stationId, opts).present;
+}
+
+/**
+ * Same decaying evaluation as `useIsFreshlyPresent`, but also surfaces the
+ * `reason` ('present' | 'stale' | 'absent' | 'weak') for CTA copy.
+ */
+export function useFreshPresence(
+  stationId: string,
+  opts?: ProximityOpts,
+): { present: boolean; reason: 'present' | 'stale' | 'absent' | 'weak' } {
+  const key = stationId.toUpperCase();
+  const sighting = useNearbyStore((s) => s.seen[key]);
+
+  // 1s tick to let freshness lapse without a new store write.
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!sighting) return; // nothing to decay
+    const id = setInterval(() => tick((n) => n + 1), 1_000);
+    return () => clearInterval(id);
+  }, [sighting]);
+
+  const now = Date.now();
+  return {
+    present: isFreshlyPresent(sighting, now, opts),
+    reason: presenceReason(sighting, now, opts),
+  };
 }
 
 export const _NEARBY_STALE_MS = STALE_MS;
