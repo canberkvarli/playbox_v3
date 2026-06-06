@@ -70,7 +70,16 @@ export type SettlementCandidate = {
 // writes the audit trail. ──
 export type SettlementStore = {
   getCandidates(limit: number): Promise<SettlementCandidate[]>;
-  markSettled(id: string, nextState: DepositState, nowISO: string): Promise<void>;
+  // markSettled is a CONDITIONAL state flip: it advances deposit_state to
+  // nextState ONLY IF the row is still at `expectedFrom` (the deposit_state the
+  // decision was computed from). This is a lost-update guard against concurrent
+  // sweeps — see the CONCURRENCY GUARANTEE note near the iyzico calls below.
+  markSettled(
+    id: string,
+    nextState: DepositState,
+    nowISO: string,
+    expectedFrom: DepositState,
+  ): Promise<void>;
   appendReservationEvent(id: string, kind: string, payload: unknown): Promise<void>;
 };
 
@@ -219,9 +228,33 @@ export async function processSettlement(deps: {
   return counts;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// CONCURRENCY GUARANTEE — what protects a concurrent double money-move.
+//
+// The double-capture window: two overlapping sweeps each read the SAME `held`
+// candidate before either flips deposit_state, so both reach the iyzico call.
+//
+//   1. LOAD-BEARING DEDUPE (the money side): iyzico idempotency on the stable
+//      conversationId = `settle:<id>:<action>` (built by the ./refundConversationId
+//      helpers). Both sweeps send the SAME key for the SAME row+action, so iyzico
+//      treats the second as a replay and does NOT double-charge. This — not the DB
+//      — is what guarantees the money moves at most once.
+//   2. LOST-UPDATE GUARD (the state side): markSettled is a CONDITIONAL update
+//      gated on `expectedFrom` (the deposit_state the decision was computed from).
+//      The first writer flips held->terminal; the second's conditional update
+//      matches 0 rows (state already advanced) and is a harmless no-op. This
+//      prevents a stale writer from clobbering deposit_state.
+//
+//   FOLLOW-UP (multi-worker scale): to also avoid the redundant second iyzico
+//   round-trip, claim candidates with `FOR UPDATE SKIP LOCKED` or a transient
+//   `settling` claim state in getCandidates so only one worker ever picks a row.
+// ─────────────────────────────────────────────────────────────────────────
+//
 // Persist the state flip ONLY AFTER a confirmed money move, then audit. Order
 // matters: markSettled first so a crash between the two re-audits but never
 // re-charges (deposit_state is already terminal -> next decision is 'none').
+// expectedFrom = the ORIGINAL deposit_state the decision rode on, so the write
+// is conditional (lost-update guard above).
 async function finishSuccess(
   store: SettlementStore,
   c: SettlementCandidate,
@@ -231,7 +264,7 @@ async function finishSuccess(
   conversationId: string,
   reason: string,
 ): Promise<void> {
-  await store.markSettled(c.id, nextState, nowISO);
+  await store.markSettled(c.id, nextState, nowISO, c.deposit_state);
   await store.appendReservationEvent(c.id, "deposit_" + action, {
     conversationId,
     from: c.deposit_state,

@@ -65,15 +65,20 @@ function makeStore(initial: SettlementCandidate[]) {
   const map = new Map<string, SettlementCandidate>();
   for (const c of initial) map.set(c.id, { ...c });
   const events: RecordedEvent[] = [];
-  const settled: Array<{ id: string; nextState: DepositState; nowISO: string }> = [];
+  const settled: Array<{ id: string; nextState: DepositState; nowISO: string; expectedFrom: DepositState }> = [];
   const store: SettlementStore = {
     getCandidates(_limit: number) {
       return Promise.resolve([...map.values()]);
     },
-    markSettled(id, nextState, nowISO) {
-      settled.push({ id, nextState, nowISO });
+    markSettled(id, nextState, nowISO, expectedFrom) {
+      settled.push({ id, nextState, nowISO, expectedFrom });
       const cur = map.get(id);
-      if (cur) map.set(id, { ...cur, deposit_state: nextState });
+      // CONDITIONAL: only apply the flip if the row is still at expectedFrom —
+      // mirrors the real store's lost-update guard. A stale expectedFrom is a
+      // harmless no-op (another writer already advanced the row).
+      if (cur && cur.deposit_state === expectedFrom) {
+        map.set(id, { ...cur, deposit_state: nextState });
+      }
       return Promise.resolve();
     },
     appendReservationEvent(id, kind, payload) {
@@ -118,7 +123,7 @@ describe("processSettlement — happy paths drive exactly one iyzico op", () => 
     expect(calls[0].paymentId).toBe("pay_1");
     expect(calls[0].conversationId).toBe("settle:r1:release");
     expect(map.get("r1")!.deposit_state).toBe("released");
-    expect(settled).toEqual([{ id: "r1", nextState: "released", nowISO: NOW }]);
+    expect(settled).toEqual([{ id: "r1", nextState: "released", nowISO: NOW, expectedFrom: "held" }]);
     expect(events.map((e) => e.kind)).toEqual(["deposit_release"]);
     expect(counts).toMatchObject({ released: 1, captured: 0, refunded: 0, failed: 0, skipped: 0 });
   });
@@ -135,7 +140,7 @@ describe("processSettlement — happy paths drive exactly one iyzico op", () => 
     expect(calls[0].paymentId).toBe("pay_1");
     expect(calls[0].conversationId).toBe("settle:r2:capture");
     expect(map.get("r2")!.deposit_state).toBe("captured");
-    expect(settled).toEqual([{ id: "r2", nextState: "captured", nowISO: NOW }]);
+    expect(settled).toEqual([{ id: "r2", nextState: "captured", nowISO: NOW, expectedFrom: "held" }]);
     expect(events.map((e) => e.kind)).toEqual(["deposit_capture"]);
     expect(counts).toMatchObject({ captured: 1, failed: 0 });
   });
@@ -152,7 +157,7 @@ describe("processSettlement — happy paths drive exactly one iyzico op", () => 
     expect(calls[0].paymentTxnId).toBe("txn_1");
     expect(calls[0].conversationId).toBe("settle:r3:refund");
     expect(map.get("r3")!.deposit_state).toBe("refunded");
-    expect(settled).toEqual([{ id: "r3", nextState: "refunded", nowISO: NOW }]);
+    expect(settled).toEqual([{ id: "r3", nextState: "refunded", nowISO: NOW, expectedFrom: "captured" }]);
     expect(events.map((e) => e.kind)).toEqual(["deposit_refund"]);
     expect(counts).toMatchObject({ refunded: 1, failed: 0 });
   });
@@ -197,6 +202,32 @@ describe("processSettlement — no-double-charge invariant", () => {
     expect(okTick.calls).toHaveLength(1); // exactly one real capture, ever
     expect(map.get("r2")!.deposit_state).toBe("captured");
     expect(c2).toMatchObject({ captured: 1, failed: 0 });
+  });
+
+  it("conditional markSettled passes expectedFrom = the ORIGINAL deposit_state the decision rode on", async () => {
+    const { store, settled, map } = makeStore([
+      candidate({ id: "r5", deposit_state: "held", penalty_eligible_at: ISO }),
+    ]);
+    const { iyzico } = makeIyzico();
+    await processSettlement(deps(store, iyzico));
+    // expectedFrom is the pre-flip state ('held'), nextState is terminal.
+    expect(settled).toEqual([{ id: "r5", nextState: "captured", nowISO: NOW, expectedFrom: "held" }]);
+    expect(map.get("r5")!.deposit_state).toBe("captured");
+  });
+
+  it("lost-update guard: a markSettled with a STALE expectedFrom is a no-op (concurrent writer already advanced the row)", async () => {
+    const { store, map } = makeStore([
+      candidate({ id: "r6", deposit_state: "held", release_eligible_at: ISO }),
+    ]);
+    // First worker settles the row: held -> released.
+    await processSettlement(deps(store, makeIyzico().iyzico));
+    expect(map.get("r6")!.deposit_state).toBe("released");
+
+    // Simulate a second, slower worker that computed its decision from the OLD
+    // 'held' state and only now calls markSettled. Its expectedFrom='held' no
+    // longer matches the row (now 'released') -> conditional update is a no-op.
+    await store.markSettled("r6", "captured", NOW, "held");
+    expect(map.get("r6")!.deposit_state).toBe("released"); // NOT clobbered to captured
   });
 
   it("iyzico throws -> same as ok:false: caught, state unchanged, failed++, continue", async () => {

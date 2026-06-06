@@ -73,7 +73,12 @@ Deno.serve(async (req) => {
   } catch (_e) {
     // fall back to default — never block settlement on a config read.
   }
-  priceTry = Number(priceTry).toFixed(2);
+  // Guard the parse: a non-numeric / negative app_config value must NEVER reach
+  // iyzico as "NaN" or a negative amount. Fall back to the default and clamp to
+  // a sane positive, then format to 2dp.
+  let priceNum = Number(priceTry);
+  if (!Number.isFinite(priceNum) || priceNum <= 0) priceNum = Number(DEFAULT_HOLD_TRY);
+  priceTry = priceNum.toFixed(2);
 
   // ── Real SettlementStore: supabase-backed implementation of the pure port. ──
   const store: SettlementStore = {
@@ -96,16 +101,36 @@ Deno.serve(async (req) => {
         console.error('[settlement] getCandidates failed', error);
         throw new Error(`getCandidates failed: ${error.message}`);
       }
-      return (data ?? []) as SettlementCandidate[];
+      const rows = (data ?? []) as SettlementCandidate[];
+      // Observability: a full batch means we likely left a backlog behind.
+      if (rows.length === SCAN_LIMIT) {
+        console.warn(
+          '[settlement] batch full (' + SCAN_LIMIT + ') — backlog may exist, will continue next tick',
+        );
+      }
+      return rows;
     },
 
-    async markSettled(id, nextState, nowISO): Promise<void> {
+    async markSettled(id, nextState, nowISO, expectedFrom): Promise<void> {
       // Persisted ONLY AFTER iyzico confirmed success (enforced by process.ts).
-      const { error } = await supabaseAdmin
+      // CONDITIONAL on deposit_state === expectedFrom: a lost-update guard so a
+      // concurrent sweep that already advanced this row can't be clobbered by a
+      // stale writer. 0 rows affected = another worker won the race; that's fine
+      // (the row is terminal) — log and treat as already-settled, do NOT re-call
+      // iyzico. (Money-side dedupe is iyzico's stable conversationId idempotency;
+      // see CONCURRENCY GUARANTEE in process.ts.)
+      const { data, error } = await supabaseAdmin
         .from('reservations')
         .update({ deposit_state: nextState, settled_at: nowISO })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('deposit_state', expectedFrom)
+        .select('id');
       if (error) throw new Error(`markSettled failed: ${error.message}`);
+      if (!data || data.length === 0) {
+        console.warn(
+          `[settlement] markSettled no-op for ${id}: deposit_state already advanced past ${expectedFrom} (concurrent worker); treating as already-settled`,
+        );
+      }
     },
 
     async appendReservationEvent(id, kind, payload): Promise<void> {
