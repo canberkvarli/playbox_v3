@@ -15,6 +15,8 @@ import { cancelSessionEndAlerts } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
+import { useT } from '@/hooks/useT';
+import { GearReportSheet } from '@/components/GearReportSheet';
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -280,7 +282,9 @@ export default function Play() {
     });
   };
 
+  const { t } = useT();
   const [endModalOpen, setEndModalOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   // Three-phase return flow:
   //   'confirm'         — user is reading the "we'll open the door" prompt
   //   'opening'         — BLE return_unlock write in flight (~500ms)
@@ -720,6 +724,31 @@ export default function Play() {
         </View>
       </Pressable>
 
+      {/* Report-a-problem — subtle text link under the primary CTA. Opens the
+          gear report sheet with the active session context. Best-effort: never
+          disturbs the return flow above. */}
+      <Pressable
+        onPress={async () => {
+          await hx.tap();
+          setReportOpen(true);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('gear.report.title')}
+        hitSlop={8}
+        style={{ marginTop: 14, alignSelf: 'center' }}
+      >
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink + '88',
+            fontSize: 13,
+            textDecorationLine: 'underline',
+          }}
+        >
+          {t('gear.report.title')}
+        </Text>
+      </Pressable>
+
       {/* End-session confirmation modal — phase-aware sheet that walks the
           user through "open the door → put gear back → close it". */}
       <EndSessionModal
@@ -735,6 +764,14 @@ export default function Play() {
         onConfirmOpen={onConfirmOpen}
         onManualConfirmClosed={onManualConfirmClosed}
         accruedTry={costForMs(Date.now() - active.startedAt)}
+      />
+
+      <GearReportSheet
+        visible={reportOpen}
+        onClose={() => setReportOpen(false)}
+        bleSessionId={active.bleSessionId ?? null}
+        stationId={active.stationId ?? null}
+        gate={active.gate ?? null}
       />
 
       {__DEV__ ? (
