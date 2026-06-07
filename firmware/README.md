@@ -85,11 +85,43 @@ running on a phone, the full handshake is:
 
 | BLE characteristic | Direction | Example payload |
 |---|---|---|
-| `UNLOCK_CHAR` | phone → ESP32 (write) | `{"cmd":"unlock","gate":1,"session_id":"sess-abc","duration_min":60}` |
-| `UNLOCK_CHAR` | phone → ESP32 (write) | `{"cmd":"return_unlock","gate":1,"session_id":"sess-abc"}` |
-| `EVENTS_CHAR` | ESP32 → phone (notify) | `{"event":"gate_closed","gate":1,"session_id":"sess-abc","ts":42}` |
-| `EVENTS_CHAR` | ESP32 → phone (notify) | `{"event":"boot","ts":0}` |
-| `INFO_CHAR` | phone → ESP32 (read) | `{"station_id":"DEV-001","fw":"0.1.0-phase0","gates":1,"battery_pct":100}` |
+| `UNLOCK_CHAR` (...def1) | phone → ESP32 (write, SIGNED) | `{"cmd":"unlock","gate":1,"session_id":"sess-abc","duration_min":60,"ts":1717600000,"sig":"<64hex>"}` |
+| `UNLOCK_CHAR` (...def1) | phone → ESP32 (write, SIGNED) | `{"cmd":"return_unlock","gate":1,"session_id":"sess-abc","ts":1717600100,"sig":"<64hex>"}` |
+| `UNLOCK_CHAR` (...def1) | phone → ESP32 (write, UNSIGNED) | `{"cmd":"set_time","now":1717600000}` · `{"cmd":"ack","seq":42}` |
+| `EVENTS_CHAR` (...def2) | ESP32 → phone (notify, SIGNED) | `{"event":"gate_closed","gate":1,"session_id":"sess-abc","seq":42,"ts":1717600200,"sig":"<64hex>"}` |
+| `EVENTS_CHAR` (...def2) | ESP32 → phone (notify, SIGNED) | `{"event":"battery_low","seq":7,"ts":...,"sig":"<64hex>","mv":11900}` |
+| `INFO_CHAR` (...def3) | phone → ESP32 (read) | `{"station_id":"DEV-001","fw":"0.5.0-3gate","battery_pct":100,"battery_mv":12700,"gates":[{"gate":1,"state":"LOCKED","session_id":""},...]}` |
+| `BUFFER_CHAR` (...def4) | phone → ESP32 (read) | JSON array of pending (unacked, `seq>acked_seq`) signed events; app reads, stores, then writes back `{"cmd":"ack","seq":<max>}` |
+
+## v2 signing & event contract
+
+Every outbound event is signed + sequenced by the host-tested signing core
+(`crypto/playbox_sign.*`), byte-for-byte identical to the server signer:
+
+- **Canonical event:** `${event}|${gate}|${session_id}|${seq}|${ts}|${extra}`
+  where `extra` = integer millivolts ONLY for `battery_low`/`battery_critical`
+  (gated on event NAME), `""` otherwise.
+- **Canonical command:** `${cmd}|${gate}|${session_id}|${duration_min_or_0}|${ts}`.
+- **Key:** the 32 RAW BYTES decoded from the 64-hex `STATION_SECRET_HEX`.
+- Events: `boot`, `gate_opened`(+session), `gate_closed`(+session),
+  `unlock_timeout`/`return_timeout`/`ball_overdue`(+session),
+  `battery_low`/`battery_critical`(+mv).
+- `unlock`/`return_unlock` are verified (sig) + replay-guarded (`ts>lastTs`);
+  `set_time`/`ack` are unsigned control commands.
+
+### Building the signing core into the sketch (REQUIRED)
+
+The Arduino IDE compiles only sources inside the sketch folder. The core lives
+in `firmware/crypto/`. Before flashing, copy the whole `crypto/` subdir into
+`PlayboxStation_3gate/` (so `crypto/playbox_sign.c`, `crypto/playbox_sign.h`,
+`crypto/sha256.c`, `crypto/sha256.h` sit next to the `.ino`). The sketch
+includes `crypto/playbox_sign.h` and the two `.c` files compile as plain C99.
+The same core is validated on-host by `firmware/test/run.sh` (17/17 vectors) and
+on-device by a boot self-test that signs a golden vector and blinks an error
+pattern + prints `SIGN SELF-TEST FAILED` on mismatch.
+
+> Per-station: replace `STATION_SECRET_HEX` with the unit's provisioned 64-hex
+> secret and mirror it in the server station row.
 
 The full design (3-gate stations, sneakernet event queue, Supabase wiring) lives in
 [../docs/plans/2026-04-15-station-hardware-design.md](../docs/plans/2026-04-15-station-hardware-design.md).

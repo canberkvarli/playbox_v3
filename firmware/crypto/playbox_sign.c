@@ -88,10 +88,18 @@ void playbox_event_canonical(char *buf, size_t buflen, const char *event,
         snprintf(gate_buf, sizeof(gate_buf), "%d", gate);
     }
 
-    if (mv < 0) {
-        extra_buf[0] = '\0';
-    } else {
+    /* The mv (extra) field is emitted ONLY for battery_low / battery_critical
+     * events — gated on the EVENT NAME, not merely on mv>=0. This mirrors the
+     * server canonical builder (supabase _shared/canonical.ts), which only
+     * appends mv for those two events. Emitting it on any other event would
+     * produce a canonical string that the server can never reproduce, so the
+     * signature would be rejected. */
+    int is_battery_event = (strcmp(event, "battery_low") == 0 ||
+                            strcmp(event, "battery_critical") == 0);
+    if (is_battery_event && mv >= 0) {
         snprintf(extra_buf, sizeof(extra_buf), "%ld", mv);
+    } else {
+        extra_buf[0] = '\0';
     }
 
     /* ${event}|${gate}|${session_id}|${seq}|${ts}|${extra} */
