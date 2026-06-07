@@ -12,7 +12,12 @@
     "verify-native-versions": "node -e \"const p=require('./package.json').dependencies;const exact=k=>!/^[~^]/.test(p[k]);['react-native-reanimated','react-native-worklets','@react-native-async-storage/async-storage'].forEach(k=>{if(!exact(k))throw new Error(k+' must be exact-pinned, got '+p[k])});console.log('native deps OK')\""
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/.worktrees/",
+      "/supabase/functions/"
+    ]
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
