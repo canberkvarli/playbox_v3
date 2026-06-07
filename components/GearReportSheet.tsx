@@ -24,12 +24,9 @@ import { useT } from '@/hooks/useT';
 import { palette } from '@/constants/theme';
 import { hx } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
-import {
-  GEAR_REPORT_KINDS,
-  buildGearReportRow,
-  type GearReportKind,
-} from '@/lib/gear/report';
+import { GEAR_REPORT_KINDS, type GearReportKind } from '@/lib/gear/report';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
+import { submitGearReport } from '@/lib/gear/submitGearReport';
 
 const MAX_MESSAGE = 500;
 
@@ -129,37 +126,43 @@ export function GearReportSheet({
         return;
       }
 
-      // Best-effort photo upload FIRST. If it fails we keep going without a
-      // photo_path and flag a soft warning to the user.
-      let photoPath: string | null = null;
-      if (photoBase64 || photoUri) {
-        const sid = bleSessionId ?? `report-${Date.now()}`;
-        const src = photoBase64 ?? photoUri!;
-        const up = await uploadReturnPhoto(supabase, userId, sid, src);
-        if (up.ok) photoPath = up.path;
-        else setSoftWarn(true);
-      }
+      // A photo needs a session id to key its per-user object path; when we
+      // lack one we synthesize a stable report id so the upload still has a
+      // home. The pure orchestration drives the rest (best-effort photo →
+      // build+validate → insert) and is unit-tested in submitGearReport.test.ts.
+      const sid = bleSessionId ?? `report-${Date.now()}`;
+      const photoUriToUpload = photoBase64 ?? photoUri ?? null;
 
-      const built = buildGearReportRow({
-        userId,
-        bleSessionId: bleSessionId ?? null,
-        stationId: stationId ?? null,
-        gate: gate ?? null,
-        kind,
-        message,
-        photoPath,
-      });
-      if (!built.ok) {
+      const res = await submitGearReport(
+        {
+          uploadPhoto: (u, s, f) => uploadReturnPhoto(supabase, u, s, f),
+          insertReport: async (row) => {
+            const { error } = await supabase.from('gear_reports').insert(row);
+            if (error) {
+              if (__DEV__) console.warn('[gear_reports] insert failed', error);
+              return { ok: false, error: error.message };
+            }
+            return { ok: true };
+          },
+        },
+        {
+          userId,
+          bleSessionId: bleSessionId ?? null,
+          photoSessionId: sid,
+          stationId: stationId ?? null,
+          gate: gate ?? null,
+          kind,
+          message,
+          photoUri: photoUriToUpload,
+        },
+      );
+
+      if (!res.ok) {
         setStatus('error');
         return;
       }
-
-      const { error } = await supabase.from('gear_reports').insert(built.row);
-      if (error) {
-        if (__DEV__) console.warn('[gear_reports] insert failed', error);
-        setStatus('error');
-        return;
-      }
+      // Soft warning: the report went through, but the photo couldn't attach.
+      if (res.photoFailed) setSoftWarn(true);
 
       await hx.yes();
       setStatus('ok');
