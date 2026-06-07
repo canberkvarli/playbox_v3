@@ -474,10 +474,11 @@ static void transitionTo(int g, GateState next) {
   stateEnteredMs[g] = millis();
   if (next == LOCKED) {
     activeSessionId[g] = "";
+    durationMin[g] = DEFAULT_DURATION_MIN;
     overdueSent[g] = false;
     servoLock(g);
   }
-  saveGate(g);
+  saveGate(g);   // persists state + session_id + durationMin (dur%d) to NVS
   refreshInfoChar();
 }
 
@@ -535,6 +536,7 @@ static void checkTimeouts() {
       // the ball, surface a diagnostic, keep the session alive so return_unlock
       // is still possible (it only accepts from IN_USE with a matching session).
       emitTimeout("unlock_timeout", g + 1, activeSessionId[g]);
+      // intentional: keep session IN_USE on unlock_timeout so return_unlock still matches — do NOT change to LOCKED (would trap the user's deposit).
       transitionTo(g, IN_USE);
     } else if (gateState[g] == RETURN_UNLOCKED && elapsed > RETURN_UNLOCKED_TIMEOUT_MS) {
       emitTimeout("return_timeout", g + 1, activeSessionId[g]);
