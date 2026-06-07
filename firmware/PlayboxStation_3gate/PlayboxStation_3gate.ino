@@ -306,10 +306,35 @@ static void refreshBufferChar() {
 }
 
 // =============================================================================
-// INFO characteristic — the per-gate object the app parses.
-//   {"station_id":..,"fw":..,"battery_pct":N,"battery_mv":N,
-//    "gates":[{"gate":1,"state":"LOCKED|UNLOCKED|IN_USE|RETURN_UNLOCKED",
-//              "session_id":""}, ...]}
+// INFO characteristic — CANONICAL INFO SHAPE (do not let this drift again).
+// -----------------------------------------------------------------------------
+// There are TWO app-side parsers with DIFFERENT expectations. `gates` MUST be a
+// NUMBER (count) and we emit a SUPERSET so both parsers are satisfied:
+//
+//   Field          Type                          Read by
+//   ------------   ---------------------------   ----------------------------------
+//   station_id     string                        (general)
+//   fw             string                        app/station/[id].tsx (info.fw)
+//   gates          NUMBER (gate count, == 3)     app/station/[id].tsx (info.gates,
+//                                                 numeric) + general. NEVER an array.
+//   battery_pct    number                        (general / dashboards)
+//   battery_mv     number                        (general / dashboards)
+//   gate_states    string[]  per-gate state      lib/hardware/infoGate.ts shape (a):
+//                                                 extractGate() reads gate_states[idx]
+//   gate_sessions  string[]  per-gate session     lib/hardware/infoGate.ts shape (a):
+//                                                 extractGate() reads gate_sessions[idx]
+//   states         object[]  {gate,state,         app/station/[id].tsx: iterates
+//                            session_id}           info.states, keys by obj.gate
+//   sessions       string[]  per-gate session     alias of gate_sessions (parallel)
+//
+// gate_states[i] / states[i] describe gate i+1. State strings are exactly the 4
+// valid GateState values: LOCKED | UNLOCKED | IN_USE | RETURN_UNLOCKED. session
+// is "" when there is no active session for that gate.
+//
+// NOTE: gate_states/gate_sessions (parallel string arrays) are what infoGate.ts
+// reads (shape a). `states` is the object array the dev station screen reads.
+// Both carry the SAME per-gate data — keep both in sync.
+//
 // Rebuilt on every state/battery change so a fresh READ always reflects truth.
 // =============================================================================
 static void refreshInfoChar() {
@@ -317,15 +342,29 @@ static void refreshInfoChar() {
   JsonDocument info;
   info["station_id"]  = STATION_ID;
   info["fw"]          = FW_VERSION;
+  info["gates"]       = NUM_GATES;          // NUMBER (count) — never an array
   info["battery_pct"] = batteryPct;
   info["battery_mv"]  = batteryMv;
-  JsonArray gates = info["gates"].to<JsonArray>();
+
+  // Parallel string arrays — infoGate.ts shape (a).
+  JsonArray gateStates   = info["gate_states"].to<JsonArray>();
+  JsonArray gateSessions = info["gate_sessions"].to<JsonArray>();
+  // Aliases for app/station/[id].tsx (info.states = object[], info.sessions[]).
+  JsonArray states   = info["states"].to<JsonArray>();
+  JsonArray sessions = info["sessions"].to<JsonArray>();
+
   for (int g = 0; g < NUM_GATES; g++) {
-    JsonObject go = gates.add<JsonObject>();
+    const char* st  = stateName(gateState[g]);
+    const String& sid = activeSessionId[g];
+    gateStates.add(st);
+    gateSessions.add(sid);
+    sessions.add(sid);
+    JsonObject go = states.add<JsonObject>();
     go["gate"]       = g + 1;
-    go["state"]      = stateName(gateState[g]);
-    go["session_id"] = activeSessionId[g];
+    go["state"]      = st;
+    go["session_id"] = sid;
   }
+
   String s;
   serializeJson(info, s);
   infoChar->setValue(s);
@@ -740,7 +779,10 @@ void setup() {
 
   // ADC for battery.
   analogReadResolution(12);
-  analogSetPinAttenuation(BATTERY_ADC_PIN, ADC_11db);
+  // Attenuation enum renamed across the ESP32 Arduino core: `ADC_11db` on core
+  // v2 was deprecated and renamed `ADC_ATTEN_DB_12` on core v3 (same ~0..3.3V
+  // range). Use the v3 name so this compiles on the current core.
+  analogSetPinAttenuation(BATTERY_ADC_PIN, ADC_ATTEN_DB_12);
 
   // NVS.
   prefs.begin("playbox", false);
