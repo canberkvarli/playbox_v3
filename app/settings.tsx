@@ -28,6 +28,7 @@ import { isBadRating } from '@/lib/feedback';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { getDriver } from '@/lib/hardware';
 
 function SettingRow({
   label,
@@ -339,6 +340,14 @@ export default function Settings() {
         text: t('settings.account.signout_cta'),
         style: 'destructive',
         onPress: async () => {
+          // Purge BLE module state (relay queues+timers, ack cursor, reattach
+          // watch, in-flight return, nearby sightings) so nothing leaks into
+          // the next account/session. Best-effort — must never block sign-out.
+          try {
+            getDriver().reset();
+          } catch {
+            /* ignore — teardown is best-effort */
+          }
           await supabase.auth.signOut();
           router.replace('/(onboarding)/welcome');
         },
@@ -377,6 +386,12 @@ export default function Settings() {
           }
         }
       } finally {
+        // Same BLE teardown on account deletion as on sign-out (best-effort).
+        try {
+          getDriver().reset();
+        } catch {
+          /* ignore — teardown is best-effort */
+        }
         await supabase.auth.signOut();
       }
     })();

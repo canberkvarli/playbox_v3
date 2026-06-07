@@ -258,7 +258,15 @@ function GateCard({
 
 export type StationGateSelectorProps = {
   station: Station;
-  onUnlock: (sport: Sport, durationMinutes: number) => void | Promise<void>;
+  // `gateId` is the RESERVED gate's slug (`selectedGate.id`, the first free
+  // gate within the sport's stock). It must be replayed verbatim at unlock
+  // time so sign-unlock can link the unlock to a reservation holding the same
+  // slug. May be undefined if availability hasn't resolved a gate yet.
+  onUnlock: (
+    sport: Sport,
+    durationMinutes: number,
+    gateId?: string,
+  ) => void | Promise<void>;
   unlocking?: boolean;
 };
 
@@ -408,7 +416,11 @@ export function StationGateSelector({
     }
 
     await hx.press();
-    onUnlock(selected, duration);
+    // Forward the selected (first-free) gate's slug so the unlock path can
+    // replay it as gate_id for reservation linkage — same string the reserve
+    // flow would hold. Falls back to undefined (→ linkage skipped) if no gate
+    // resolved, rather than letting the unlock screen reconstruct a wrong slug.
+    onUnlock(selected, duration, selectedGate?.id);
   });
 
   const onReservePress = useGuardedPress(async () => {

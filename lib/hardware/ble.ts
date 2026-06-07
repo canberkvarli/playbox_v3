@@ -16,11 +16,26 @@
 
 import type { HardwareDriver, NearbyStation, ProximityState, UnlockResult } from './types';
 import { reportError } from '@/lib/telemetry';
+import { supabase } from '@/lib/supabase';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
+import { canAttemptBle } from '@/lib/ble/btState';
 import type { StationEvent } from '@/lib/ble/protocol';
+import { buildIngestBatch, pickAckedSeq, isSignedEvent } from './relay';
+import {
+  planGossipDrain,
+  buildAckCommand,
+  coalesceRelayQueue,
+} from './gossip';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
+import { useNearbyStore } from '@/stores/nearbyStore';
+import {
+  interpretReturnRecovery,
+  type GateState,
+} from './returnRecovery';
+import { extractGate } from './infoGate';
+import { shouldReattach } from './coldLaunch';
 
 /**
  * Dispatcher for firmware-emitted BLE notifications. Called whenever an
@@ -34,6 +49,204 @@ import { useDevStore } from '@/stores/devStore';
  *   - dev `ignoreFirmwareTimeouts` toggle → skip timeout-class events so
  *     bench bring-up without reed switches doesn't spam the session
  */
+/**
+ * Module-level "a return is mid-flight" marker. Set by `returnGate` the moment
+ * `return_unlock` is written and we begin awaiting `gate_closed`; cleared once
+ * the return is confirmed (event or recovery) or the user navigates away. The
+ * disconnect handler in `watchStation` reads this to decide whether a dropped
+ * link should kick off the INFO-re-read recovery loop.
+ *
+ * Tracked here (not in React state) because the BLE disconnect callback fires
+ * outside the component tree and must work even if the play screen is
+ * backgrounded.
+ */
+type ReturnInFlight = {
+  stationId: string;
+  stationName: string;
+  gate: number;
+  sessionId: string;
+  /** Guards against two concurrent recovery loops for the same drop. */
+  recovering: boolean;
+};
+let returnInFlight: ReturnInFlight | null = null;
+
+function clearReturnInFlight(): void {
+  returnInFlight = null;
+}
+
+/**
+ * Last `acked_seq` the server returned from an `ingest-events` POST. Stashed
+ * here (module-level, outside React) so Task 8's ack relay can read the cursor
+ * and write it back to the station (e.g. as a signed `ack` command). We do NOT
+ * write it back here — relay is read-only toward the station. Keyed by station
+ * so a future multi-station courier can't cross-ack. null until the first
+ * successful signed ingest.
+ */
+const lastAckedSeqByStation = new Map<string, number>();
+
+/** Read-only accessor for the stashed ack cursor (consumed by Task 8). */
+export function getLastAckedSeq(stationId: string): number | null {
+  const v = lastAckedSeqByStation.get(stationId);
+  return v === undefined ? null : v;
+}
+
+/**
+ * Relay station-signed events to the `ingest-events` Edge Function so the
+ * server can verify their HMAC and reconcile physical truth (Phase 1). The
+ * renter's phone is the primary courier.
+ *
+ * GATED ON THE SIGNED SHAPE: `buildIngestBatch` keeps only events that carry
+ * both `sig` and `seq` (the Phase 0 signed/sequenced shape) and returns null
+ * if none qualify. Today's firmware emits UNSIGNED events, so this is a safe
+ * NO-OP — nothing is posted — until firmware Task 5 lands and starts emitting
+ * signed events, at which point this lights up automatically.
+ *
+ * BEST-EFFORT: any failure (network, auth, server error) is swallowed + logged
+ * via the telemetry reporter. It must NEVER affect the local session/UX — the
+ * local `dispatchStationEvent` path runs first and is completely unaffected.
+ */
+async function relayStationEvents(
+  stationId: string,
+  events: StationEvent[],
+): Promise<void> {
+  // No-op gate: returns null when no event carries the signed shape (the case
+  // for ALL of today's unsigned firmware events) → skip the POST entirely.
+  const batch = buildIngestBatch(stationId, events);
+  if (!batch) return;
+
+  try {
+    const { data, error } = await supabase.functions.invoke('ingest-events', {
+      body: batch,
+    });
+    if (error) {
+      reportError(error as Error, { source: 'ble.relay.ingest', stationId });
+      return;
+    }
+    // Stash the server's ack cursor for Task 8's ack relay. Read-only here —
+    // we do NOT write it back to the station.
+    const acked = pickAckedSeq(data);
+    if (acked !== null) lastAckedSeqByStation.set(stationId, acked);
+  } catch (e) {
+    // Best-effort: swallow + log. Local UX is unaffected.
+    reportError(e as Error, { source: 'ble.relay.ingest', stationId });
+  }
+}
+
+/**
+ * Per-station debounce queue for coalescing courier relays (Task 7 follow-up).
+ * Instead of one `ingest-events` POST per EVENTS notification, signed events are
+ * buffered per station and flushed as ONE batch after a short delay (or once a
+ * size cap is hit), via the same best-effort `relayStationEvents` path.
+ *
+ * Unsigned events are NEVER queued (the signed-shape gate filters them), so
+ * today's firmware still no-ops. Local dispatch always runs FIRST + is
+ * unaffected — this queue only feeds the additive server relay.
+ */
+const RELAY_DEBOUNCE_MS = 400;
+const RELAY_MAX_BATCH = 25;
+
+type RelayQueue = {
+  events: StationEvent[];
+  timer: ReturnType<typeof setTimeout> | null;
+};
+const relayQueueByStation = new Map<string, RelayQueue>();
+
+/**
+ * Tear down ALL pending relay queues on logout/reset: cancel every per-station
+ * flush timer (so a debounced relay can NEVER fire after sign-out, against the
+ * wrong account) and drop the buffered events. Idempotent.
+ */
+function clearAllRelayQueues(): void {
+  for (const q of relayQueueByStation.values()) {
+    if (q.timer) {
+      clearTimeout(q.timer);
+      q.timer = null;
+    }
+    q.events = [];
+  }
+  relayQueueByStation.clear();
+}
+
+/** Flush a station's coalesced relay queue as one batch (best-effort). */
+function flushRelayQueue(stationId: string): void {
+  const q = relayQueueByStation.get(stationId);
+  if (!q) return;
+  if (q.timer) {
+    clearTimeout(q.timer);
+    q.timer = null;
+  }
+  const pending = q.events;
+  q.events = [];
+  if (pending.length === 0) return;
+  // Dedupe-by-seq + sort ascending so a batch is clean even if the same event
+  // arrived twice (e.g. notification + drain overlap).
+  const batch = coalesceRelayQueue(pending);
+  // Fire-and-forget; relayStationEvents swallows all failures internally.
+  void relayStationEvents(stationId, batch);
+}
+
+/**
+ * Enqueue a single firmware event for coalesced relay. No-ops for unsigned
+ * events (they'd be filtered server-side anyway). Flushes immediately once the
+ * queue reaches RELAY_MAX_BATCH, otherwise debounces by RELAY_DEBOUNCE_MS.
+ */
+function enqueueRelayEvent(stationId: string, evt: StationEvent): void {
+  if (!isSignedEvent(evt)) return; // unsigned → never queued (still a no-op today)
+  let q = relayQueueByStation.get(stationId);
+  if (!q) {
+    q = { events: [], timer: null };
+    relayQueueByStation.set(stationId, q);
+  }
+  q.events.push(evt);
+  if (q.events.length >= RELAY_MAX_BATCH) {
+    flushRelayQueue(stationId);
+    return;
+  }
+  if (!q.timer) {
+    q.timer = setTimeout(() => flushRelayQueue(stationId), RELAY_DEBOUNCE_MS);
+  }
+}
+
+/**
+ * Gossip-sync drain on ANY station connect (Phase 3 Task 8): even a passive
+ * connection for a DIFFERENT user makes this phone a backstop courier. Steps:
+ *   (a) read the station's pending SIGNED-event buffer,
+ *   (b) plan what to drain (signed + seq > lastAckedSeq, sorted/deduped),
+ *   (c) POST it to `ingest-events` (reuses relayStationEvents),
+ *   (d) write the resulting unsigned `ack` back so the station drops events
+ *       ≤ acked_seq from its NVS buffer.
+ *
+ * FIRMWARE-GATED NO-OP TODAY: `readPendingBuffer` returns [] because the
+ * BUFFER characteristic is Phase 0 firmware Task 5 (not built) → `planGossipDrain`
+ * yields [] → nothing is POSTed and no ack is written. Lights up automatically
+ * once firmware Task 5 exposes the buffer-drain + ack characteristics.
+ *
+ * BEST-EFFORT: every step is wrapped so a gossip/ack failure can NEVER affect
+ * the user's own session/UX.
+ */
+async function gossipSyncOnConnect(stationId: string): Promise<void> {
+  try {
+    // (a) Read the station's pending buffer. Returns [] today (no characteristic).
+    const buffer = await stationClient.readPendingBuffer();
+    // (b) Plan the drain against our last-known ack cursor for this station.
+    const toDrain = planGossipDrain(buffer, getLastAckedSeq(stationId));
+    if (toDrain.length === 0) return; // nothing to drain → no POST, no ack (no-op)
+
+    // (c) POST via the existing best-effort ingest path. It stashes acked_seq
+    //     into lastAckedSeqByStation on success.
+    await relayStationEvents(stationId, toDrain);
+
+    // (d) Relay the ack cursor back so the station drops acked events. Guarded:
+    //     no-ops when there's nothing to ack, and writeAck swallows the case
+    //     where the firmware ack handler doesn't exist yet (Task 5).
+    const ack = buildAckCommand(getLastAckedSeq(stationId));
+    if (ack) await stationClient.writeAck(ack);
+  } catch (e) {
+    // Best-effort: a gossip/ack failure must never touch the user's session.
+    reportError(e as Error, { source: 'ble.gossipSync', stationId });
+  }
+}
+
 function dispatchStationEvent(event: StationEvent): void {
   const session = useSessionStore.getState().active;
   const ignoreTimeouts = useDevStore.getState().ignoreFirmwareTimeouts;
@@ -42,6 +255,9 @@ function dispatchStationEvent(event: StationEvent): void {
     case 'gate_closed': {
       if (!session || !session.bleSessionId) return;
       if (event.session_id !== session.bleSessionId) return;
+      // A real gate_closed wins over any in-progress recovery loop — stop it
+      // from also confirming (idempotent on the store, but cheap to short).
+      clearReturnInFlight();
       useSessionStore.getState().markReturnConfirmed();
       return;
     }
@@ -112,6 +328,140 @@ function classifyError(e: unknown): ProximityState['kind'] | 'connection_failed'
   return 'connection_failed';
 }
 
+/**
+ * Pre-flight gate: read the LIVE Bluetooth radio state before attempting an
+ * unlock/return. If the radio is not usable, throw an Error whose message is
+ * crafted so the existing `classifyError` maps it to the right localized
+ * prompt — WITHOUT firing a doomed scan/write first.
+ *
+ * Mapping into classifyError's substring matcher:
+ *   - off          → "powered off"  → bluetooth_off  ("bluetooth'u açıp tekrar dene")
+ *   - unauthorized → "unauthorized" → permission_denied
+ *   - unsupported  → "unsupported"  → unsupported
+ *   - transient    → no dedicated "try again" code exists, so fall back to
+ *                    "powered off" (bluetooth_off) per spec. The radio just
+ *                    isn't ready yet; the user retry path is the same prompt.
+ *
+ * The existing post-failure classification stays as a backstop for the case
+ * where the radio flips off mid-flight after this check passes.
+ */
+async function preflightRadio(): Promise<void> {
+  const state = await stationClient.currentState();
+  const decision = canAttemptBle(state);
+  if (decision.ok) return;
+  switch (decision.reason) {
+    case 'unauthorized':
+      throw new Error('BLE unauthorized — permission not granted');
+    case 'unsupported':
+      throw new Error('BLE unsupported on this device');
+    case 'off':
+    case 'transient':
+    default:
+      // 'transient' has no dedicated try-again code; fall back to bluetooth_off.
+      throw new Error('Bluetooth is powered off');
+  }
+}
+
+const RECOVERY_START_ATTEMPTS = 3;
+// Delay between recovery steps — used for both keep_waiting (re-read after a
+// failed/UNKNOWN read) and retry_return (after resending return_unlock).
+const RECOVERY_STEP_DELAY_MS = 1_500;
+
+/**
+ * Recover a return that lost its BLE link before `gate_closed` arrived.
+ *
+ * Best-effort + idempotent: reconnect by station name, read INFO, interpret
+ * the gate's state via the pure `interpretReturnRecovery`, and act. A real
+ * `gate_closed` event arriving mid-loop clears `returnInFlight` and wins.
+ * Does nothing destructive — only ever `markReturnConfirmed()` (same effect as
+ * a gate_closed event) or resends a signed `return_unlock`, never penalizes.
+ */
+async function runReturnRecovery(target: ReturnInFlight): Promise<void> {
+  let attemptsRemaining = RECOVERY_START_ATTEMPTS;
+
+  while (attemptsRemaining > 0) {
+    // A real event landed (or the user/session moved on) — stop.
+    if (returnInFlight !== target) return;
+
+    let infoGateState: GateState = 'UNKNOWN';
+    let infoSessionId: string | null = null;
+    try {
+      if (!stationClient.isConnected()) {
+        await stationClient.scanAndConnect(target.stationName, SCAN_TIMEOUT_MS);
+      }
+      const info = await stationClient.readInfo();
+      const g = extractGate(info, target.gate);
+      infoGateState = g.state;
+      infoSessionId = g.sessionId;
+    } catch (e) {
+      // Reconnect / read failed this round → UNKNOWN, let the decision pick
+      // keep_waiting vs manual based on attempts.
+      reportError(e as Error, { source: 'ble.returnRecovery.read', stationId: target.stationId });
+      infoGateState = 'UNKNOWN';
+      infoSessionId = null;
+    }
+
+    if (returnInFlight !== target) return; // event won while we were reading
+
+    const decision = interpretReturnRecovery({
+      gotGateClosedEvent: useSessionStore.getState().active?.returnConfirmed === true,
+      infoGateState,
+      infoSessionId,
+      expectedSessionId: target.sessionId,
+      attemptsRemaining,
+    });
+
+    if (decision === 'confirmed_closed') {
+      clearReturnInFlight();
+      useSessionStore.getState().markReturnConfirmed();
+      return;
+    }
+
+    if (decision === 'manual_fallback') {
+      // Stop auto-recovery; the manual "kapattım" path in play.tsx stays
+      // available. Surface a gentle nudge so the user knows to confirm.
+      clearReturnInFlight();
+      useSessionStore.getState().markFirmwareEvent('return_timeout');
+      return;
+    }
+
+    if (decision === 'retry_return') {
+      try {
+        const signed = await fetchSignedReturnUnlock({
+          stationId: target.stationId,
+          gate: target.gate,
+          sessionId: target.sessionId,
+          devBypass: target.stationId === 'DEV-001',
+        });
+        if (!stationClient.isConnected()) {
+          await stationClient.scanAndConnect(target.stationName, SCAN_TIMEOUT_MS);
+        }
+        await stationClient.returnUnlock(signed, target.stationName);
+      } catch (e) {
+        reportError(e as Error, {
+          source: 'ble.returnRecovery.retry',
+          stationId: target.stationId,
+        });
+      }
+      attemptsRemaining -= 1;
+      await new Promise((r) => setTimeout(r, RECOVERY_STEP_DELAY_MS));
+      continue;
+    }
+
+    // keep_waiting → short delay, then re-read (consumes one attempt so we
+    // can't spin forever on a permanently-unreadable link).
+    attemptsRemaining -= 1;
+    await new Promise((r) => setTimeout(r, RECOVERY_STEP_DELAY_MS));
+  }
+
+  // Out of attempts without a confirm → never silently strand: hand off to
+  // the manual path with a nudge (mirrors the manual_fallback branch).
+  if (returnInFlight === target) {
+    clearReturnInFlight();
+    useSessionStore.getState().markFirmwareEvent('return_timeout');
+  }
+}
+
 export function createBleDriver(): HardwareDriver {
   return {
     watchStation(stationId, onChange) {
@@ -145,7 +495,20 @@ export function createBleDriver(): HardwareDriver {
       const armRetry = (delayMs: number) => {
         if (retryTimer) clearTimeout(retryTimer);
         retryTimer = setTimeout(() => {
-          if (!cancelled) attempt();
+          if (cancelled) return;
+          // Coordinate the two reconnect paths: while a return recovery loop is
+          // active it OWNS the link (it scanAndConnects on its own cadence).
+          // Firing the passive-retry attempt() here too would race a second
+          // scan/connect against the same station — iOS scan thrash. Defer:
+          // re-arm and re-check next tick. Once recovery clears returnInFlight
+          // (confirmed / manual / out-of-attempts / failure), normal proximity
+          // retry resumes. When no return is in flight, this is a no-op and
+          // armRetry behaves exactly as before.
+          if (returnInFlight?.recovering) {
+            armRetry(delayMs);
+            return;
+          }
+          attempt();
         }, delayMs);
       };
 
@@ -185,6 +548,14 @@ export function createBleDriver(): HardwareDriver {
                     event: evt.event,
                   });
                 }
+                // Additive, best-effort courier relay — runs AFTER the local
+                // dispatch above so local UX is first + completely unaffected.
+                // COALESCED (Task 7 follow-up): instead of one POST per event,
+                // enqueue into a per-station debounce queue that flushes as ONE
+                // batch after ~400ms (or at a size cap). Unsigned events are
+                // never queued, so today's UNSIGNED firmware is still a verified
+                // no-op; this lights up once firmware Task 5 emits signed events.
+                enqueueRelayEvent(stationId, evt);
               },
               () => {
                 // ignore — disconnect will surface via onDisconnected
@@ -194,11 +565,36 @@ export function createBleDriver(): HardwareDriver {
             // subscribe failure isn't fatal — the unlock still works
           }
 
+          // Gossip-sync drain (Task 8): on ANY connect — even a passive watch
+          // for a different user — act as a backstop courier: drain the
+          // station's pending signed-event buffer, POST it, and ack back so the
+          // station can drop acked events. Fire-and-forget + best-effort:
+          // failures are swallowed inside and can't touch the user's session.
+          // NO-OPS today — the BUFFER characteristic is firmware Task 5, so
+          // readPendingBuffer() returns [] → planGossipDrain() yields [].
+          void gossipSyncOnConnect(stationId);
+
           cleanupDisconnect();
           disconnectSub = device.onDisconnected(() => {
             if (cancelled) return;
             cleanupDisconnect();
             onChange({ kind: 'out_of_range' });
+            // If the link dropped while a return was mid-flight (return_unlock
+            // sent, still waiting for gate_closed), kick off the INFO-re-read
+            // recovery loop so we never strand the renter or wrongly penalize
+            // them. Guard against double-launch for the same in-flight return.
+            const inFlight = returnInFlight;
+            if (
+              inFlight &&
+              !inFlight.recovering &&
+              !useSessionStore.getState().active?.returnConfirmed
+            ) {
+              inFlight.recovering = true;
+              runReturnRecovery(inFlight).catch((err) => {
+                reportError(err as Error, { source: 'ble.returnRecovery' });
+                if (returnInFlight === inFlight) clearReturnInFlight();
+              });
+            }
             armRetry(3000);
           });
         } catch (e) {
@@ -277,11 +673,33 @@ export function createBleDriver(): HardwareDriver {
       };
     },
 
-    async unlockGate({ stationId, gateId, correlationId, durationMin }): Promise<UnlockResult> {
+    async unlockGate({ stationId, gate: gateArg, gateId, correlationId, durationMin }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
-      const gate = parseGateIndex(gateId);
+      // Numeric gate for the BLE HMAC. Prefer the explicit 1-indexed compartment
+      // from the caller (stable, independent of the linkage slug); fall back to
+      // parsing the slug only when no explicit gate was provided (back-compat).
+      // Defaults to 1 when neither is available.
+      const gate =
+        typeof gateArg === 'number' && gateArg >= 1
+          ? Math.floor(gateArg)
+          : gateId
+          ? parseGateIndex(gateId)
+          : 1;
+
+      // A fresh unlock starts a brand-new session: it must never inherit a
+      // prior return's in-flight marker (e.g. a recovery loop that never
+      // cleared across sessions/stations, or a stale return from a previous
+      // play). Clear it up front so the disconnect handler can't mistakenly
+      // treat this new unlock's drops as a return-in-flight to recover.
+      clearReturnInFlight();
 
       try {
+        // Pre-flight: gate on the LIVE radio state before doing anything
+        // network- or scan-bound. If Bluetooth is off/unauthorized/unsupported
+        // (or not yet ready), throw early so we surface the localized prompt
+        // WITHOUT a doomed scan/write. classifyError maps the message below.
+        await preflightRadio();
+
         // Get signed BLE payload from the server. Server checks JWT + active
         // payment hold before signing — without those, no signature, no
         // unlock. Phone never holds the station secret.
@@ -299,12 +717,18 @@ export function createBleDriver(): HardwareDriver {
           sessionId: correlationId,
           durationMin,
           devBypass: stationId === 'DEV-001',
+          // The reservation-linkage slug (e.g. DEV-001-football-1). The server
+          // only links the unlock to a reservation when this is present; the
+          // numeric `gate` above stays as-is for the BLE HMAC.
+          gateId,
         });
 
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
-        await stationClient.unlock(signed);
+        // Thread the station's BLE name so a mid-write reconnect can re-target
+        // it by name (otherwise the retry falls back to lastSeenDevice?.name).
+        await stationClient.unlock(signed, targetName);
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         const kind = classifyError(e);
@@ -320,6 +744,10 @@ export function createBleDriver(): HardwareDriver {
     async returnGate({ stationId, gate, sessionId, correlationId }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
       try {
+        // Pre-flight: gate on the LIVE radio state before signing/scanning so
+        // we never fire a doomed return write when Bluetooth isn't usable.
+        await preflightRadio();
+
         // Same signing path as unlock — server enforces auth, then signs the
         // return_unlock payload bound to gate + sessionId. The phone replays
         // the exact session_id the firmware is holding, otherwise firmware
@@ -333,9 +761,22 @@ export function createBleDriver(): HardwareDriver {
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
-        await stationClient.returnUnlock(signed);
+        // Thread the station's BLE name so a mid-write reconnect can re-target
+        // it by name (otherwise the retry falls back to lastSeenDevice?.name).
+        await stationClient.returnUnlock(signed, targetName);
+        // Return write landed — we're now awaiting gate_closed. Mark the
+        // return as in-flight so a subsequent disconnect triggers recovery.
+        returnInFlight = {
+          stationId,
+          stationName: targetName,
+          gate,
+          sessionId,
+          recovering: false,
+        };
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
+        // Return write failed outright — no in-flight return to recover.
+        clearReturnInFlight();
         const kind = classifyError(e);
         reportError(e as Error, { source: 'ble.return', stationId, gate, correlationId });
         if (kind === 'bluetooth_off') return { ok: false, error: 'bluetooth_off' };
@@ -347,9 +788,122 @@ export function createBleDriver(): HardwareDriver {
     },
 
     reset() {
+      // Called on logout. Purge ALL module-global BLE state so nothing can leak
+      // across accounts/sessions: a queued relay firing for the wrong user, a
+      // stale ack cursor, a still-live cold-launch re-attach watch, or an
+      // in-flight return recovery loop.
+      clearReturnInFlight();
+      // Cancel pending relay flush timers + drop buffered events so a debounced
+      // relay can't POST after the user has signed out.
+      clearAllRelayQueues();
+      // Drop the per-station server ack cursor.
+      lastAckedSeqByStation.clear();
+      // Tear down the cold-launch re-attach watch (proximity + EVENTS sub).
+      stopActiveStationReattach();
+      // Drop stale nearby sightings so a freshly-signed-in account doesn't see
+      // the prior user's last-known stations.
+      try {
+        useNearbyStore.getState().clear();
+      } catch {
+        // best-effort — never let store access block logout teardown.
+      }
       stationClient.disconnect().catch(() => {});
     },
   };
+}
+
+/**
+ * Cold-launch re-attach singleton. Holds the live proximity/EVENTS watch we
+ * spun up for a recovered session so a second `reattachActiveStationWatch`
+ * call (e.g. a Fast-Refresh re-run of the boot effect, or AppState churn) is a
+ * no-op instead of opening a duplicate subscription against the same station.
+ */
+let reattachWatch: { stationId: string; sub: { stop: () => void } } | null = null;
+
+/**
+ * Re-establish the passive watch + EVENTS subscription for a still-active
+ * persisted session on cold launch.
+ *
+ * Why this exists: the active session survives an app kill via zustand persist,
+ * but a fresh launch does NOT re-open the BLE EVENTS subscription. Without it,
+ * a `gate_closed` arriving after the user pushes the door shut would never be
+ * received and the return could not auto-confirm. This re-runs the SAME wiring
+ * a normal unlock relies on (`driver.watchStation`, which connects and calls
+ * `stationClient.subscribeToEvents` → `dispatchStationEvent` → session store),
+ * so an arriving event is handled exactly as it would be mid-session.
+ *
+ * Contract:
+ *   - RESUBSCRIBE ONLY. Performs no writes, no return_unlock, no auto-confirm.
+ *     It just makes the phone ready to *hear* an event; the existing return UI
+ *     and `dispatchStationEvent` guards do the rest.
+ *   - Idempotent. If a watch for this station is already live, it's a no-op.
+ *     A watch for a *different* station is torn down first (the active session
+ *     can only be one station).
+ *   - Best-effort. Any failure is caught + reported; it must never crash launch.
+ *
+ * Pass the live driver (via `getDriver()`) so this honors the mock/ble toggle
+ * and stays decoupled from the resolver (no circular import).
+ *
+ * @returns true if a watch was (or already is) established for the session.
+ */
+export function reattachActiveStationWatch(
+  driver: Pick<HardwareDriver, 'watchStation'>,
+  nowMs: number = Date.now(),
+): boolean {
+  try {
+    const session = useSessionStore.getState().active;
+    const decision = shouldReattach(session, nowMs);
+    if (!decision.reattach) {
+      // Nothing to resume. If a stale watch from a prior session is somehow
+      // still live (e.g. the session ended in another tab), tear it down.
+      if (reattachWatch) {
+        try {
+          reattachWatch.sub.stop();
+        } catch {
+          /* already stopped — ignore */
+        }
+        reattachWatch = null;
+      }
+      return false;
+    }
+
+    // Idempotent: a watch for this exact station already exists → no-op.
+    if (reattachWatch?.stationId === decision.stationId) return true;
+
+    // A watch for a different station is stale — replace it.
+    if (reattachWatch) {
+      try {
+        reattachWatch.sub.stop();
+      } catch {
+        /* ignore */
+      }
+      reattachWatch = null;
+    }
+
+    // Same wiring as the play screen's `useStationInRange`: watchStation
+    // connects and subscribes to EVENTS, routing notifications through
+    // dispatchStationEvent into the session store. We don't care about the
+    // ProximityState here — only the side-effect subscription — so the
+    // onChange callback is a no-op.
+    const sub = driver.watchStation(decision.stationId, () => {});
+    reattachWatch = { stationId: decision.stationId, sub };
+    return true;
+  } catch (err) {
+    // Best-effort: a re-attach failure must not crash launch.
+    reportError(err as Error, { source: 'ble.reattach' });
+    return false;
+  }
+}
+
+/** Tear down any cold-launch re-attach watch. For tests + explicit teardown. */
+export function stopActiveStationReattach(): void {
+  if (!reattachWatch) return;
+  try {
+    reattachWatch.sub.stop();
+  } catch {
+    /* ignore */
+  }
+  reattachWatch = null;
 }
 
 export type { ProximityState };

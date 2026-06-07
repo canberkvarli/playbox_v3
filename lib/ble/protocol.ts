@@ -2,6 +2,12 @@ export const SERVICE_UUID = "12345678-1234-5678-1234-56789abcdef0";
 export const UNLOCK_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef1";
 export const EVENTS_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef2";
 export const INFO_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef3";
+// Buffer-drain characteristic: a read returns the station's pending SIGNED-event
+// gossip buffer as a JSON array (events ≤ acked_seq already dropped firmware-side
+// on ack). DOES NOT EXIST YET — Phase 0 firmware Task 5. The app's reader tries
+// this characteristic and catches → [] so the gossip drain is a safe no-op until
+// the firmware exposes it.
+export const BUFFER_CHAR_UUID = "12345678-1234-5678-1234-56789abcdef4";
 
 // All commands are HMAC-signed by the server before being relayed over BLE.
 // The phone is a dumb pipe — it never holds the station secret.
@@ -36,10 +42,21 @@ export type Command = UnlockCommand | ReturnUnlockCommand;
 // A hostile/buggy phone can send a bogus set_time `now`, so the station wall clock (and every event's wall_ts) is NON-AUTHORITATIVE. The server MUST NOT use wall_ts for billing or duration — derive durations from event-delta (seq-ordered) timing only.
 export type SetTimeCommand = { cmd: "set_time"; now: number };
 
+// UNSIGNED — like set_time. Written back to the station after the server has
+// durably accepted events ≤ `seq`, telling the station it may DROP those events
+// from its NVS gossip buffer. The phone cannot sign this (it holds no station
+// secret), and that's safe because the ack is ADVISORY: a lost/forged ack just
+// means the station re-sends events it already buffered (harmless — the server
+// dedupes on `(station_id, seq)`), and it can never authorize an unlock. The
+// station must only ever DROP buffered events on ack, never act on one.
+// Deliberately NOT part of the signable `Command` union and never passed to
+// `signingPayload`.
+export type AckCommand = { cmd: "ack"; seq: number };
+
 // Everything writable over the unlock characteristic: the signable commands plus
-// the unsigned set_time. `encodeCommand` accepts this wider set; `signingPayload`
-// stays narrowed to `Command`.
-export type AnyCommand = Command | SetTimeCommand;
+// the unsigned set_time + ack. `encodeCommand` accepts this wider set;
+// `signingPayload` stays narrowed to `Command`.
+export type AnyCommand = Command | SetTimeCommand | AckCommand;
 
 // Canonical string the firmware HMACs over. Must match exactly on both sides.
 //

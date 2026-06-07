@@ -28,10 +28,22 @@
     },
     "perms": {
       "title": "birkaç izin",
-      "location": { "title": "konum", "why": "yakındaki istasyonları göstermek ve kapıyı açmak için" },
-      "notif":    { "title": "bildirim", "why": "rezervasyon ve seans hatırlatmaları için" },
-      "camera":   { "title": "kamera", "why": "qr ile hızlı başlamak için — haritadan da bulabilirsin" },
-      "bt":       { "title": "bluetooth", "why": "istasyondaki kapıyı açmak için — playbox bunsuz çalışmıyor" },
+      "location": {
+        "title": "konum",
+        "why": "yakındaki istasyonları göstermek ve kapıyı açmak için"
+      },
+      "notif": {
+        "title": "bildirim",
+        "why": "rezervasyon ve seans hatırlatmaları için"
+      },
+      "camera": {
+        "title": "kamera",
+        "why": "qr ile hızlı başlamak için — haritadan da bulabilirsin"
+      },
+      "bt": {
+        "title": "bluetooth",
+        "why": "istasyondaki kapıyı açmak için — playbox bunsuz çalışmıyor"
+      },
       "denied": "izin verilmedi",
       "denied_required": "izin verilmedi — devam etmek için gerekli",
       "denied_optional": "izin verilmedi — sorun değil, sonra değiştirebilirsin",
@@ -469,7 +481,9 @@
     "gate_ready": "{{sport}} kapısı hazır",
     "how_it_works": "kısa bir hatırlatma",
     "cta": "oyna!",
-    "opening": "kapı açılıyor..."
+    "opening": "kapı açılıyor...",
+    "approach": "istasyona yaklaş",
+    "approach_hint": "kapıyı açmak için istasyonun yanında ol"
   },
   "scan": {
     "title": "istasyonun qr'ını okut",
@@ -516,6 +530,32 @@
       "supabase_not_configured": "ödeme servisi şu an hazır değil. birazdan tekrar dene.",
       "card_declined": "kart bankan tarafından reddedildi. başka bir kart deneyebilirsin.",
       "card_invalid": "kart bilgilerini kontrol et ve tekrar gir."
+    }
+  },
+  "gear": {
+    "kind": {
+      "lost": "kayıp",
+      "damaged": "hasarlı",
+      "wrong_item": "yanlış ürün",
+      "other": "diğer"
+    },
+    "report": {
+      "title": "bir sorun bildir",
+      "sub": "ekipmanla ilgili bir sorun mu var? bize anlat, ilgilenelim.",
+      "message_label": "ne oldu?",
+      "message_placeholder": "kısaca yaz: ne eksik, hasarlı ya da yanlıştı?",
+      "add_photo": "fotoğraf ekle",
+      "photo_added": "fotoğraf eklendi",
+      "photo_failed": "fotoğraf yüklenemedi, bildirimi fotoğrafsız gönderdik.",
+      "submit": "gönder",
+      "submitting": "gönderiliyor...",
+      "success": "bildirimin alındı, teşekkürler.",
+      "error": "bildirim gönderilemedi. tekrar dener misin?"
+    },
+    "return_photo": {
+      "add": "kapanış fotoğrafı ekle",
+      "success": "fotoğraf kaydedildi.",
+      "failed": "fotoğraf yüklenemedi, sorun değil — devam edebilirsin."
     }
   }
 }

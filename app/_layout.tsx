@@ -14,6 +14,7 @@ import { usePushToken } from '@/hooks/usePushToken';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
+import { useColdLaunchReattach } from '@/lib/hardware/useColdLaunchReattach';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -37,6 +38,12 @@ export default function RootLayout() {
   // Register the Expo push token once permissions land. Best-effort,
   // skipped on simulators and non-granted permissions.
   usePushToken();
+
+  // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
+  // EVENTS subscription for the still-active persisted session so an incoming
+  // `gate_closed` can still auto-confirm the return. Resubscribe-only,
+  // idempotent, best-effort. See useColdLaunchReattach for details.
+  useColdLaunchReattach();
 
   useEffect(() => {
     if (loaded || error) {

@@ -78,7 +78,23 @@ export type HardwareDriver = {
    */
   unlockGate(args: {
     stationId: string;
-    gateId: string;
+    /**
+     * 1-indexed physical compartment number, used to derive the BLE HMAC's
+     * numeric `gate`. Separate from the reservation-linkage slug below — the
+     * physical gate is NOT necessarily the reserved slug's number, and the
+     * numeric gate must stay stable regardless of whether a linkage slug is
+     * present. When omitted, the driver falls back to parsing the slug for
+     * backward compatibility.
+     */
+    gate?: number;
+    /**
+     * Reservation-linkage slug (`${stationId}-${sport}-${n}`, the EXACT
+     * `reservations.gate_id`). Sent to sign-unlock so the server can link the
+     * unlock to a held reservation by exact slug match. OPTIONAL: when the
+     * reserved slug isn't reachable, omit it (server skips linkage — a safe
+     * no-op) rather than passing a reconstructed guess.
+     */
+    gateId?: string;
     /** JWT for the active Supabase session — gates verify this server-side. */
     sessionToken: string;
     /** Idempotency key, generated client-side, stable across retries. */

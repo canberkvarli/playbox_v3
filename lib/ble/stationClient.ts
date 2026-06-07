@@ -6,13 +6,18 @@ import {
   UNLOCK_CHAR_UUID,
   EVENTS_CHAR_UUID,
   INFO_CHAR_UUID,
+  BUFFER_CHAR_UUID,
   encodeCommand,
   decodeEvent,
   type Command,
+  type AnyCommand,
+  type AckCommand,
   type StationEvent,
   type UnlockCommand,
   type ReturnUnlockCommand,
 } from "./protocol";
+import { backoffSchedule, classifyBleError, jitter } from "./retry";
+import type { BtState } from "./btState";
 
 class StationClient {
   private _manager: BleManager | null = null;
@@ -263,7 +268,9 @@ class StationClient {
     });
   }
 
-  async writeCommand(cmd: Command): Promise<void> {
+  // Accepts the wider `AnyCommand` (signable commands plus the UNSIGNED
+  // set_time / ack) — it only JSON-encodes + writes, so widening is safe.
+  async writeCommand(cmd: AnyCommand): Promise<void> {
     if (!this.device) throw new Error("Not connected to a station");
     const b64 = Buffer.from(encodeCommand(cmd), "utf-8").toString("base64");
     await this.device.writeCharacteristicWithResponseForService(
@@ -273,16 +280,116 @@ class StationClient {
     );
   }
 
+  /**
+   * Read the station's pending SIGNED-event gossip buffer (Phase 3 Task 8).
+   *
+   * FIRMWARE-GATED: the BUFFER characteristic is Phase 0 firmware Task 5 and
+   * does NOT exist yet, so the read will throw on today's firmware — we CATCH
+   * and return [] so the gossip drain is a safe no-op. Once the firmware
+   * exposes BUFFER_CHAR_UUID returning a JSON array of buffered events, this
+   * lights up automatically (the caller filters via `planGossipDrain`).
+   *
+   * Best-effort + non-throwing by contract: any failure → [].
+   */
+  async readPendingBuffer(): Promise<unknown[]> {
+    if (!this.device) return [];
+    try {
+      const char = await this.device.readCharacteristicForService(
+        SERVICE_UUID,
+        BUFFER_CHAR_UUID,
+      );
+      if (!char.value) return [];
+      const parsed = JSON.parse(
+        Buffer.from(char.value, "base64").toString("utf-8"),
+      );
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      // No BUFFER characteristic yet (firmware Task 5) or malformed → no-op.
+      return [];
+    }
+  }
+
+  /**
+   * Write the UNSIGNED `ack` command back to the station so it can drop
+   * buffered events ≤ seq (Phase 3 Task 8). FIRMWARE-GATED: the firmware ack
+   * handler is Phase 0 Task 5 — until then this either errors (caught) or is a
+   * harmless write the firmware ignores. Best-effort + non-throwing: any
+   * failure → swallowed. A lost ack is advisory — the station just re-sends.
+   */
+  async writeAck(ack: AckCommand): Promise<void> {
+    if (!this.device) return;
+    try {
+      await this.writeCommand(ack);
+    } catch {
+      // No ack handler yet (firmware Task 5) → no-op.
+    }
+  }
+
+  /**
+   * Write `cmd` with a bounded exponential-backoff+jitter retry, but ONLY for
+   * transient failures (GATT/connection/timeout). Terminal failures — radio
+   * off, unauthorized, signature rejected, or anything unrecognized — rethrow
+   * immediately so the UI's `classifyError` mapping still fires with the right
+   * localized prompt (retrying those would just hammer the radio / firmware).
+   *
+   * The pure retry policy lives in ./retry (Jest-tested). Math.random is only
+   * called HERE, at the call site, to feed the jitter fraction — the policy
+   * module stays deterministic. If the link dropped mid-write
+   * (`this.device` cleared by onDisconnected), we re-scan/reconnect by name
+   * before the next attempt, mirroring the proximity reconnect path; the fresh
+   * handshake runs discoverAllServicesAndCharacteristics so the next write
+   * targets a valid characteristic.
+   */
+  private async writeCommandWithRetry(
+    cmd: Command,
+    stationName?: string,
+  ): Promise<void> {
+    const delays = backoffSchedule();
+    // Total attempts = 1 initial + delays.length retries.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await this.writeCommand(cmd);
+        return;
+      } catch (e) {
+        const cls = classifyBleError(e);
+        const retriesLeft = attempt < delays.length;
+        if (cls !== "retryable" || !retriesLeft) {
+          // Terminal, or out of attempts — let the caller/UI handle it.
+          throw e;
+        }
+        // Jitter fraction from real RNG (kept out of the pure module).
+        const wait = jitter(delays[attempt], Math.random());
+        await new Promise((r) => setTimeout(r, wait));
+        // If the link dropped, re-establish the device handle before retrying.
+        if (!this.device) {
+          const name = stationName ?? this.lastSeenDevice?.name;
+          if (name) {
+            try {
+              await this.scanAndConnect(name);
+              // Re-read INFO to confirm the reconnected handle is live, matching
+              // how the proximity layer revalidates after a reconnect.
+              await this.readInfo().catch(() => {});
+            } catch {
+              // Reconnect failed this round — fall through and retry the write,
+              // which will throw "Not connected" and be re-classified.
+            }
+          }
+        }
+      }
+    }
+  }
+
   // Both methods take a pre-signed payload obtained from the `sign-unlock`
   // edge function. The phone is intentionally a dumb pipe — it never
   // computes the HMAC, never holds the station secret. See
-  // supabase/functions/sign-unlock for the signing path.
-  unlock(payload: UnlockCommand) {
-    return this.writeCommand(payload);
+  // supabase/functions/sign-unlock for the signing path. Public API unchanged:
+  // same signature/return; the retry is internal.
+  unlock(payload: UnlockCommand, stationName?: string) {
+    return this.writeCommandWithRetry(payload, stationName);
   }
 
-  returnUnlock(payload: ReturnUnlockCommand) {
-    return this.writeCommand(payload);
+  returnUnlock(payload: ReturnUnlockCommand, stationName?: string) {
+    return this.writeCommandWithRetry(payload, stationName);
   }
 
   subscribeToEvents(
@@ -317,6 +424,23 @@ class StationClient {
     );
     if (!char.value) throw new Error("INFO characteristic returned no value");
     return JSON.parse(Buffer.from(char.value, "base64").toString("utf-8"));
+  }
+
+  /**
+   * Read the LIVE Bluetooth adapter state for a pre-flight gate. ble-plx's
+   * `State` enum values are the same strings as our `BtState` union
+   * (`'PoweredOn'`, `'PoweredOff'`, ...), so we forward the raw value. If
+   * the read throws (e.g. manager not yet ready), report `Unknown` —
+   * `canAttemptBle` maps that to the `transient` "tekrar dene" path rather
+   * than a misleading "turn on Bluetooth".
+   */
+  async currentState(): Promise<BtState> {
+    try {
+      const state = await this.manager.state();
+      return state as BtState;
+    } catch {
+      return "Unknown";
+    }
   }
 
   async disconnect(): Promise<void> {

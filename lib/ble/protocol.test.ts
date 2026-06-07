@@ -50,6 +50,11 @@ describe("encodeCommand", () => {
     const cmd = { cmd: "set_time", now: 1717600000 } as const;
     expect(JSON.parse(encodeCommand(cmd))).toEqual({ cmd: "set_time", now: 1717600000 });
   });
+
+  it("encodes ack as an unsigned command (round-trips)", () => {
+    const cmd = { cmd: "ack", seq: 7 } as const;
+    expect(JSON.parse(encodeCommand(cmd))).toEqual({ cmd: "ack", seq: 7 });
+  });
 });
 
 describe("signingPayload", () => {
@@ -70,6 +75,11 @@ describe("signingPayload", () => {
   it("rejects set_time at the type level (signingPayload is not widenable to AnyCommand)", () => {
     // @ts-expect-error set_time is intentionally non-signable
     expect(() => signingPayload({ cmd: "set_time", now: 1 })).toBeDefined();
+  });
+
+  it("rejects ack at the type level (ack is unsigned, never part of the signable Command union)", () => {
+    // @ts-expect-error ack is intentionally non-signable
+    expect(() => signingPayload({ cmd: "ack", seq: 7 })).toBeDefined();
   });
 });
 

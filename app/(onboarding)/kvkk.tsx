@@ -11,6 +11,7 @@ import { RiseIn } from '@/components/RiseIn';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
+import { getDriver } from '@/lib/hardware';
 
 const RULES = [
   {
@@ -78,6 +79,12 @@ export default function Kvkk() {
     await hx.tap();
     // Backing out of KVKK = signing out, since the account has no usable
     // state without consent. Sends them back to phone entry.
+    // Best-effort BLE teardown so no module state leaks across accounts.
+    try {
+      getDriver().reset();
+    } catch {
+      /* ignore — teardown is best-effort */
+    }
     await supabase.auth.signOut();
     router.replace('/(onboarding)/welcome');
   });

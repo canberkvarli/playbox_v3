@@ -21,6 +21,7 @@ import {
   type Sport,
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
+import { useFreshPresence } from '@/stores/nearbyStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
@@ -59,12 +60,17 @@ export default function SessionPrep() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { stationId, sport, mode, duration } = useLocalSearchParams<{
-    stationId: string;
-    sport: Sport;
-    mode?: 'start' | 'howto';
-    duration?: string;
-  }>();
+  const { stationId, sport, mode, duration, gateId: reservedGateId } =
+    useLocalSearchParams<{
+      stationId: string;
+      sport: Sport;
+      mode?: 'start' | 'howto';
+      duration?: string;
+      // The RESERVED gate's slug (`${stationId}-${sport}-${n}`), passed through
+      // from the station screen's gate selector. Replayed verbatim as gate_id
+      // for reservation linkage — NOT reconstructed here.
+      gateId?: string;
+    }>();
   const isHowto = mode === 'howto';
   // Duration arrives as a string param from /station/[id] (slider value the user
   // picked). Clamp to a sane range so an out-of-band value can't corrupt the
@@ -106,6 +112,18 @@ export default function SessionPrep() {
     false,
   ]);
   const agreed = agreedRules.every(Boolean);
+
+  // Fresh-presence cue for the unlock CTA. Called unconditionally (before the
+  // `!station` early return) so the hook order stays stable. `stationId` is
+  // always a string param; the hook decays on its own 1s tick so the CTA goes
+  // "not nearby" if the radio stops hearing this station.
+  //
+  // UX HONESTY ONLY — `present === false` SOFTENS the CTA copy and shows a
+  // "yaklaş" nudge, but does NOT disable the button. The real BLE
+  // scanAndConnect inside onOyna is the source of truth for presence: a user
+  // who taps anyway gets a genuine connect-or-fail attempt, never a hard block
+  // on a missing passive sighting.
+  const { present: freshlyPresent } = useFreshPresence(stationId);
 
   if (!station) {
     return (
@@ -192,6 +210,15 @@ export default function SessionPrep() {
   // Disable advance on the last slide of start-mode until user agrees
   const ctaDisabled = unlocking || (isLast && !isHowto && !agreed);
 
+  // Soft proximity cue on the unlock CTA: when the user is rules-agreed and
+  // ready to unlock but the radio hasn't freshly heard this station, we relabel
+  // the CTA to "yaklaş" and dim it — WITHOUT disabling it. Tapping still runs
+  // the real scanAndConnect (source of truth), which will connect-or-fail. This
+  // is honesty, not a security gate: never hard-block on a passive miss.
+  const isUnlockCta = isLast && !isHowto;
+  const softenForProximity =
+    isUnlockCta && agreed && !unlocking && !freshlyPresent;
+
   const onOyna = async () => {
     if (unlockingRef.current) return;
     unlockingRef.current = true;
@@ -251,10 +278,29 @@ export default function SessionPrep() {
     const { data: { session: authSession } } = await supabase.auth.getSession();
     const sessionToken = authSession?.access_token ?? '';
     const driver = getDriver();
-    const gateId = `${station.id}-${sport}-${Math.max(1, gateIndex + 1)}`;
+    // Reservation-linkage slug. This MUST equal the EXACT slug the reservation
+    // holds (`reservations.gate_id`), which is the selected gate's id
+    // (`${station.id}-${sport}-${gateNumberWithinSportStock}`) — produced by the
+    // station screen's gate selector and threaded here as the `gateId` param.
+    // The previous code rebuilt it from `gateIndex` (the SPORT'S ORDINAL in
+    // station.sports), so every non-first sport / reserved gate > 1 produced a
+    // mismatching slug and sign-unlock's `r.gate_id === gateId` linkage silently
+    // failed. We now forward the real reserved slug verbatim, or OMIT it
+    // (undefined → server logs "linkage skipped", a safe no-op) when it wasn't
+    // plumbed through — never a reconstructed guess.
+    // NOTE: this is the linkage SLUG only; the numeric `gate` used for the BLE
+    // HMAC (derived inside the driver from this slug, and persisted below) is a
+    // separate physical-compartment concern and is intentionally unchanged.
+    const gateId = reservedGateId || undefined;
+    // Numeric physical compartment for the BLE HMAC — UNCHANGED from before:
+    // still the 1-indexed gate derived from the sport's position. Passed
+    // explicitly (rather than re-parsed from the slug in the driver) so it stays
+    // stable even when the linkage slug is omitted.
+    const gate = Math.max(1, gateIndex + 1);
     const correlationId = `unlock:${station.id}:${sport}:${Date.now()}`;
     const unlockRes = await driver.unlockGate({
       stationId: station.id,
+      gate,
       gateId,
       sessionToken,
       correlationId,
@@ -542,7 +588,8 @@ export default function SessionPrep() {
         accessibilityRole="button"
         accessibilityLabel={isLast ? t('prep.cta') : t('onb.intro_map.cta')}
         style={({ pressed }) => ({
-          opacity: ctaDisabled ? 0.45 : pressed ? 0.92 : 1,
+          // softenForProximity dims like a disabled CTA but stays tappable.
+          opacity: ctaDisabled || softenForProximity ? 0.55 : pressed ? 0.92 : 1,
         })}
       >
         <View
@@ -551,6 +598,8 @@ export default function SessionPrep() {
               ? palette.butter
               : isLast && !isHowto && !agreed
               ? palette.ink + '33' // gated grey until all rules are checked
+              : softenForProximity
+              ? palette.ink + '33' // not freshly nearby → softened "yaklaş" state
               : isLast && isHowto
               ? palette.ink
               : isLast
@@ -572,6 +621,8 @@ export default function SessionPrep() {
             name={
               unlocking
                 ? 'unlock'
+                : softenForProximity
+                ? 'map-pin'
                 : isLast && isHowto
                 ? 'check'
                 : isLast
@@ -592,6 +643,8 @@ export default function SessionPrep() {
           >
             {unlocking
               ? t('prep.opening')
+              : softenForProximity
+              ? t('prep.approach')
               : isLast && isHowto
               ? 'anladım'
               : isLast
@@ -600,6 +653,24 @@ export default function SessionPrep() {
           </Text>
         </View>
       </Pressable>
+
+      {/* Gentle proximity nudge — shown only when the unlock CTA is softened
+          because the radio hasn't freshly heard this station. Purely advisory;
+          the button above stays tappable (real connect is source of truth). */}
+      {softenForProximity ? (
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 13,
+            textAlign: 'center',
+            color: palette.ink,
+            opacity: 0.6,
+            marginTop: 10,
+          }}
+        >
+          {t('prep.approach_hint')}
+        </Text>
+      ) : null}
 
       {mustAddCardFirst ? <CardRequiredSheet holdAmountTry={PREAUTH_HOLD_TRY} /> : null}
     </View>
