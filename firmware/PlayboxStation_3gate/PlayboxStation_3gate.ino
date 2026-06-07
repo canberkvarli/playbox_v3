@@ -463,6 +463,7 @@ static void transitionTo(int g, GateState next) {
   stateEnteredMs[g] = millis();
   if (next == LOCKED) {
     activeSessionId[g] = "";
+    durationMin[g] = DEFAULT_DURATION_MIN;
     overdueSent[g] = false;
     servoLock(g);
   }
