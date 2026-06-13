@@ -1068,20 +1068,38 @@ function HomeBottomSheet({
 
         {/* Section title between header and rows — makes the structure obvious */}
         {segment === 'stations' ? (
-          <View style={{ marginTop: 8, paddingHorizontal: 4 }}>
+          <View
+            style={{
+              marginTop: 8,
+              paddingHorizontal: 4,
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              gap: 8,
+            }}
+          >
             <Text
-              className="font-display-x"
-              style={{ color: palette.ink, fontSize: 22, lineHeight: 26, letterSpacing: 0.2 }}
+              className="font-sans"
+              style={{
+                color: palette.ink,
+                opacity: 0.45,
+                fontSize: 12,
+                lineHeight: 16,
+                letterSpacing: 1,
+                fontWeight: '600',
+                textTransform: 'uppercase',
+              }}
             >
               {t('map.section.nearby')}
             </Text>
             <Text
+              className="font-sans"
               style={{
                 color: palette.ink,
+                opacity: 0.45,
                 fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: 1,
-                marginTop: 4,
-                fontFamily: 'Unbounded_700Bold',
+                fontWeight: '600',
                 textTransform: 'uppercase',
               }}
             >

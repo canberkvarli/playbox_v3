@@ -514,6 +514,26 @@ export function createBleDriver(): HardwareDriver {
 
       const attempt = async () => {
         if (cancelled) return;
+
+        // A LIVE GATT CONNECTION IS PRESENCE. A BLE peripheral stops
+        // advertising once a central connects to it, so right after an unlock
+        // (or return) opens the link, a fresh scan can no longer *see* the
+        // station and would decay to out_of_range — even though we are
+        // physically connected to it this very moment. proximity.ts says it
+        // plainly: "A live GATT connection during unlock is the real presence
+        // proof." Encode that here: if stationClient already holds a link to
+        // THIS station (name-matched, mirroring scanAndConnect's guard so a
+        // DEV-001 link can't satisfy ist-taksim), report in_range with a
+        // synthetic fresh lastSeenAt and skip the doomed scan entirely.
+        if (stationClient.connectedName() === targetName) {
+          onChange({ kind: 'in_range', rssi: -55, lastSeenAt: Date.now() });
+          // Re-arm so we keep re-affirming presence on the normal cadence; the
+          // OS disconnect callback (wired on the original connect) still flips
+          // us to out_of_range the instant the link actually drops.
+          armRetry(3000);
+          return;
+        }
+
         onChange({ kind: 'scanning' });
         try {
           // 8s gives iOS enough time to spin up its scan + find the device

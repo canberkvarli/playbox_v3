@@ -243,7 +243,7 @@ export default function Phone() {
 
       <View style={{ flex: 1 }} />
 
-      <RiseIn delay={220}>
+      <RiseIn delay={220} style={{ marginBottom: 16 }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('onb.phone.cta')}

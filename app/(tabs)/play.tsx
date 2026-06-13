@@ -15,6 +15,7 @@ import { cancelSessionEndAlerts } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
+import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
 
@@ -817,6 +818,43 @@ export default function Play() {
               dev: fw timeouts {ignoreFirmwareTimeouts ? 'görmezden geliniyor' : 'dinleniyor'}
             </Text>
           </Pressable>
+          {/* Bench-only "I closed the gate" — stands in for the reed switch on
+              units without one wired. Sends the UNSIGNED `sim_close` BLE
+              command so the dev firmware advances UNLOCKED -> IN_USE (and the
+              return door-closed edge). Only shown on the bench
+              (ignoreFirmwareTimeouts) AND for a real BLE session — a fake
+              session has no gate/bleSessionId and the command would no-op. */}
+          {ignoreFirmwareTimeouts &&
+          !fakeActiveSession &&
+          active.bleSessionId &&
+          active.gate ? (
+            <Pressable
+              onPress={async () => {
+                await hx.tap();
+                try {
+                  await stationClient.simulateClose(active.gate!);
+                } catch (e) {
+                  // Best-effort dev affordance — firmware may not be built with
+                  // DEV_SIM_CLOSE, or the link may be down. Never disturb the UI.
+                  console.warn('[dev] simulateClose failed', e);
+                }
+              }}
+              hitSlop={8}
+              style={{ marginTop: 6 }}
+            >
+              <Text
+                style={{
+                  fontFamily: 'JetBrainsMono_400Regular',
+                  color: palette.ink + '55',
+                  fontSize: 11,
+                  textAlign: 'center',
+                  textDecorationLine: 'underline',
+                }}
+              >
+                dev: kapıyı kapattım (gate {active.gate})
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>

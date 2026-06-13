@@ -49,6 +49,17 @@ class StationClient {
   }
 
   /**
+   * Name of the station we currently hold a live GATT connection to, or null
+   * if not connected. Lets callers check presence for a SPECIFIC station
+   * without leaking the Device handle. The name check matters for the same
+   * reason `scanAndConnect` guards on it: being connected to the DEV-001
+   * breadboard must never count as presence for ist-taksim.
+   */
+  connectedName(): string | null {
+    return this.device?.name ?? null;
+  }
+
+  /**
    * Advertisement-only watcher — fires `onSeen` every time the station's BLE
    * advertisement is received, without establishing a connection or running
    * service discovery. This is what proximity UI should use: detection is

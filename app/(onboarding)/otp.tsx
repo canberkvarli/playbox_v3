@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -75,6 +75,9 @@ export default function Otp() {
       }
 
       await hx.yes();
+      // Dismiss the keyboard before navigating so the layout settles in one
+      // step instead of twitching as the OS collapses the keyboard mid-transition.
+      Keyboard.dismiss();
       // Routing decision lives in one place. KVKK consent gate comes BEFORE
       // the handle step — without consent we can't legally process anything,
       // so it has to be the first stop after OTP.
