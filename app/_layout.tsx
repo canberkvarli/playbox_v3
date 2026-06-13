@@ -11,6 +11,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
+import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
@@ -38,6 +39,11 @@ export default function RootLayout() {
   // Register the Expo push token once permissions land. Best-effort,
   // skipped on simulators and non-granted permissions.
   usePushToken();
+
+  // Silent OTA: on cold launch, pull + apply any available JS update so the
+  // user lands on the latest without the Settings button or a double relaunch.
+  // No-op in dev; safe because runtimeVersion is fingerprint-pinned.
+  useOtaAutoUpdate();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming
