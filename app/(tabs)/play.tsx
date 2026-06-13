@@ -18,6 +18,15 @@ import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
+import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
+
+// Safe-import expo-image-picker the same way GearReportSheet does — keeps the
+// bundle from exploding if the native module isn't linked in some build, and
+// lets the closing-photo affordance degrade to "just finish" gracefully.
+let ImagePicker: any = null;
+try {
+  ImagePicker = require('expo-image-picker');
+} catch {}
 
 function fmt(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000));
@@ -299,12 +308,22 @@ export default function Play() {
   const returningRef = useRef(false);
   const finalizingRef = useRef(false);
 
+  // Optional closing photo — captured during awaiting_close, BEFORE finalize.
+  //   'idle'   — nothing yet
+  //   'busy'   — picker open / uploading
+  //   'saved'  — photo uploaded
+  //   'failed' — capture/upload failed (still fully skippable)
+  const [photoState, setPhotoState] = useState<
+    'idle' | 'busy' | 'saved' | 'failed'
+  >('idle');
+
   // Reset phase whenever the modal closes so the next open starts at 'confirm'.
   useEffect(() => {
     if (!endModalOpen) {
       setReturnPhase('confirm');
       returningRef.current = false;
       finalizingRef.current = false;
+      setPhotoState('idle');
     }
   }, [endModalOpen]);
 
@@ -398,9 +417,64 @@ export default function Play() {
     setReturnPhase('awaiting_close');
   };
 
+  // OPTIONAL closing photo, captured as part of closing the door (during
+  // awaiting_close, BEFORE finalize). Best-effort and fully skippable: a
+  // missing module, a cancelled picker, or a failed upload never traps the
+  // user — they can always just tap "kapattım, bitir". Mirrors the capture
+  // that used to live on session-review.
+  const addClosingPhoto = async () => {
+    await hx.tap();
+    if (!ImagePicker || !active) return; // module missing → silent no-op
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync?.();
+      // Denied camera → fall back to the library so the user still has a way
+      // to attach something. Both are optional.
+      const launch =
+        perm && perm.granted === false
+          ? ImagePicker.launchImageLibraryAsync
+          : ImagePicker.launchCameraAsync;
+      const res = await launch({
+        mediaTypes: 'images',
+        quality: 0.6,
+        base64: true,
+        allowsEditing: false,
+      });
+      if (res?.canceled) return; // back to idle — user can finish or retry
+      const asset = res?.assets?.[0];
+      if (!asset) return;
+
+      setPhotoState('busy');
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      const userId = authSession?.user?.id ?? null;
+      const sid = active.bleSessionId ?? `return-${active.startedAt}`;
+      if (!userId) {
+        setPhotoState('failed');
+        return;
+      }
+      const up = await uploadReturnPhoto(
+        supabase,
+        userId,
+        sid,
+        asset.base64 ?? asset.uri,
+      );
+      if (up.ok) {
+        await hx.yes();
+        setPhotoState('saved');
+      } else {
+        setPhotoState('failed');
+      }
+    } catch {
+      // Pickers throw on some OEMs; swallow — photo stays optional.
+      setPhotoState('failed');
+    }
+  };
+
   // Manual confirmation for awaiting_close. In production the reed switch
   // will usually fire gate_closed before the user can tap this; on bench
-  // (no reeds) this is the only way out.
+  // (no reeds) this is the only way out. Either way we proceed regardless of
+  // whether a closing photo was added — the photo is never a gate.
   const onManualConfirmClosed = async () => {
     await hx.yes();
     finalizeReturn();
@@ -764,6 +838,8 @@ export default function Play() {
         }}
         onConfirmOpen={onConfirmOpen}
         onManualConfirmClosed={onManualConfirmClosed}
+        onAddClosingPhoto={addClosingPhoto}
+        photoState={photoState}
         accruedTry={costForMs(Date.now() - active.startedAt)}
       />
 
@@ -840,19 +916,45 @@ export default function Play() {
                 }
               }}
               hitSlop={8}
-              style={{ marginTop: 6 }}
+              accessibilityRole="button"
+              accessibilityLabel="dev: kapıyı kapattım"
+              style={({ pressed }) => ({ marginTop: 10, opacity: pressed ? 0.7 : 1 })}
             >
-              <Text
+              {/* Bench-only affordance, restyled as a visibly tappable bordered
+                  button (vs the old underlined link). Kept subtle/dashed so it
+                  still reads as a dev tool, not a primary CTA. */}
+              <View
                 style={{
-                  fontFamily: 'JetBrainsMono_400Regular',
-                  color: palette.ink + '55',
-                  fontSize: 11,
-                  textAlign: 'center',
-                  textDecorationLine: 'underline',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  alignSelf: 'center',
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 12,
+                  backgroundColor: palette.ink + '0d',
+                  borderWidth: 1.5,
+                  borderColor: palette.ink + '44',
+                  borderStyle: 'dashed',
                 }}
               >
-                dev: kapıyı kapattım (gate {active.gate})
-              </Text>
+                <Feather
+                  name="tool"
+                  size={13}
+                  color={palette.ink + '99'}
+                  style={{ marginRight: 8 }}
+                />
+                <Text
+                  style={{
+                    fontFamily: 'JetBrainsMono_500Medium',
+                    color: palette.ink + '99',
+                    fontSize: 12,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  dev: kapıyı kapattım (gate {active.gate})
+                </Text>
+              </View>
             </Pressable>
           ) : null}
         </View>
@@ -881,6 +983,8 @@ function EndSessionModal({
   onCancel,
   onConfirmOpen,
   onManualConfirmClosed,
+  onAddClosingPhoto,
+  photoState,
   accruedTry,
 }: {
   visible: boolean;
@@ -888,6 +992,8 @@ function EndSessionModal({
   onCancel: () => void;
   onConfirmOpen: () => void | Promise<void>;
   onManualConfirmClosed: () => void | Promise<void>;
+  onAddClosingPhoto: () => void | Promise<void>;
+  photoState: 'idle' | 'busy' | 'saved' | 'failed';
   accruedTry: number;
 }) {
   const dismissable = phase === 'confirm';
@@ -945,6 +1051,8 @@ function EndSessionModal({
             <AwaitingClosePhase
               accruedTry={accruedTry}
               onManualConfirmClosed={onManualConfirmClosed}
+              onAddClosingPhoto={onAddClosingPhoto}
+              photoState={photoState}
             />
           )}
         </Pressable>
@@ -1221,9 +1329,13 @@ function OpeningPhase() {
 function AwaitingClosePhase({
   accruedTry,
   onManualConfirmClosed,
+  onAddClosingPhoto,
+  photoState,
 }: {
   accruedTry: number;
   onManualConfirmClosed: () => void | Promise<void>;
+  onAddClosingPhoto: () => void | Promise<void>;
+  photoState: 'idle' | 'busy' | 'saved' | 'failed';
 }) {
   return (
     <>
@@ -1356,6 +1468,73 @@ function AwaitingClosePhase({
           {formatTry(accruedTry)}
         </Text>
       </View>
+
+      {/* Optional closing photo — best-effort, fully skippable. Only shown
+          when expo-image-picker is linked. Captures BEFORE finalize so the
+          shot is keyed to this session, then the user finishes below. The
+          "kapattım, bitir" button works with or without a photo. */}
+      {ImagePicker ? (
+        <Pressable
+          onPress={onAddClosingPhoto}
+          disabled={photoState === 'busy'}
+          accessibilityRole="button"
+          accessibilityLabel="fotoğraf ekle"
+          style={({ pressed }) => ({
+            marginTop: 18,
+            opacity: photoState === 'busy' ? 0.5 : pressed ? 0.7 : 1,
+          })}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 14,
+              paddingHorizontal: 14,
+              borderRadius: 14,
+              backgroundColor: palette.ink + '08',
+              borderWidth: 1.5,
+              borderColor:
+                photoState === 'saved' ? palette.ink + '44' : palette.ink + '22',
+            }}
+          >
+            <Feather
+              name={photoState === 'saved' ? 'check-circle' : 'camera'}
+              size={18}
+              color={palette.ink}
+              style={{ marginRight: 10 }}
+            />
+            <Text
+              style={{
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.ink,
+                fontSize: 14,
+                letterSpacing: 0.2,
+              }}
+            >
+              {photoState === 'busy'
+                ? 'fotoğraf yükleniyor...'
+                : photoState === 'saved'
+                ? 'fotoğraf eklendi'
+                : 'fotoğraf eklemek ister misin?'}
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
+
+      {photoState === 'failed' ? (
+        <Text
+          style={{
+            marginTop: 8,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.coral,
+            fontSize: 12,
+            textAlign: 'center',
+          }}
+        >
+          fotoğraf eklenemedi — yine de bitirebilirsin.
+        </Text>
+      ) : null}
 
       {/* Manual confirm. Reed-equipped stations will usually fire
           gate_closed before the user reaches for this; on bench (no reeds)

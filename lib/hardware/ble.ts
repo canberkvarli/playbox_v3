@@ -30,6 +30,7 @@ import {
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import { useNearbyStore } from '@/stores/nearbyStore';
+import { isFreshlyPresent } from './proximity';
 import {
   interpretReturnRecovery,
   type GateState,
@@ -530,6 +531,38 @@ export function createBleDriver(): HardwareDriver {
           // Re-arm so we keep re-affirming presence on the normal cadence; the
           // OS disconnect callback (wired on the original connect) still flips
           // us to out_of_range the instant the link actually drops.
+          armRetry(3000);
+          return;
+        }
+
+        // A RECENT PASSIVE ADVERTISEMENT SIGHTING IS ALSO PRESENCE. The map's
+        // green dot comes from the lightweight passive scan (watchNearbyStations
+        // → nearbyStore); if that scan heard THIS station's advert within the
+        // proximity freshness window, the station is physically here even when a
+        // connect-based check would stall (busy/contended peripheral, iOS scan
+        // contention, transient connect timeout) and wrongly decay to
+        // out_of_range. Treat a fresh sighting as in_range so the panel agrees
+        // with the map, WITHOUT starting a competing scan — we READ the same
+        // sightings the map already populates (iOS allows only one active scan).
+        //
+        // Matched strictly by stationId (nearbyStore keys by
+        // stationId.toUpperCase(), the inverse of the name match above) so a
+        // DEV-001 sighting can't satisfy another station. When the sighting goes
+        // stale AND we aren't connected, isFreshlyPresent returns false and we
+        // fall through to the real scanAndConnect, which decays to out_of_range
+        // exactly as before. The unlock/return still does scanAndConnect as the
+        // source of truth — this only affects the presence banner.
+        const sighting =
+          useNearbyStore.getState().seen[stationId.toUpperCase()] ?? null;
+        if (isFreshlyPresent(sighting, Date.now())) {
+          onChange({
+            kind: 'in_range',
+            rssi: sighting!.rssi,
+            lastSeenAt: sighting!.lastSeenAt,
+          });
+          // Re-check on the normal cadence: when the advert stops being heard,
+          // the next tick finds a stale sighting (and no live connection) and
+          // proceeds to scanAndConnect → out_of_range, so presence decays.
           armRetry(3000);
           return;
         }

@@ -1,12 +1,36 @@
-import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  LayoutAnimation,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  UIManager,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { RiseIn } from '@/components/RiseIn';
+
+// Smooth height transition for the accordion on Android too.
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const PHONES = ['+90 538 540 21 61', '+90 553 024 26 25'];
 const WHATSAPP_NUMBER = '905385402161';
@@ -105,7 +129,7 @@ function ChannelButton({
   );
 }
 
-function FaqRow({
+function FaqCard({
   item,
   isOpen,
   onToggle,
@@ -114,15 +138,42 @@ function FaqRow({
   isOpen: boolean;
   onToggle: () => void;
 }) {
+  // Rotate the toggle glyph 45° so the "+" reads as an "×" when open.
+  const rot = useSharedValue(isOpen ? 1 : 0);
+  useEffect(() => {
+    rot.value = withTiming(isOpen ? 1 : 0, {
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [isOpen, rot]);
+
+  const glyphStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${rot.value * 45}deg` }],
+  }));
+
   return (
     <Pressable
       onPress={onToggle}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: isOpen }}
       style={({ pressed }) => ({
-        paddingVertical: 14,
-        opacity: pressed ? 0.7 : 1,
+        borderRadius: 18,
+        backgroundColor: palette.paper,
+        borderWidth: 1,
+        // Open cards get a warm coral edge; closed cards stay quiet ink.
+        borderColor: isOpen ? palette.coral + '4d' : palette.ink + '12',
+        paddingHorizontal: 16,
+        paddingVertical: 15,
+        // Subtle lift so the cards float on the paper rather than blending in.
+        shadowColor: palette.ink,
+        shadowOpacity: isOpen ? 0.08 : 0.04,
+        shadowRadius: isOpen ? 14 : 8,
+        shadowOffset: { width: 0, height: isOpen ? 6 : 3 },
+        elevation: isOpen ? 3 : 1,
+        opacity: pressed ? 0.85 : 1,
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
         <Text
           style={{
             flex: 1,
@@ -130,29 +181,62 @@ function FaqRow({
             color: palette.ink,
             fontSize: 14,
             letterSpacing: 0.1,
-            lineHeight: 20,
+            lineHeight: 21,
           }}
         >
           {item.q}
         </Text>
-        <Feather
-          name={isOpen ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={palette.ink + '99'}
-        />
-      </View>
-      {isOpen ? (
-        <Text
+        <View
           style={{
-            fontFamily: 'Inter_400Regular',
-            color: palette.ink + 'cc',
-            fontSize: 13,
-            lineHeight: 19,
-            marginTop: 8,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: isOpen ? palette.coral : palette.ink + '0d',
           }}
         >
-          {item.a}
-        </Text>
+          <Animated.View style={glyphStyle}>
+            <Feather
+              name="plus"
+              size={16}
+              color={isOpen ? palette.paper : palette.ink + '99'}
+            />
+          </Animated.View>
+        </View>
+      </View>
+
+      {isOpen ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: 12,
+            marginTop: 12,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: palette.ink + '0f',
+          }}
+        >
+          {/* Coral accent rule keys the answer to the open state. */}
+          <View
+            style={{
+              width: 3,
+              borderRadius: 2,
+              backgroundColor: palette.coral + '66',
+            }}
+          />
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: 'Inter_400Regular',
+              color: palette.ink + 'cc',
+              fontSize: 13.5,
+              lineHeight: 20,
+            }}
+          >
+            {item.a}
+          </Text>
+        </View>
       ) : null}
     </Pressable>
   );
@@ -230,99 +314,137 @@ export default function Support() {
           paddingBottom: insets.bottom + 40,
         }}
       >
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 38,
-            lineHeight: 42,
-            marginTop: 16,
-          }}
-        >
-          destek
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
-            fontSize: 16,
-            lineHeight: 22,
-            marginTop: 8,
-          }}
-        >
-          hızlı yanıt için whatsapp, acil durumlar için telefon.
-        </Text>
+        <RiseIn delay={0}>
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 38,
+              lineHeight: 42,
+              marginTop: 16,
+            }}
+          >
+            destek
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.ink,
+              fontSize: 16,
+              lineHeight: 22,
+              marginTop: 8,
+            }}
+          >
+            hızlı yanıt için whatsapp, acil durumlar için telefon.
+          </Text>
+        </RiseIn>
 
-        <SectionLabel>iletişim</SectionLabel>
+        <RiseIn delay={60}>
+          <SectionLabel kicker="kanal seç">iletişim</SectionLabel>
 
-        <View style={{ gap: 10 }}>
-          <ChannelButton
-            icon="message-circle"
-            label="whatsapp"
-            sub="7/24 hızlı yanıt"
-            accent={'#25D366'}
-            onPress={whatsApp}
-          />
-          {PHONES.map((p) => (
+          <View style={{ gap: 10 }}>
             <ChannelButton
-              key={p}
-              icon="phone"
-              label="telefon"
-              sub={p}
-              accent={palette.coral}
-              onPress={() => call(p)}
+              icon="message-circle"
+              label="whatsapp"
+              sub="7/24 hızlı yanıt"
+              accent={'#25D366'}
+              onPress={whatsApp}
             />
-          ))}
-          <ChannelButton
-            icon="mail"
-            label="e-posta"
-            sub={SUPPORT_EMAIL}
-            accent={palette.mauve}
-            onPress={email}
-          />
-        </View>
+            {PHONES.map((p) => (
+              <ChannelButton
+                key={p}
+                icon="phone"
+                label="telefon"
+                sub={p}
+                accent={palette.coral}
+                onPress={() => call(p)}
+              />
+            ))}
+            <ChannelButton
+              icon="mail"
+              label="e-posta"
+              sub={SUPPORT_EMAIL}
+              accent={palette.mauve}
+              onPress={email}
+            />
+          </View>
+        </RiseIn>
 
-        <SectionLabel>sık sorulanlar</SectionLabel>
+        <RiseIn delay={140}>
+          <SectionLabel kicker="merak edilenler">sık sorulanlar</SectionLabel>
 
-        <View
-          style={{
-            borderRadius: 16,
-            backgroundColor: palette.ink + '08',
-            paddingHorizontal: 16,
-          }}
-        >
-          {FAQ_ITEMS.map((item, i) => (
-            <View key={item.q}>
-              <FaqRow
+          <View style={{ gap: 10 }}>
+            {FAQ_ITEMS.map((item, i) => (
+              <FaqCard
+                key={item.q}
                 item={item}
                 isOpen={openIdx === i}
-                onToggle={() => setOpenIdx(openIdx === i ? null : i)}
+                onToggle={() => {
+                  hx.tap();
+                  LayoutAnimation.configureNext(
+                    LayoutAnimation.create(
+                      200,
+                      LayoutAnimation.Types.easeInEaseOut,
+                      LayoutAnimation.Properties.opacity
+                    )
+                  );
+                  setOpenIdx(openIdx === i ? null : i);
+                }}
               />
-              {i < FAQ_ITEMS.length - 1 ? (
-                <View style={{ height: 1, backgroundColor: palette.ink + '10' }} />
-              ) : null}
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        </RiseIn>
       </ScrollView>
     </View>
   );
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({
+  children,
+  kicker,
+}: {
+  children: React.ReactNode;
+  kicker?: string;
+}) {
   return (
-    <Text
-      style={{
-        fontFamily: 'Unbounded_800ExtraBold',
-        color: palette.ink,
-        fontSize: 13,
-        letterSpacing: 1.6,
-        textTransform: 'uppercase',
-        marginTop: 32,
-        marginBottom: 14,
-      }}
-    >
-      {children}
-    </Text>
+    <View style={{ marginTop: 34, marginBottom: 16 }}>
+      {/* Coral tick + tiny mono kicker gives each section a quiet anchor
+          so Contact and FAQ read as distinct zones, not one long stack. */}
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}
+      >
+        <View
+          style={{
+            width: 14,
+            height: 3,
+            borderRadius: 2,
+            backgroundColor: palette.coral,
+          }}
+        />
+        {kicker ? (
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.ink + '80',
+              fontSize: 11,
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}
+          >
+            {kicker}
+          </Text>
+        ) : null}
+      </View>
+      <Text
+        style={{
+          fontFamily: 'Unbounded_800ExtraBold',
+          color: palette.ink,
+          fontSize: 20,
+          letterSpacing: 0.2,
+        }}
+      >
+        {children}
+      </Text>
+    </View>
   );
 }

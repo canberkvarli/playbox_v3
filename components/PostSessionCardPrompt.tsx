@@ -28,7 +28,7 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
     <RiseIn delay={380}>
       <View
         style={{
-          backgroundColor: palette.mauve + '22',
+          backgroundColor: palette.mauve + '14',
           borderRadius: 24,
           padding: 20,
           marginTop: 20,
@@ -37,15 +37,15 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View
             style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.mauve,
+              width: 36,
+              height: 36,
+              borderRadius: 18,
+              backgroundColor: palette.mauve + '22',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="credit-card" size={18} color={palette.paper} />
+            <Feather name="credit-card" size={16} color={palette.mauve} />
           </View>
           <Text
             style={{
@@ -63,10 +63,10 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
         <Text
           style={{
             fontFamily: 'Inter_400Regular',
-            color: palette.ink + 'B3',
-            fontSize: 14,
-            lineHeight: 20,
-            marginTop: 12,
+            color: palette.ink + '99',
+            fontSize: 13,
+            lineHeight: 18,
+            marginTop: 8,
           }}
         >
           {t('card.post_session.sub')}

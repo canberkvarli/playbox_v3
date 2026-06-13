@@ -18,14 +18,6 @@ import { GearReportSheet } from '@/components/GearReportSheet';
 import { costForMinutes } from '@/lib/pricing';
 import { isBadRating, submitFeedback } from '@/lib/feedback';
 import { useT } from '@/hooks/useT';
-import { supabase } from '@/lib/supabase';
-import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
-
-// Safe-import expo-image-picker (same pattern as scan.tsx / GearReportSheet).
-let ImagePicker: any = null;
-try {
-  ImagePicker = require('expo-image-picker');
-} catch {}
 
 const FACES = ['😡', '😕', '😐', '🙂', '🤩'] as const;
 
@@ -46,8 +38,6 @@ export default function SessionReview() {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [cardPromptDismissed, setCardPromptDismissed] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  // Closing-photo state — purely optional. 'saved' shows a subtle confirmation.
-  const [photoState, setPhotoState] = useState<'idle' | 'busy' | 'saved' | 'failed'>('idle');
   const sideEffectsRan = useRef(false);
 
   useEffect(() => {
@@ -79,54 +69,6 @@ export default function SessionReview() {
     acknowledgeEnded();
     router.dismissAll();
     setTimeout(() => router.replace('/(tabs)/map'), 50);
-  };
-
-  // OPTIONAL closing photo. Best-effort and fully skippable — this screen
-  // finishes fine without it. We never block goHome on the upload.
-  const addClosingPhoto = async () => {
-    await hx.tap();
-    if (!ImagePicker || !lastEnded) return;
-    try {
-      const perm = await ImagePicker.requestCameraPermissionsAsync?.();
-      const launch =
-        perm && perm.granted === false
-          ? ImagePicker.launchImageLibraryAsync
-          : ImagePicker.launchCameraAsync;
-      const res = await launch({
-        mediaTypes: 'images',
-        quality: 0.6,
-        base64: true,
-        allowsEditing: false,
-      });
-      if (res?.canceled) return;
-      const asset = res?.assets?.[0];
-      if (!asset) return;
-
-      setPhotoState('busy');
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const userId = session?.user?.id ?? null;
-      const sid = lastEnded.bleSessionId ?? `review-${lastEnded.endedAt}`;
-      if (!userId) {
-        setPhotoState('failed');
-        return;
-      }
-      const up = await uploadReturnPhoto(
-        supabase,
-        userId,
-        sid,
-        asset.base64 ?? asset.uri,
-      );
-      if (up.ok) {
-        await hx.yes();
-        setPhotoState('saved');
-      } else {
-        setPhotoState('failed');
-      }
-    } catch {
-      setPhotoState('failed');
-    }
   };
 
   if (!lastEnded) {
@@ -379,62 +321,10 @@ export default function SessionReview() {
         <PostSessionCardPrompt onSkip={() => setCardPromptDismissed(true)} />
       ) : null}
 
-      {/* Optional closing photo + report-a-problem. Both are skippable — the
-          screen finishes via "haritaya dön" regardless. */}
+      {/* Report-a-problem. Skippable — the screen finishes via
+          "haritaya dön" regardless. */}
       <RiseIn delay={260}>
-        <View style={{ marginTop: 28, alignItems: 'center', gap: 12 }}>
-          {ImagePicker ? (
-            <Pressable
-              onPress={addClosingPhoto}
-              disabled={photoState === 'busy' || photoState === 'saved'}
-              accessibilityRole="button"
-              accessibilityLabel={t('gear.return_photo.add')}
-              style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 8,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderRadius: 14,
-                backgroundColor: palette.ink + '0d',
-                borderWidth: 1,
-                borderColor: palette.ink + '14',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Feather
-                name={photoState === 'saved' ? 'check-circle' : 'camera'}
-                size={16}
-                color={palette.ink}
-              />
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
-                  fontSize: 12,
-                }}
-              >
-                {photoState === 'saved'
-                  ? t('gear.return_photo.success')
-                  : photoState === 'busy'
-                  ? t('common.loading')
-                  : t('gear.return_photo.add')}
-              </Text>
-            </Pressable>
-          ) : null}
-          {photoState === 'failed' ? (
-            <Text
-              style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + '99',
-                fontSize: 11,
-                textAlign: 'center',
-              }}
-            >
-              {t('gear.return_photo.failed')}
-            </Text>
-          ) : null}
-
+        <View style={{ marginTop: 32, alignItems: 'center' }}>
           <Pressable
             onPress={async () => {
               await hx.tap();
