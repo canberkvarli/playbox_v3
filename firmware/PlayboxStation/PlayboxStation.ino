@@ -35,9 +35,11 @@
 // -----------------------------------------------------------------------------
 // HARDWARE (Phase-0 breadboard)
 //   - ESP32 WROOM-32 (board: "ESP32 Dev Module" / NodeMCU-32S).
-//   - 1x MG996R servo (gate actuator) on GPIO 13. Power the servo from a
-//     separate 5–6V supply (LM2596), GND shared with the ESP32. NEVER power
-//     the servo from the ESP32 5V/3V3 pin.
+//   - 1x 4-channel relay board (ACTIVE-LOW) driving a solenoid latch. Relay IN1
+//     on GPIO 13. The gate-open is a momentary ~400ms pulse (relay energized =
+//     pin LOW) that throws the latch; the door pops open and the user closes it.
+//     Power the solenoid from a separate supply through the relay's NO contact,
+//     GND shared with the ESP32. NEVER drive the solenoid off the ESP32 rail.
 //   - BOOT button on GPIO 0 (active-LOW) = FAKE reed switch. A real reed would
 //     wire GPIO 18↔GND, INPUT_PULLUP, LOW = closed; the BOOT button mimics
 //     that LOW pulse on press so the dev unit needs no magnet/reed.
@@ -48,32 +50,29 @@
 //   - Onboard LED GPIO 2 (heartbeat blink; also self-test error pattern).
 //
 // State machine (single gate):
-//   LOCKED          --(unlock)----------->  UNLOCKED        servo opens
+//   LOCKED          --(unlock)----------->  UNLOCKED        relay pulses open
 //   UNLOCKED        --(reed/BOOT: closed)->  IN_USE         user took item
-//   IN_USE          --(return_unlock)---->  RETURN_UNLOCKED servo opens
+//   IN_USE          --(return_unlock)---->  RETURN_UNLOCKED relay pulses open
 //   RETURN_UNLOCKED --(reed/BOOT: closed)->  LOCKED         emits gate_closed
 //
 // -----------------------------------------------------------------------------
-// BUILD NOTE (IMPORTANT): the Arduino IDE only compiles sources that live IN
-// the sketch folder (PlayboxStation/). The signing core lives in
-// firmware/crypto/. Before flashing, COPY (or symlink) these four files into
-// this sketch folder so the IDE picks them up:
-//     crypto/playbox_sign.c   crypto/playbox_sign.h
-//     crypto/sha256.c         crypto/sha256.h
-// (copy the whole crypto/ subdir into the sketch folder so the include path
-//  "crypto/playbox_sign.h" resolves). The .c files MUST compile in the sketch
-// build — they are plain C99 and already pass firmware/test/run.sh. See README.
+// BUILD NOTE: the four signing-core files are kept FLAT in this sketch folder
+// (Arduino compiles every source in the sketch root; it does NOT compile a
+// crypto/ subdir):
+//     playbox_sign.c   playbox_sign.h   sha256.c   sha256.h
+// They are copies of the canonical, host-tested core in firmware/crypto/
+// (validated by firmware/test/run.sh). Do not edit here — change firmware/crypto/
+// and re-copy if the contract ever moves.
 // =============================================================================
 
 #include <string.h>   // strcmp — used to gate the battery-mv field by event name
 #include <NimBLEDevice.h>
 #include <ArduinoJson.h>
-#include <ESP32Servo.h>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
 
 extern "C" {
-  #include "crypto/playbox_sign.h"   // canonical builders + sign/verify (host-tested)
+  #include "playbox_sign.h"   // canonical builders + sign/verify (host-tested; flat in sketch root)
 }
 
 // ---- Station identity & secret ---------------------------------------------
@@ -99,7 +98,12 @@ extern "C" {
 #define LED_PIN     2
 #define NUM_GATES   1
 #define BUTTON_PIN  0   // BOOT button (active-LOW) — FAKE reed for the dev unit
-static const uint8_t SERVO_PINS[NUM_GATES] = { 13 };
+
+// Gate actuation is a 4-channel relay board driving a solenoid latch.
+// ACTIVE-LOW board: pulling the IN pin LOW energizes the relay (fires solenoid).
+// Relay IN1 -> GPIO 13 (the pin the old servo used). Solenoid runs off its own
+// supply through the relay's NO contact — never off the ESP32 rail.
+static const uint8_t RELAY_PINS[NUM_GATES] = { 13 };
 
 // Battery ADC: ADC1 input-only pin (safe alongside WiFi/BLE, unlike ADC2).
 #define BATTERY_ADC_PIN 34
@@ -108,10 +112,10 @@ static const uint8_t SERVO_PINS[NUM_GATES] = { 13 };
 // battery and never samples the floating ADC — the signing path is unchanged.
 #define BATTERY_ADC_WIRED 0
 
-// ---- Servo geometry & timing ------------------------------------------------
-#define SERVO_LOCKED_DEG    0     // latch engaged / door held shut
-#define SERVO_OPEN_DEG      90    // door released
-#define SERVO_OPEN_HOLD_MS  800UL // hold OPEN before the relax-back tick runs
+// ---- Relay (solenoid) timing ------------------------------------------------
+#define RELAY_ON        LOW       // active-low board: LOW = relay energized
+#define RELAY_OFF       HIGH      // idle / locked: relay de-energized
+#define RELAY_PULSE_MS  400UL     // momentary "psst" that throws the latch
 #define UNLOCKED_TIMEOUT_MS        300000UL // user didn't take ball (5min, bench-friendly)
 #define RETURN_UNLOCKED_TIMEOUT_MS  60000UL // user didn't return ball
 #define WDT_TIMEOUT_S       30
@@ -132,7 +136,7 @@ static const uint8_t SERVO_PINS[NUM_GATES] = { 13 };
 // is (39+10)/10 = 4.9 (~5:1): 13.0V → 2.65V at the pin, comfortably under 3.3V.
 // CALIBRATE per board: measure the real rail with a DMM and the pin voltage,
 // then trim BATTERY_DIVIDER. The ESP32 ADC is non-linear near the rails, so the
-// constant absorbs that too. READ AT REST — never during a servo pulse (the
+// constant absorbs that too. READ AT REST — never during a relay pulse (the
 // inrush sags the rail and would falsely trip battery_low/critical).
 #define BATTERY_DIVIDER     4.9f
 #define ADC_VREF            3.30f
@@ -169,9 +173,8 @@ uint16_t      durationMin[NUM_GATES];
 unsigned long stateEnteredMs[NUM_GATES];
 bool          overdueSent[NUM_GATES];
 
-// Servos.
-Servo         servos[NUM_GATES];
-unsigned long servoRelaxMs[NUM_GATES] = { 0 };
+// Relay pulse off-timers (0 = relay idle/OFF, non-zero = millis() to drop OFF).
+unsigned long relayOffMs[NUM_GATES] = { 0 };
 
 // Fake-reed (BOOT button) debouncing — mirrors the reed debounce on 3-gate.
 int           lastReed[NUM_GATES];
@@ -439,28 +442,29 @@ static void emitGateClosed(int g1, const String& sid) { emitEvent("gate_closed",
 static void emitTimeout(const char* kind, int g1, const String& sid) { emitEvent(kind, g1, sid.c_str(), -1); }
 
 // =============================================================================
-// Servo actuation (non-blocking relax)
+// Relay actuation (non-blocking momentary pulse)
 // =============================================================================
-static void servoOpen(int g) {
-  servos[g].write(SERVO_OPEN_DEG);
-  servoRelaxMs[g] = millis() + SERVO_OPEN_HOLD_MS;
-  Serial.printf("[SERVO] gate %d -> OPEN (%ddeg)\n", g + 1, SERVO_OPEN_DEG);
+static void relayOpen(int g) {
+  // Momentary kick: energize the relay now, arm the off-timer for tickRelays().
+  digitalWrite(RELAY_PINS[g], RELAY_ON);
+  relayOffMs[g] = millis() + RELAY_PULSE_MS;
+  Serial.printf("[RELAY] gate %d -> PULSE OPEN (%lums)\n", g + 1, RELAY_PULSE_MS);
 }
 
-static void servoLock(int g) {
-  servos[g].write(SERVO_LOCKED_DEG);
-  servoRelaxMs[g] = 0;
-  Serial.printf("[SERVO] gate %d -> LOCKED (%ddeg)\n", g + 1, SERVO_LOCKED_DEG);
+static void relayLock(int g) {
+  digitalWrite(RELAY_PINS[g], RELAY_OFF);
+  relayOffMs[g] = 0;
+  Serial.printf("[RELAY] gate %d -> LOCKED (relay off)\n", g + 1);
 }
 
-static void tickServos() {
-  // After the open hold, drive back to the locked angle if the gate has since
-  // returned to LOCKED. The mechanical latch / gas strut holds the door; the
-  // servo only sets the latch position.
+static void tickRelays() {
+  // End the momentary pulse: always drop the relay back OFF once the pulse
+  // window elapses. The latch is mechanical — the door stays open after the
+  // kick; leaving an active-low relay energized would overheat the solenoid.
   for (int g = 0; g < NUM_GATES; g++) {
-    if (servoRelaxMs[g] != 0 && (long)(millis() - servoRelaxMs[g]) >= 0) {
-      servoRelaxMs[g] = 0;
-      if (gateState[g] == LOCKED) servos[g].write(SERVO_LOCKED_DEG);
+    if (relayOffMs[g] != 0 && (long)(millis() - relayOffMs[g]) >= 0) {
+      relayOffMs[g] = 0;
+      digitalWrite(RELAY_PINS[g], RELAY_OFF);
     }
   }
 }
@@ -476,7 +480,7 @@ static void transitionTo(int g, GateState next) {
     activeSessionId[g] = "";
     durationMin[g] = DEFAULT_DURATION_MIN;
     overdueSent[g] = false;
-    servoLock(g);
+    relayLock(g);
   }
   saveGate(g);   // persists state + session_id + durationMin (dur%d) to NVS
   refreshInfoChar();
@@ -583,9 +587,9 @@ static int mvToSoc(int mv) {
   return 0;
 }
 
-// Whether any gate is mid-servo-pulse — skip battery reads then (rail sags).
-static bool anyServoActive() {
-  for (int g = 0; g < NUM_GATES; g++) if (servoRelaxMs[g] != 0) return true;
+// Whether any gate is mid-relay-pulse — skip battery reads then (rail sags).
+static bool anyRelayActive() {
+  for (int g = 0; g < NUM_GATES; g++) if (relayOffMs[g] != 0) return true;
   return false;
 }
 
@@ -599,7 +603,7 @@ static void sampleBattery() {
   return;
 #else
   if (millis() - lastBatterySampleMs < BATTERY_SAMPLE_MS) return;
-  if (anyServoActive()) return;   // read at rest only
+  if (anyRelayActive()) return;   // read at rest only
   lastBatterySampleMs = millis();
 
   int s[5];
@@ -762,14 +766,14 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
       activeSessionId[g] = sessionId;
       durationMin[g]     = (uint16_t)durMin;
       Serial.printf("[CMD] unlock gate %d session=%s dur=%umin\n", gate, sessionId.c_str(), durationMin[g]);
-      servoOpen(g);
+      relayOpen(g);
       transitionTo(g, UNLOCKED);
       // gate_opened carries the session_id.
       emitGateOpened(gate, activeSessionId[g]);
     } else if (cmd == "return_unlock" && gateState[g] == IN_USE && sessionId == activeSessionId[g]) {
       // Always allowed, even at battery_critical — never trap a user.
       Serial.printf("[CMD] return_unlock gate %d\n", gate);
-      servoOpen(g);
+      relayOpen(g);
       transitionTo(g, RETURN_UNLOCKED);
     } else {
       Serial.printf("[BLE] cmd '%s' gate %d ignored in state %s\n",
@@ -799,22 +803,22 @@ void setup() {
     // error blink + Serial line make a broken flash obvious.
   }
 
-  // Servos: attach and drive to locked.
-  ESP32PWM::allocateTimer(0);
+  // Relay outputs: set OUTPUT and idle OFF (HIGH) immediately so an active-low
+  // board never clicks the solenoid on during boot.
   for (int g = 0; g < NUM_GATES; g++) {
-    servos[g].setPeriodHertz(50);
-    servos[g].attach(SERVO_PINS[g], 500, 2400);
-    servos[g].write(SERVO_LOCKED_DEG);
+    pinMode(RELAY_PINS[g], OUTPUT);
+    digitalWrite(RELAY_PINS[g], RELAY_OFF);
   }
   // BOOT button doubles as the fake reed (INPUT_PULLUP set inside initReeds).
   initReeds();
 
   // ADC for battery (only meaningful when the divider is wired).
   analogReadResolution(12);
-  // Attenuation enum renamed across the ESP32 Arduino core: `ADC_11db` on core
-  // v2 was deprecated and renamed `ADC_ATTEN_DB_12` on core v3 (same ~0..3.3V
-  // range). Use the v3 name so this compiles on the current core.
-  analogSetPinAttenuation(BATTERY_ADC_PIN, ADC_ATTEN_DB_12);
+  // analogSetPinAttenuation takes the Arduino-core `adc_attenuation_t` enum
+  // (ADC_0db / ADC_2_5db / ADC_6db / ADC_11db) — NOT the ESP-IDF `adc_atten_t`
+  // (ADC_ATTEN_DB_12). ADC_11db is the ~0..3.3V full-scale range and is the
+  // correct name on esp32 Arduino core v2 AND v3 (verified compiling on 3.3.8).
+  analogSetPinAttenuation(BATTERY_ADC_PIN, ADC_11db);
 
   // NVS.
   prefs.begin("playbox", false);
@@ -828,11 +832,9 @@ void setup() {
                 (unsigned)eventSeq, (unsigned)ackedSeq, (unsigned)bootEpoch,
                 (unsigned)lastTs, (unsigned)ringCount());
 
-  // Re-assert the servo to match the restored state (open if mid-session).
-  for (int g = 0; g < NUM_GATES; g++) {
-    bool open = (gateState[g] == UNLOCKED || gateState[g] == RETURN_UNLOCKED);
-    servos[g].write(open ? SERVO_OPEN_DEG : SERVO_LOCKED_DEG);
-  }
+  // Nothing to re-assert after a reboot: the relay is momentary and already
+  // idle OFF from setup. The door's latch state is mechanical, not held by the
+  // relay, so a mid-session reboot leaves the physical door exactly as it was.
 
   // Watchdog.
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -888,7 +890,7 @@ void loop() {
     lastHeartbeat = millis();
   }
 
-  tickServos();
+  tickRelays();
   pollReeds();      // BOOT button = fake reed
   checkTimeouts();
   sampleBattery();

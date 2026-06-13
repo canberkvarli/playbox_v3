@@ -42,44 +42,44 @@ Either Arduino IDE or `arduino-cli` works.
 |---|---|---|
 | `NimBLE-Arduino` (h2zero) | latest 2.x | Library Manager |
 | `ArduinoJson` (Benoit Blanchon) | **v7.x** | Library Manager |
-| `ESP32Servo` (Kevin Harrington) | latest | Library Manager |
 | `Preferences` | bundled with ESP32 core | — |
 
 Board package: **esp32** by Espressif (Boards Manager URL
 `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`).
 Board: **ESP32 Dev Module** / NodeMCU-32S.
 
-### CRITICAL — copy the signing core into the sketch folder
+### Signing core (already in the sketch folder)
 
-The Arduino toolchain only compiles sources that live **inside the sketch
-folder** (next to the `.ino`). The signing core lives in `firmware/crypto/`.
-Before flashing **either** sketch, copy the whole `crypto/` subdir into that
-sketch's folder so the four files sit one level down as `crypto/…`:
-
-```sh
-# single-gate dev sketch
-cp -R firmware/crypto firmware/PlayboxStation/crypto
-# 3-gate production sketch
-cp -R firmware/crypto firmware/PlayboxStation_3gate/crypto
-```
-
-After copying, each sketch folder contains:
+The Arduino toolchain compiles every source in the **sketch root** (next to the
+`.ino`), so the four signing-core files are kept **flat** in each sketch folder
+and committed alongside the `.ino` — no copy step needed before flashing:
 
 ```
-PlayboxStation/                  (or PlayboxStation_3gate/)
+PlayboxStation/                  (and PlayboxStation_3gate/)
 ├── PlayboxStation.ino
-└── crypto/
-    ├── playbox_sign.c   playbox_sign.h
-    └── sha256.c         sha256.h
+├── playbox_sign.c   playbox_sign.h
+└── sha256.c         sha256.h
 ```
+
+They are copies of the canonical, host-tested core in `firmware/crypto/`
+(validated by `firmware/test/run.sh`). Don't edit the sketch copies — change
+`firmware/crypto/` and re-copy (`cp firmware/crypto/*.{h,c} <sketch>/`) if the
+contract ever moves.
 
 The sketch includes the header **inside an `extern "C"` block** (the core is
 plain C99, the sketch is C++):
 
 ```cpp
 extern "C" {
-  #include "crypto/playbox_sign.h"
+  #include "playbox_sign.h"
 }
+```
+
+**Verify it compiles** (catches toolchain/version drift before you flash):
+
+```sh
+arduino-cli compile --fqbn esp32:esp32:esp32 firmware/PlayboxStation_3gate
+# libs: NimBLE-Arduino, ArduinoJson (v7)  (Preferences is built-in; gates use a relay, no servo lib)
 ```
 
 Both `.c` files (`playbox_sign.c`, `sha256.c`) compile as part of the sketch
@@ -89,7 +89,7 @@ are build artifacts; the source of truth is `firmware/crypto/`).
 
 ### Arduino IDE
 
-1. Install the esp32 board package + the three libraries above.
+1. Install the esp32 board package + the libraries above.
 2. Tools → Board → ESP32 Arduino → **ESP32 Dev Module**; pick the
    `/dev/cu.usbserial-*` (or `wchusbserial`) port.
 3. Open the sketch, ▶ Upload. Upload speed `115200` first; bump to `921600` once
@@ -99,7 +99,7 @@ are build artifacts; the source of truth is `firmware/crypto/`).
 
 ```sh
 arduino-cli core install esp32:esp32
-arduino-cli lib install "NimBLE-Arduino" "ArduinoJson" "ESP32Servo"
+arduino-cli lib install "NimBLE-Arduino" "ArduinoJson"
 # after copying crypto/ into the sketch folder (see above):
 arduino-cli compile --fqbn esp32:esp32:esp32 firmware/PlayboxStation
 arduino-cli upload  --fqbn esp32:esp32:esp32 -p /dev/cu.usbserial-XXXX firmware/PlayboxStation
@@ -212,20 +212,22 @@ length 3. State strings are exactly `LOCKED | UNLOCKED | IN_USE | RETURN_UNLOCKE
 | Component | Connection |
 |---|---|
 | ESP32 WROOM-32 | USB powered; board `ESP32 Dev Module` |
-| MG996R servo — signal | GPIO 13 |
-| MG996R servo — VCC | separate LM2596 5–6V (NOT the ESP32 pin), GND shared |
+| Relay board IN1 (ACTIVE-LOW) | GPIO 13 — open = ~400ms LOW pulse, idle HIGH |
+| Solenoid (via relay NO contact) | separate supply (NOT the ESP32 pin), GND shared |
 | BOOT button (onboard) | GPIO 0 — **fake reed** (press = gate closed) |
 | Onboard LED | GPIO 2 — heartbeat / self-test error blink |
 | Battery ADC | GPIO 34, OPTIONAL — `BATTERY_ADC_WIRED 0` by default reports full battery (signing path unchanged) |
 
-> Confirm the LM2596 output is 5.0–6.0V with a DMM before connecting the servo
-> (MG996R is 4.8–7.2V; >7V damages gears under load).
+> The relay board is active-LOW: pulling IN1 to GND fires the relay. The firmware
+> idles IN1 HIGH and pulses it LOW for `RELAY_PULSE_MS` (400ms) to throw the latch.
+> Power the solenoid from its own supply through the relay's NO contact — never off
+> the ESP32 rail.
 
 ### 3-gate production
 
 | Function | Pins |
 |---|---|
-| Servos (MG996R), gates 1/2/3 | GPIO **13 / 12 / 14** |
+| Relay board IN1/IN2/IN3 (ACTIVE-LOW), gates 1/2/3 | GPIO **13 / 12 / 14** — open = ~400ms LOW pulse. ⚠️ GPIO 12 (gate 2) is a boot strapping pin: move to GPIO 27 or add a pulldown before wiring that channel |
 | Reed switches (door-closed), gates 1/2/3 | GPIO **18 / 19 / 21**, INPUT_PULLUP, GPIO↔GND, LOW = closed |
 | Onboard LED | GPIO 2 |
 | Battery ADC | GPIO **34** (ADC1, input-only — safe with BLE) |
@@ -234,17 +236,19 @@ length 3. State strings are exactly `LOCKED | UNLOCKED | IN_USE | RETURN_UNLOCKE
   10.5–13V SLA rail into the 0–3.3V ADC range. **`BATTERY_DIVIDER` MUST be
   calibrated** per board with a DMM (measure rail + pin voltage, trim the
   constant; the ESP32 ADC is non-linear near the rails). Read at rest only —
-  never during a servo pulse (inrush sags the rail and false-trips low/critical).
+  never during a relay pulse (solenoid inrush sags the rail and false-trips low/critical).
 - **Battery thresholds (SLA 12V):** `battery_low` at **11.9V** (~40% SoC),
   `battery_critical` at **11.5V** (~20% SoC), 150mV hysteresis (one event per
   crossing). At **critical the firmware REFUSES new unlocks** (don't strand the
   next user on a dying battery) but **ALWAYS honors `return_unlock`** so nobody
   is trapped with an item.
-- **Power:** SLA **12V / 7Ah** battery. Servos draw their own **separate 5–6V
-  supply (LM2596)**, GND shared with the ESP32 — NEVER power servos from the
-  ESP32 rail (inrush causes brownout / reboots).
-- **Boot safety:** servo pins are not boot-mode straps; the firmware writes the
-  locked angle before/at attach so a gate never pops on reset.
+- **Power:** SLA **12V / 7Ah** battery. Solenoids draw from their **own supply
+  through the relay NO contacts**, GND shared with the ESP32 — NEVER drive a
+  solenoid off the ESP32 rail (inrush causes brownout / reboots).
+- **Boot safety:** the firmware sets each relay pin OUTPUT and drives it OFF
+  (HIGH) the instant setup runs, so an active-low relay never clicks a solenoid
+  on during reset. Exception: GPIO 12 (gate 2) is itself a boot strapping pin
+  that must read LOW at boot — relocate that channel or add a pulldown.
 
 ## Flashing + validation checklist
 
@@ -264,22 +268,26 @@ This is the plug-and-play replacement step: flash a unit, validate, swap it in.
    LED blinks ~1/s. (A fast 10x blink + `SIGN SELF-TEST FAILED` = broken flash.)
 5. **Connect** via the app's dev BLE screen ([app/dev/ble.tsx](../app/dev/ble.tsx)).
 6. **`set_time`** → Serial `[TIME] set_time … -> bootEpoch=…` (events now carry real ts).
-7. **`unlock`** → `[STATE] gate 1: LOCKED -> UNLOCKED`, servo opens, and a signed
-   `gate_opened` event (with `seq` + `session_id`) is notified.
+7. **`unlock`** → `[STATE] gate 1: LOCKED -> UNLOCKED`, relay pulses open
+   (`[RELAY] gate 1 -> PULSE OPEN`), and a signed `gate_opened` event (with
+   `seq` + `session_id`) is notified.
 8. **Close the gate** — press BOOT (dev) or close the door onto the reed (3-gate)
    → `UNLOCKED -> IN_USE`.
-9. **`return_unlock`** → `IN_USE -> RETURN_UNLOCKED`, servo opens.
+9. **`return_unlock`** → `IN_USE -> RETURN_UNLOCKED`, relay pulses open.
 10. **Close again** → signed **`gate_closed`** event, `-> LOCKED`.
 11. **Confirm the server `ingest-events`** accepts the signed events (sig + seq
     verify on the backend). Then `ack{seq}` from the app drains `BUFFER_CHAR`.
 
 ## Troubleshooting
 
-- **Servo jitters / won't move:** power. Separate 5–6V LM2596 supply, GND shared.
+- **Solenoid won't fire / weak kick:** power. Separate supply through the relay
+  NO contact, GND shared with the ESP32. Confirm the relay clicks on a `unlock`.
+- **Relay clicks on at boot:** the board is active-low and the pin floated before
+  setup — the firmware drives it HIGH immediately, but check you're on GPIO 13
+  (gate 0), not a strapping pin like GPIO 12.
 - **Upload `Failed to connect to ESP32`:** hold BOOT during "Connecting…".
 - **App can't see `Playbox-DEV-001`:** check Serial — is it advertising? Ensure
   phone Bluetooth is on.
-- **Compile `'Servo' was not declared`:** install `ESP32Servo`.
 - **Compile `playbox_sign.h: No such file`:** you didn't copy `crypto/` into the
   sketch folder (see Build → CRITICAL).
 - **Server rejects events:** secret mismatch — `STATION_SECRET_HEX` ≠ the server's
