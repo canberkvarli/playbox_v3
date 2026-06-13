@@ -100,17 +100,22 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
             onPress={onAddCard}
             style={({ pressed }) => ({
               flex: 1,
-              backgroundColor: palette.ink,
+              backgroundColor: '#e87527', // palette.coral — explicit solid orange, never transparent/white
               borderRadius: 16,
               paddingVertical: 14,
               alignItems: 'center',
+              shadowColor: palette.coral,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.3,
+              shadowRadius: 12,
+              elevation: 6,
               transform: [{ scale: pressed ? 0.98 : 1 }],
             })}
           >
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
+                color: '#ffffff', // palette.paper — explicit white text on coral
                 fontSize: 14,
               }}
             >

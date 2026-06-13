@@ -897,13 +897,11 @@ export default function Play() {
           {/* Bench-only "I closed the gate" — stands in for the reed switch on
               units without one wired. Sends the UNSIGNED `sim_close` BLE
               command so the dev firmware advances UNLOCKED -> IN_USE (and the
-              return door-closed edge). Only shown on the bench
-              (ignoreFirmwareTimeouts) AND for a real BLE session — a fake
-              session has no gate/bleSessionId and the command would no-op. */}
-          {ignoreFirmwareTimeouts &&
-          !fakeActiveSession &&
-          active.bleSessionId &&
-          active.gate ? (
+              return door-closed edge). Shown for ANY active session on the bench
+              (ignoreFirmwareTimeouts) as long as we know the gate — simulateClose
+              just emits a BLE sim_close and no-ops in its try/catch if there's no
+              real link (e.g. a fake session with no bleSessionId). */}
+          {ignoreFirmwareTimeouts && active?.gate ? (
             <Pressable
               onPress={async () => {
                 await hx.tap();
@@ -1469,10 +1467,59 @@ function AwaitingClosePhase({
         </Text>
       </View>
 
-      {/* Optional closing photo — best-effort, fully skippable. Only shown
-          when expo-image-picker is linked. Captures BEFORE finalize so the
-          shot is keyed to this session, then the user finishes below. The
-          "kapattım, bitir" button works with or without a photo. */}
+      {/* PRIMARY action — always rendered, placed FIRST (right after the total)
+          so the user is never stuck: this is the obvious solid CTA to finish.
+          The optional photo button lives BELOW it as a clearly secondary action.
+          Reed-equipped stations will usually fire gate_closed before the user
+          reaches for this; on bench (no reeds) this is the only path forward. */}
+      <Pressable
+        onPress={onManualConfirmClosed}
+        accessibilityRole="button"
+        accessibilityLabel="kapattım, bitir"
+        style={({ pressed }) => ({
+          marginTop: 22,
+          opacity: pressed ? 0.92 : 1,
+        })}
+      >
+        <View
+          style={{
+            backgroundColor: palette.ink,
+            borderRadius: 18,
+            paddingVertical: 18,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            shadowColor: palette.ink,
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 0.25,
+            shadowRadius: 14,
+            elevation: 8,
+          }}
+        >
+          <Feather
+            name="check"
+            size={20}
+            color={palette.paper}
+            style={{ marginRight: 10 }}
+          />
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.paper,
+              fontSize: 17,
+              letterSpacing: 0.4,
+            }}
+          >
+            kapattım, bitir
+          </Text>
+        </View>
+      </Pressable>
+
+      {/* Optional closing photo — SECONDARY, best-effort, fully skippable.
+          Sits below the primary finish button so it never blocks it. Only
+          shown when expo-image-picker is linked. Captures BEFORE finalize so
+          the shot is keyed to this session; finishing works with or without
+          a photo. */}
       {ImagePicker ? (
         <Pressable
           onPress={onAddClosingPhoto}
@@ -1480,7 +1527,7 @@ function AwaitingClosePhase({
           accessibilityRole="button"
           accessibilityLabel="fotoğraf ekle"
           style={({ pressed }) => ({
-            marginTop: 18,
+            marginTop: 12,
             opacity: photoState === 'busy' ? 0.5 : pressed ? 0.7 : 1,
           })}
         >
@@ -1535,52 +1582,6 @@ function AwaitingClosePhase({
           fotoğraf eklenemedi — yine de bitirebilirsin.
         </Text>
       ) : null}
-
-      {/* Manual confirm. Reed-equipped stations will usually fire
-          gate_closed before the user reaches for this; on bench (no reeds)
-          this is the only path forward. */}
-      <Pressable
-        onPress={onManualConfirmClosed}
-        accessibilityRole="button"
-        accessibilityLabel="kapattım, bitir"
-        style={({ pressed }) => ({
-          marginTop: 22,
-          opacity: pressed ? 0.92 : 1,
-        })}
-      >
-        <View
-          style={{
-            backgroundColor: palette.ink,
-            borderRadius: 18,
-            paddingVertical: 18,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            shadowColor: palette.ink,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.25,
-            shadowRadius: 14,
-            elevation: 8,
-          }}
-        >
-          <Feather
-            name="check"
-            size={20}
-            color={palette.paper}
-            style={{ marginRight: 10 }}
-          />
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
-              fontSize: 17,
-              letterSpacing: 0.4,
-            }}
-          >
-            kapattım, bitir
-          </Text>
-        </View>
-      </Pressable>
 
       <Text
         style={{

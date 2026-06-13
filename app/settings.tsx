@@ -553,6 +553,15 @@ export default function Settings() {
               }
             }}
           />
+          {/* dev: reachable in TestFlight (sibling of the OTA/Sürüm dev rows,
+              deliberately NOT gated on __DEV__ which is false in release). */}
+          <SettingRow
+            label="dev: BLE test ekranı"
+            onPress={async () => {
+              await hx.tap();
+              router.push('/dev/ble');
+            }}
+          />
         </RiseIn>
       </ScrollView>
 

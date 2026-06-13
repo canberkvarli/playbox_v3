@@ -76,55 +76,61 @@ function ChannelButton({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} — ${sub}`}
       style={({ pressed }) => ({
+        // Compact horizontal card: icon | text stack | chevron, all on one
+        // centered row. Tight padding keeps the four channels reading as a
+        // neat list of cards rather than tall floaty stacks.
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 14,
-        paddingVertical: 16,
-        paddingHorizontal: 16,
-        borderRadius: 16,
-        backgroundColor: palette.paper,
+        gap: 12,
+        paddingVertical: 11,
+        paddingHorizontal: 13,
+        borderRadius: 14,
+        backgroundColor: accent + '0a',
         borderWidth: 1,
-        borderColor: palette.ink + '14',
+        borderColor: accent + '24',
         opacity: pressed ? 0.7 : 1,
       })}
     >
       <View
         style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: accent + '1f',
+          // Smaller badge keeps the channel tint but shrinks row height.
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: accent + '24',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name={icon} size={20} color={accent} />
+        <Feather name={icon} size={17} color={accent} />
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, gap: 1 }}>
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
             color: palette.ink,
-            fontSize: 15,
+            fontSize: 13.5,
             letterSpacing: 0.2,
           }}
+          numberOfLines={1}
         >
           {label}
         </Text>
         <Text
           style={{
-            fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.ink + 'aa',
+            fontFamily: 'Inter_400Regular',
+            color: palette.ink + '99',
             fontSize: 12,
-            marginTop: 4,
           }}
           numberOfLines={1}
         >
           {sub}
         </Text>
       </View>
-      <Feather name="chevron-right" size={18} color={palette.ink + '66'} />
+      <Feather name="chevron-right" size={18} color={palette.ink + '59'} />
     </Pressable>
   );
 }

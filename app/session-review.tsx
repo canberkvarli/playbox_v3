@@ -324,7 +324,7 @@ export default function SessionReview() {
       {/* Report-a-problem. Skippable — the screen finishes via
           "haritaya dön" regardless. */}
       <RiseIn delay={260}>
-        <View style={{ marginTop: 32, alignItems: 'center' }}>
+        <View style={{ marginTop: 32, marginBottom: 28, alignItems: 'center' }}>
           <Pressable
             onPress={async () => {
               await hx.tap();
@@ -348,7 +348,7 @@ export default function SessionReview() {
         </View>
       </RiseIn>
 
-      <View style={{ flex: 1 }} />
+      <View style={{ flex: 1, minHeight: 12 }} />
 
       {/* CTA */}
       <RiseIn delay={300}>
