@@ -504,7 +504,7 @@ export default function Settings() {
             }}
           />
           <SettingRow
-            label="OTA TEST 003"
+            label="Sürüm"
             value={`ch=${Updates.channel || 'dev'} rt=${Updates.runtimeVersion || '—'} id=${(Updates.updateId ?? 'embedded').slice(0, 12)}`}
           />
           <SettingRow

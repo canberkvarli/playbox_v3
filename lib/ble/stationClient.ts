@@ -392,6 +392,18 @@ class StationClient {
     return this.writeCommandWithRetry(payload, stationName);
   }
 
+  /**
+   * DEV ONLY — simulate the reed/door-closed edge from the app (a fake-reed
+   * stand-in for the dev board's BOOT button), so the BLE debug screen can drive
+   * the full rent→close→return→close cycle on-phone. Honored only by firmware
+   * built with DEV_SIM_CLOSE (single-gate dev unit); production firmware ignores
+   * it. Unsigned + best-effort: it only advances local door state, never opens
+   * the gate.
+   */
+  simulateClose(gate: number) {
+    return this.writeCommand({ cmd: "sim_close", gate });
+  }
+
   subscribeToEvents(
     onEvent: (event: StationEvent) => void,
     onError?: (err: Error) => void,

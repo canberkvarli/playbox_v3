@@ -126,6 +126,18 @@ export default function BleDebugScreen() {
     }
   }
 
+  // Simulate the user shutting the door (stands in for the reed/BOOT press).
+  // Advances UNLOCKED→IN_USE after a rent, or RETURN_UNLOCKED→LOCKED after a
+  // return — so the whole cycle is drivable from the phone.
+  async function onCloseDoor() {
+    try {
+      await stationClient.simulateClose(TEST_GATE);
+      log("info", `wrote sim_close (gate=${TEST_GATE}) — simulated door shut`);
+    } catch (e: unknown) {
+      log("error", e instanceof Error ? e.message : String(e));
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (subRef.current) subRef.current.remove();
@@ -148,9 +160,9 @@ export default function BleDebugScreen() {
       <Text className="text-white text-lg font-bold mb-1">
         Station: {STATION_NAME}
       </Text>
-      <Text className="text-gray-400 mb-4">Status: {status}</Text>
+      <Text className="text-gray-400 mb-3">Status: {status}</Text>
 
-      <View className="flex-row flex-wrap gap-2 mb-4">
+      <View className="flex-row flex-wrap gap-2 mb-3">
         <Btn
           label="Connect"
           onPress={onConnect}
@@ -158,13 +170,19 @@ export default function BleDebugScreen() {
           primary
         />
         <Btn label="Disconnect" onPress={onDisconnect} disabled={!isConnected} />
-        <Btn label="Fake Unlock" onPress={onUnlock} disabled={!isConnected} />
-        <Btn
-          label="Fake Return-Unlock"
-          onPress={onReturnUnlock}
-          disabled={!isConnected}
-        />
-        <Btn label="Clear Log" onPress={() => setLogs([])} />
+        <Btn label="Clear log" onPress={() => setLogs([])} />
+      </View>
+
+      <Text className="text-gray-500 text-xs mb-2">
+        Cycle: Unlock → Close door → Return → Close door{"\n"}
+        (Close door = simulate the user shutting it; solenoid fires on Unlock &
+        Return)
+      </Text>
+      <View className="flex-row flex-wrap gap-2 mb-4">
+        <Btn label="1 · Unlock" onPress={onUnlock} disabled={!isConnected} />
+        <Btn label="2 · Close door" onPress={onCloseDoor} disabled={!isConnected} />
+        <Btn label="3 · Return" onPress={onReturnUnlock} disabled={!isConnected} />
+        <Btn label="4 · Close door" onPress={onCloseDoor} disabled={!isConnected} />
       </View>
 
       <Text className="text-white font-semibold mb-2">

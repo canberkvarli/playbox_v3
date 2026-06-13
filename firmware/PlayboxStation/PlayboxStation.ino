@@ -98,6 +98,11 @@ extern "C" {
 #define LED_PIN     2
 #define NUM_GATES   1
 #define BUTTON_PIN  0   // BOOT button (active-LOW) — FAKE reed for the dev unit
+// DEV ONLY: honor an unsigned, app-driven "sim_close" BLE command that stands in
+// for the reed/door-closed edge, so the full rent→close→return→close cycle can be
+// driven from the phone without pressing BOOT. It only advances door state and
+// never opens the gate. Keep this OFF (0) on any production build.
+#define DEV_SIM_CLOSE 1
 
 // Gate actuation is a 4-channel relay board driving a solenoid latch.
 // ACTIVE-LOW board: pulling the IN pin LOW energizes the relay (fires solenoid).
@@ -720,6 +725,22 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
       handleAck((uint32_t)(doc["seq"] | (uint32_t)0));
       return;
     }
+#if DEV_SIM_CLOSE
+    if (cmd == "sim_close") {
+      // DEV: app-driven stand-in for the reed/door-closed edge (no BOOT press).
+      // Runs the exact same handler the fake reed does — advances the local door
+      // state only (UNLOCKED→IN_USE or RETURN_UNLOCKED→LOCKED), never opens the
+      // gate — so it stays unsigned like set_time/ack.
+      int simGate = doc["gate"] | 1;
+      if (simGate < 1 || simGate > NUM_GATES) {
+        Serial.printf("[CMD] sim_close bad gate %d\n", simGate);
+        return;
+      }
+      Serial.printf("[CMD] sim_close gate %d (app-driven fake reed)\n", simGate);
+      handleGateClose(simGate - 1);
+      return;
+    }
+#endif
 
     // ---- SIGNED actuation commands: unlock / return_unlock -----------------
     String   sessionId = doc["session_id"]   | "";

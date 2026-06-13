@@ -53,10 +53,18 @@ export type SetTimeCommand = { cmd: "set_time"; now: number };
 // `signingPayload`.
 export type AckCommand = { cmd: "ack"; seq: number };
 
+// UNSIGNED, DEV ONLY. App-driven stand-in for the reed/door-closed edge, so the
+// full rent→close→return→close cycle can be driven from the BLE debug screen
+// without pressing the dev board's BOOT button. The firmware honors this only
+// when built with DEV_SIM_CLOSE (the single-gate dev unit); it just advances the
+// local door state (UNLOCKED→IN_USE or RETURN_UNLOCKED→LOCKED) and NEVER opens
+// the gate, so — like set_time/ack — it needs no signature.
+export type SimCloseCommand = { cmd: "sim_close"; gate: number };
+
 // Everything writable over the unlock characteristic: the signable commands plus
-// the unsigned set_time + ack. `encodeCommand` accepts this wider set;
-// `signingPayload` stays narrowed to `Command`.
-export type AnyCommand = Command | SetTimeCommand | AckCommand;
+// the unsigned set_time + ack (+ dev-only sim_close). `encodeCommand` accepts
+// this wider set; `signingPayload` stays narrowed to `Command`.
+export type AnyCommand = Command | SetTimeCommand | AckCommand | SimCloseCommand;
 
 // Canonical string the firmware HMACs over. Must match exactly on both sides.
 //
