@@ -120,7 +120,11 @@ static const uint8_t RELAY_PINS[NUM_GATES] = { 13 };
 // ---- Relay (solenoid) timing ------------------------------------------------
 #define RELAY_ON        LOW       // active-low board: LOW = relay energized
 #define RELAY_OFF       HIGH      // idle / locked: relay de-energized
-#define RELAY_PULSE_MS  400UL     // momentary "psst" that throws the latch
+#define RELAY_PULSE_MS  800UL     // momentary "psst" that throws the latch
+// 800ms (was 400): on the shared 12V rail the solenoid inrush sags the supply,
+// so a short pulse releases the relay before the latch fully throws. A longer
+// energize matches a manual hold and gives the coil time to pull. Pure timing —
+// tune down once the rail is stiffer (own supply / bulk cap).
 #define UNLOCKED_TIMEOUT_MS        300000UL // user didn't take ball (5min, bench-friendly)
 #define RETURN_UNLOCKED_TIMEOUT_MS  60000UL // user didn't return ball
 #define WDT_TIMEOUT_S       30

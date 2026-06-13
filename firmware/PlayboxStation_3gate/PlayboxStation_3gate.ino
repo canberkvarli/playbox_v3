@@ -103,7 +103,7 @@ static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 // ---- Relay (solenoid) timing ------------------------------------------------
 #define RELAY_ON        LOW       // active-low board: LOW = relay energized
 #define RELAY_OFF       HIGH      // idle / locked: relay de-energized
-#define RELAY_PULSE_MS  400UL     // momentary "psst" that throws the latch
+#define RELAY_PULSE_MS  800UL     // momentary "psst" that throws the latch (see single-gate note)
 #define UNLOCKED_TIMEOUT_MS        300000UL // user didn't take ball (5min, bench-friendly)
 #define RETURN_UNLOCKED_TIMEOUT_MS  60000UL // user didn't return ball
 #define WDT_TIMEOUT_S       30
