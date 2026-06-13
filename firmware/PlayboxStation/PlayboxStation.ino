@@ -537,6 +537,32 @@ static void handleGateClose(int g) {
   }
 }
 
+#if DEV_SIM_CLOSE
+// DEV bench escape hatch: hold BOOT for ≥2s to force the gate back to LOCKED.
+// Frees a stuck state — e.g. an IN_USE persisted in NVS from an incomplete test
+// cycle, which rejects `unlock` and can't be `return`ed (the app signs a fresh
+// session id each time, so it never matches the stored one). Short BOOT taps
+// stay the fake-reed "door closed"; only a long hold resets.
+// NOTE: do NOT hold BOOT while pressing EN — that enters the ESP32 download/
+// bootloader mode ("waiting for download"), not this reset.
+#define DEV_RESET_HOLD_MS 2000UL
+static void pollDevReset() {
+  static unsigned long heldSinceMs = 0;
+  static bool fired = false;
+  if (digitalRead(BUTTON_PIN) == LOW) {
+    if (heldSinceMs == 0) heldSinceMs = millis();
+    else if (!fired && (millis() - heldSinceMs) >= DEV_RESET_HOLD_MS) {
+      fired = true;
+      Serial.println("[DEV] BOOT long-press (2s) -> force gate 1 to LOCKED");
+      transitionTo(0, LOCKED);
+    }
+  } else {
+    heldSinceMs = 0;
+    fired = false;
+  }
+}
+#endif
+
 // =============================================================================
 // State timeouts
 // =============================================================================
@@ -916,7 +942,10 @@ void loop() {
   }
 
   tickRelays();
-  pollReeds();      // BOOT button = fake reed
+  pollReeds();      // BOOT button = fake reed (short tap = "door closed")
+#if DEV_SIM_CLOSE
+  pollDevReset();   // hold BOOT ≥2s = force gate to LOCKED (bench escape hatch)
+#endif
   checkTimeouts();
   sampleBattery();
 
