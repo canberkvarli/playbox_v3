@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
@@ -25,6 +32,28 @@ export default function StationDetail() {
   const startSession = useSessionStore((s) => s.startSession);
 
   const [unlocking, setUnlocking] = useState(false);
+
+  // Collapsing header: track scroll offset on the UI thread and drive the
+  // mini-title's opacity/translate from it. The big title sits ~36px down in
+  // the scroll content (paddingTop 24 + its own height), so it has fully
+  // scrolled past the fixed header bar by ~70-100px of offset.
+  const scrollY = useSharedValue(0);
+  const scrollHandler = useAnimatedScrollHandler((e) => {
+    scrollY.value = e.contentOffset.y;
+  });
+
+  const miniTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [60, 100], [0, 1], Extrapolation.CLAMP),
+    transform: [
+      {
+        translateY: interpolate(scrollY.value, [60, 100], [8, 0], Extrapolation.CLAMP),
+      },
+    ],
+  }));
+
+  const bigTitleStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [40, 90], [1, 0], Extrapolation.CLAMP),
+  }));
 
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === id) return lastSelected;
@@ -141,28 +170,53 @@ export default function StationDetail() {
         >
           <Feather name="arrow-left" size={22} color={palette.ink} />
         </Pressable>
+
+        {/* Mini title — appears in the fixed header row once the big title
+            has scrolled away. Fades + slides in via miniTitleStyle. */}
+        <Animated.Text
+          numberOfLines={1}
+          style={[
+            {
+              flex: 1,
+              marginLeft: 14,
+              marginRight: 8,
+              fontFamily: 'Unbounded_700Bold',
+              fontSize: 17,
+              color: palette.ink,
+              letterSpacing: 0.2,
+            },
+            miniTitleStyle,
+          ]}
+        >
+          {station.name}
+        </Animated.Text>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
+        onScroll={scrollHandler}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 24,
           paddingTop: 24,
-          paddingBottom: insets.bottom + 32,
+          paddingBottom: insets.bottom + 120,
         }}
       >
         {/* Title block — name + status dot + hours + directions link */}
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 40,
-            lineHeight: 44,
-            letterSpacing: 0.2,
-          }}
+        <Animated.Text
+          style={[
+            {
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.ink,
+              fontSize: 40,
+              lineHeight: 44,
+              letterSpacing: 0.2,
+            },
+            bigTitleStyle,
+          ]}
         >
           {station.name}
-        </Text>
+        </Animated.Text>
         <View
           style={{
             flexDirection: 'row',
@@ -238,7 +292,7 @@ export default function StationDetail() {
             them. The buttons themselves are scoped server-side via
             dev_bypass which only honors station_id="DEV-001". */}
         <DevServoButtons stationId={station.id} />
-      </ScrollView>
+      </Animated.ScrollView>
     </View>
   );
 }
@@ -468,13 +522,13 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       </View>
 
       {/* Firmware state row — what the ESP32 says about each gate right now.
-          Each cell shows: gate number, fw-reported state, session id snippet.
-          Tapping selects the gate for the action buttons below. */}
+          Each cell is a BIG tappable box: large gate number, legible state
+          label, and session id snippet. Tapping selects the gate. */}
       <View
         style={{
           flexDirection: 'row',
-          gap: 8,
-          marginBottom: 10,
+          gap: 12,
+          marginBottom: 16,
           justifyContent: 'center',
         }}
       >
@@ -495,8 +549,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               disabled={!!busy}
               style={({ pressed }) => ({
                 flex: 1,
-                paddingVertical: 10,
-                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 6,
+                borderRadius: 18,
                 borderWidth: 2,
                 borderColor: selected ? palette.ink : palette.ink + '22',
                 backgroundColor: selected ? palette.ink + '0d' : 'transparent',
@@ -507,7 +562,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  fontSize: 16,
+                  fontSize: 26,
                   color: selected ? palette.ink : palette.ink + '88',
                 }}
               >
@@ -515,18 +570,21 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               </Text>
               <View
                 style={{
-                  marginTop: 4,
-                  paddingHorizontal: 6,
-                  paddingVertical: 2,
-                  borderRadius: 4,
+                  marginTop: 8,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
                   backgroundColor: tint,
+                  maxWidth: '100%',
                 }}
               >
                 <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                   style={{
                     fontFamily: 'JetBrainsMono_700Bold',
-                    fontSize: 8,
-                    letterSpacing: 0.6,
+                    fontSize: 12,
+                    letterSpacing: 0.4,
                     color: tint === palette.butter ? palette.ink : palette.paper,
                   }}
                 >
@@ -537,9 +595,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                 numberOfLines={1}
                 style={{
                   fontFamily: 'JetBrainsMono_400Regular',
-                  fontSize: 8,
+                  fontSize: 11,
                   color: palette.ink + '66',
-                  marginTop: 2,
+                  marginTop: 6,
                   maxWidth: '100%',
                 }}
               >
@@ -552,7 +610,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
 
       {/* Action row — UNLOCK / RETURN gated by firmware state. Disabled means
           firmware would silently drop the command, so we don't even send it. */}
-      <View style={{ flexDirection: 'row', gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 14, marginBottom: 16 }}>
         <Pressable
           onPress={runUnlock}
           disabled={!canUnlock}
@@ -643,40 +701,42 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       </View>
 
       {/* Manual refresh — re-reads INFO from the firmware in case state
-          drifted (e.g. someone pressed BOOT outside the action flow). */}
+          drifted (e.g. someone pressed BOOT outside the action flow).
+          Full-width BIG button so it's obvious and never crowds the row. */}
       <Pressable
         onPress={runRefresh}
         disabled={!!busy}
         hitSlop={8}
         style={({ pressed }) => ({
-          marginTop: 10,
-          alignSelf: 'center',
-          opacity: pressed && !busy ? 0.6 : busy ? 0.4 : 1,
+          marginBottom: 16,
+          opacity: pressed && !busy ? 0.7 : busy ? 0.4 : 1,
         })}
       >
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            paddingHorizontal: 12,
-            paddingVertical: 6,
-            borderRadius: 999,
-            borderWidth: 1,
+            justifyContent: 'center',
+            paddingVertical: 16,
+            paddingHorizontal: 16,
+            borderRadius: 18,
+            borderWidth: 2,
             borderColor: palette.ink + '33',
+            backgroundColor: palette.ink + '08',
           }}
         >
           <Feather
             name="refresh-cw"
-            size={11}
-            color={palette.ink + 'aa'}
-            style={{ marginRight: 6 }}
+            size={18}
+            color={palette.ink + 'cc'}
+            style={{ marginRight: 10 }}
           />
           <Text
             style={{
               fontFamily: 'JetBrainsMono_700Bold',
-              fontSize: 10,
+              fontSize: 14,
               letterSpacing: 1,
-              color: palette.ink + 'aa',
+              color: palette.ink + 'cc',
               textTransform: 'uppercase',
             }}
           >
