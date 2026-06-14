@@ -90,12 +90,15 @@ export default function SessionPrep() {
   const setHold = usePaymentStore((s) => s.setHold);
   const { preauthorize, releaseHold } = useIyzico();
 
-  const mustAddCardFirst = cardStatus === 'none' && freeFirstUsed;
-
   const station: Station | null = useMemo(() => {
     if (lastSelected && lastSelected.id === stationId) return lastSelected;
     return STATIONS.find((s) => s.id === stationId) ?? null;
   }, [stationId, lastSelected]);
+
+  // DEV-001 is the no-card bench station (server honors dev_bypass for it), so
+  // never force a card there — lets the real rent flow be tested without one.
+  const mustAddCardFirst =
+    cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
 
   const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);

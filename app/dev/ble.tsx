@@ -104,6 +104,9 @@ export default function BleDebugScreen() {
         gate: TEST_GATE,
         sessionId: TEST_SESSION_ID,
         durationMin: TEST_DURATION_MIN,
+        // Dev bench: skip the payment-hold check (server honors this only for
+        // DEV-001). Without it sign-unlock returns "no_active_hold".
+        devBypass: true,
       });
       await stationClient.unlock(signed);
       log("info", `wrote signed unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
@@ -118,6 +121,8 @@ export default function BleDebugScreen() {
         stationId: STATION_ID,
         gate: TEST_GATE,
         sessionId: TEST_SESSION_ID,
+        // Dev bench: skip the payment-hold check (DEV-001 only, server-gated).
+        devBypass: true,
       });
       await stationClient.returnUnlock(signed);
       log("info", `wrote signed return_unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
