@@ -339,13 +339,20 @@ export default function Play() {
 
   // Auto-advance when the firmware confirms the door was closed. Only fires
   // while we're in awaiting_close — otherwise an early/stale event would jump
-  // the user past the confirm step.
+  // the user past the confirm step. The closing photo is mandatory, so we
+  // also hold the auto-finish until a photo has been captured AND an upload
+  // attempted (saved OR failed). A failed upload still releases the gate so a
+  // network problem never traps the user; if no picker module is linked the
+  // photo step can't apply and we proceed as before.
   useEffect(() => {
     if (returnPhase !== 'awaiting_close') return;
     if (!active?.returnConfirmed) return;
+    const photoSatisfied =
+      !ImagePicker || photoState === 'saved' || photoState === 'failed';
+    if (!photoSatisfied) return;
     finalizeReturn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [returnPhase, active?.returnConfirmed]);
+  }, [returnPhase, active?.returnConfirmed, photoState]);
 
   const onFinishSession = async () => {
     await hx.punch();
@@ -1368,78 +1375,93 @@ function AwaitingClosePhase({
           fontSize: 15,
           lineHeight: 21,
           marginTop: 8,
-          opacity: 0.85,
+          opacity: 0.8,
         }}
       >
-        ekipmanı yerine koy ve kapıyı kapat.
+        son üç adım — sırasıyla yap, sonra bitir.
       </Text>
 
-      <View
-        style={{
-          marginTop: 18,
-          backgroundColor: palette.butter,
-          borderRadius: 14,
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <Feather
-          name="package"
-          size={20}
-          color={palette.ink}
-          style={{ marginRight: 10 }}
-        />
-        <Text
-          style={{
-            flex: 1,
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
-            fontSize: 14,
-            letterSpacing: 0.2,
-          }}
-        >
-          1. ekipmanı yerine koy
-        </Text>
-      </View>
-      <View
-        style={{
-          marginTop: 10,
-          backgroundColor: palette.butter,
-          borderRadius: 14,
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <Feather
-          name="corner-down-left"
-          size={20}
-          color={palette.ink}
-          style={{ marginRight: 10 }}
-        />
-        <Text
-          style={{
-            flex: 1,
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
-            fontSize: 14,
-            letterSpacing: 0.2,
-          }}
-        >
-          2. kapıyı kapat
-        </Text>
+      {/* Return steps — calm, evenly-spaced numbered list. The closing photo
+          is step 3 and is REQUIRED to finish (gating handled on the CTA). */}
+      <View style={{ marginTop: 18 }}>
+        {(
+          [
+            { icon: 'package', text: 'ekipmanı kutuya geri koy' },
+            { icon: 'corner-down-left', text: 'kapıyı kapat' },
+            { icon: 'camera', text: 'kapanış fotoğrafı çek' },
+          ] as const
+        ).map((step, idx) => {
+          const isPhotoStep = idx === 2;
+          const done = isPhotoStep && (photoState === 'saved' || photoState === 'failed');
+          return (
+            <View
+              key={step.text}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: palette.butter,
+                borderRadius: 14,
+                paddingVertical: 14,
+                paddingHorizontal: 14,
+                marginBottom: idx === 2 ? 0 : 10,
+              }}
+            >
+              <View
+                style={{
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: palette.ink,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12,
+                }}
+              >
+                {done ? (
+                  <Feather name="check" size={14} color={palette.paper} />
+                ) : (
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_800ExtraBold',
+                      color: palette.paper,
+                      fontSize: 13,
+                    }}
+                  >
+                    {idx + 1}
+                  </Text>
+                )}
+              </View>
+              <Feather
+                name={step.icon}
+                size={18}
+                color={palette.ink}
+                style={{ marginRight: 10 }}
+              />
+              <Text
+                style={{
+                  flex: 1,
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.ink,
+                  fontSize: 14,
+                  letterSpacing: 0.2,
+                }}
+              >
+                {step.text}
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
+      {/* Price — given its own breathing room and clear label so the amount
+          reads cleanly instead of competing with the surrounding copy. */}
       <View
         style={{
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginTop: 14,
-          paddingTop: 14,
+          marginTop: 18,
+          paddingTop: 16,
           borderTopWidth: 1,
           borderTopColor: palette.ink + '14',
         }}
@@ -1447,88 +1469,44 @@ function AwaitingClosePhase({
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
-            fontSize: 13,
-            letterSpacing: 0.5,
+            color: palette.ink + '99',
+            fontSize: 12,
+            letterSpacing: 0.6,
             textTransform: 'uppercase',
           }}
         >
-          toplam
+          toplam tutar
         </Text>
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
-            fontSize: 22,
-            letterSpacing: 0.4,
+            fontSize: 30,
+            letterSpacing: 0.2,
           }}
         >
           {formatTry(accruedTry)}
         </Text>
       </View>
 
-      {/* PRIMARY action — always rendered, placed FIRST (right after the total)
-          so the user is never stuck: this is the obvious solid CTA to finish.
-          The optional photo button lives BELOW it as a clearly secondary action.
-          Reed-equipped stations will usually fire gate_closed before the user
-          reaches for this; on bench (no reeds) this is the only path forward. */}
-      <Pressable
-        onPress={onManualConfirmClosed}
-        accessibilityRole="button"
-        accessibilityLabel="kapattım, bitir"
-        style={({ pressed }) => ({
-          marginTop: 22,
-          opacity: pressed ? 0.92 : 1,
-        })}
-      >
-        <View
-          style={{
-            backgroundColor: palette.ink,
-            borderRadius: 18,
-            paddingVertical: 18,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            shadowColor: palette.ink,
-            shadowOffset: { width: 0, height: 8 },
-            shadowOpacity: 0.25,
-            shadowRadius: 14,
-            elevation: 8,
-          }}
-        >
-          <Feather
-            name="check"
-            size={20}
-            color={palette.paper}
-            style={{ marginRight: 10 }}
-          />
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
-              fontSize: 17,
-              letterSpacing: 0.4,
-            }}
-          >
-            kapattım, bitir
-          </Text>
-        </View>
-      </Pressable>
-
-      {/* Optional closing photo — SECONDARY, best-effort, fully skippable.
-          Sits below the primary finish button so it never blocks it. Only
-          shown when expo-image-picker is linked. Captures BEFORE finalize so
-          the shot is keyed to this session; finishing works with or without
-          a photo. */}
+      {/* REQUIRED closing photo — capture is mandatory before finishing. The
+          finish CTA below stays disabled until a photo has been captured AND
+          an upload attempted (saved OR failed) so a network failure never
+          traps the user. Placed directly above the finish button as a step. */}
       {ImagePicker ? (
         <Pressable
           onPress={onAddClosingPhoto}
-          disabled={photoState === 'busy'}
+          disabled={photoState === 'busy' || photoState === 'saved'}
           accessibilityRole="button"
-          accessibilityLabel="fotoğraf ekle"
+          accessibilityLabel="kapanış fotoğrafı çek"
           style={({ pressed }) => ({
-            marginTop: 12,
-            opacity: photoState === 'busy' ? 0.5 : pressed ? 0.7 : 1,
+            marginTop: 18,
+            opacity:
+              photoState === 'busy'
+                ? 0.5
+                : pressed && photoState !== 'saved'
+                ? 0.7
+                : 1,
           })}
         >
           <View
@@ -1539,7 +1517,8 @@ function AwaitingClosePhase({
               paddingVertical: 14,
               paddingHorizontal: 14,
               borderRadius: 14,
-              backgroundColor: palette.ink + '08',
+              backgroundColor:
+                photoState === 'saved' ? palette.ink + '10' : palette.ink + '08',
               borderWidth: 1.5,
               borderColor:
                 photoState === 'saved' ? palette.ink + '44' : palette.ink + '22',
@@ -1563,7 +1542,9 @@ function AwaitingClosePhase({
                 ? 'fotoğraf yükleniyor...'
                 : photoState === 'saved'
                 ? 'fotoğraf eklendi'
-                : 'fotoğraf eklemek ister misin?'}
+                : photoState === 'failed'
+                ? 'tekrar dene'
+                : 'kapanış fotoğrafı çek'}
             </Text>
           </View>
         </Pressable>
@@ -1579,22 +1560,80 @@ function AwaitingClosePhase({
             textAlign: 'center',
           }}
         >
-          fotoğraf eklenemedi — yine de bitirebilirsin.
+          fotoğraf yüklenemedi — yine de bitirebilirsin.
         </Text>
       ) : null}
 
-      <Text
-        style={{
-          marginTop: 12,
-          fontFamily: 'JetBrainsMono_400Regular',
-          color: palette.ink + '88',
-          fontSize: 11,
-          textAlign: 'center',
-          lineHeight: 16,
-        }}
-      >
-        istasyon kapı kapanışını sinyallediğinde otomatik biteriz.
-      </Text>
+      {/* PRIMARY finish action — DISABLED until a closing photo has been
+          captured and an upload attempted (saved OR failed). Capture is
+          required; a failed upload still lets the user finish (never trapped).
+          When no picker module is present the photo step can't apply, so the
+          button stays enabled. */}
+      {(() => {
+        const photoSatisfied =
+          !ImagePicker || photoState === 'saved' || photoState === 'failed';
+        return (
+          <Pressable
+            onPress={photoSatisfied ? onManualConfirmClosed : undefined}
+            disabled={!photoSatisfied}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !photoSatisfied }}
+            accessibilityLabel="kapattım, bitir"
+            style={({ pressed }) => ({
+              marginTop: 12,
+              opacity: !photoSatisfied ? 0.4 : pressed ? 0.92 : 1,
+            })}
+          >
+            <View
+              style={{
+                backgroundColor: palette.ink,
+                borderRadius: 18,
+                paddingVertical: 18,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                shadowColor: palette.ink,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: photoSatisfied ? 0.25 : 0,
+                shadowRadius: 14,
+                elevation: photoSatisfied ? 8 : 0,
+              }}
+            >
+              <Feather
+                name="check"
+                size={20}
+                color={palette.paper}
+                style={{ marginRight: 10 }}
+              />
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.paper,
+                  fontSize: 17,
+                  letterSpacing: 0.4,
+                }}
+              >
+                kapattım, bitir
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })()}
+
+      {ImagePicker && photoState !== 'saved' && photoState !== 'failed' ? (
+        <Text
+          style={{
+            marginTop: 10,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink + '99',
+            fontSize: 12,
+            textAlign: 'center',
+            lineHeight: 17,
+          }}
+        >
+          bitirmek için kapanış fotoğrafı gerekiyor.
+        </Text>
+      ) : null}
     </>
   );
 }

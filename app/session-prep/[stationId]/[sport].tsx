@@ -22,6 +22,7 @@ import {
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence } from '@/stores/nearbyStore';
+import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { useSessionStore } from '@/stores/sessionStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
@@ -126,7 +127,18 @@ export default function SessionPrep() {
   // scanAndConnect inside onOyna is the source of truth for presence: a user
   // who taps anyway gets a genuine connect-or-fail attempt, never a hard block
   // on a missing passive sighting.
-  const { present: freshlyPresent } = useFreshPresence(stationId);
+  const { present: passivelyPresent } = useFreshPresence(stationId);
+
+  // PASSIVE-ONLY presence is unreliable on this screen: nothing else is
+  // scanning while the agreement slide is open, so no BLE advertisement ever
+  // lands in nearbyStore and `passivelyPresent` stays false even when the user
+  // is standing right at the station. Actively watch THIS station while the
+  // screen is mounted — `useStationInRange` drives `getDriver().watchStation`,
+  // which reports in_range on a live connection OR a fresh passive sighting.
+  // Either signal counts as genuinely present, so the "yaklaş" nudge only
+  // shows when the station truly isn't reachable.
+  const { inRange: activelyPresent } = useStationInRange(stationId);
+  const freshlyPresent = passivelyPresent || activelyPresent;
 
   if (!station) {
     return (

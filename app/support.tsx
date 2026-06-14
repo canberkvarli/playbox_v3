@@ -84,14 +84,16 @@ function ChannelButton({
         // neat list of cards rather than tall floaty stacks.
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 12,
-        paddingVertical: 11,
-        paddingHorizontal: 13,
-        borderRadius: 14,
-        backgroundColor: accent + '0a',
+        gap: 13,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 15,
+        // White rows pop crisply against the tinted group panel; the channel
+        // tint lives only in the icon badge so the list reads cleanly.
+        backgroundColor: palette.paper,
         borderWidth: 1,
-        borderColor: accent + '24',
-        opacity: pressed ? 0.7 : 1,
+        borderColor: palette.ink + '0d',
+        opacity: pressed ? 0.6 : 1,
       })}
     >
       <View
@@ -321,34 +323,48 @@ export default function Support() {
         }}
       >
         <RiseIn delay={0}>
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
-              fontSize: 38,
-              lineHeight: 42,
-              marginTop: 16,
-            }}
-          >
-            destek
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
-              fontSize: 16,
-              lineHeight: 22,
-              marginTop: 8,
-            }}
-          >
-            hızlı yanıt için whatsapp, acil durumlar için telefon.
-          </Text>
+          <View style={{ marginTop: 12, marginBottom: 4 }}>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 38,
+                lineHeight: 42,
+              }}
+            >
+              destek
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Inter_500Medium',
+                color: palette.ink + '99',
+                fontSize: 15,
+                lineHeight: 21,
+                marginTop: 10,
+                maxWidth: 300,
+              }}
+            >
+              hızlı yanıt için whatsapp, acil durumlar için telefon.
+            </Text>
+          </View>
         </RiseIn>
 
         <RiseIn delay={60}>
           <SectionLabel kicker="kanal seç">iletişim</SectionLabel>
 
-          <View style={{ gap: 10 }}>
+          {/* Grouped panel: the channels sit inside one inset surface so the
+              contact zone reads as a single block instead of four loose rows
+              floating on the page. */}
+          <View
+            style={{
+              backgroundColor: palette.ink + '05',
+              borderRadius: 22,
+              borderWidth: 1,
+              borderColor: palette.ink + '0d',
+              padding: 10,
+              gap: 8,
+            }}
+          >
             <ChannelButton
               icon="message-circle"
               label="whatsapp"
@@ -379,7 +395,7 @@ export default function Support() {
         <RiseIn delay={140}>
           <SectionLabel kicker="merak edilenler">sık sorulanlar</SectionLabel>
 
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 12 }}>
             {FAQ_ITEMS.map((item, i) => (
               <FaqCard
                 key={item.q}
@@ -413,7 +429,7 @@ function SectionLabel({
   kicker?: string;
 }) {
   return (
-    <View style={{ marginTop: 34, marginBottom: 16 }}>
+    <View style={{ marginTop: 40, marginBottom: 18 }}>
       {/* Coral tick + tiny mono kicker gives each section a quiet anchor
           so Contact and FAQ read as distinct zones, not one long stack. */}
       <View
