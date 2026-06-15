@@ -1259,7 +1259,13 @@ export default function Map() {
       });
       return () => {
         sub.stop();
-        useNearbyStore.getState().clear();
+        // Deliberately do NOT clear() the sightings here. Clearing on blur
+        // threw away just-heard adverts exactly as the user navigates into
+        // the station detail screen, forcing that screen onto the flaky
+        // connection-based proximity path (the OYNA ⇄ "kontrol ediliyor"
+        // flicker). Sightings expire on their own via the freshness windows
+        // (proximity.ts / nearbyStore STALE_MS), so keeping them is safe and
+        // lets the station screen show stable advert-based presence.
       };
     }, []),
   );

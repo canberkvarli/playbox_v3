@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
@@ -16,6 +16,8 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
+import { useNearbyStore } from '@/stores/nearbyStore';
+import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -59,6 +61,24 @@ export default function StationDetail() {
     if (lastSelected && lastSelected.id === id) return lastSelected;
     return STATIONS.find((s) => s.id === id) ?? null;
   }, [id, lastSelected]);
+
+  // Keep a passive BLE scan alive while this screen is open. The proximity
+  // CTA (OYNA / "kontrol ediliyor") is driven by watchStation, which prefers
+  // a fresh advert *sighting* over holding a fragile GATT connection. Without
+  // a scan here those sightings go stale within ~10s (the map's scan stopped
+  // on blur), forcing watchStation onto the connection-based path that keeps
+  // dropping — the flicker. Feeding nearbyStore here keeps presence stable and
+  // advert-based, exactly like the map's green dot; the real unlock still
+  // connects on tap (via scanAndConnect's lastSeenDevice fast path).
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((s) => {
+        useNearbyStore.getState().record(s);
+      });
+      return () => sub.stop();
+    }, []),
+  );
 
   if (!station) {
     return (
