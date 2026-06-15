@@ -826,6 +826,15 @@ export function createBleDriver(): HardwareDriver {
           sessionId,
           recovering: false,
         };
+        // Persist the "return in progress" signal. This is what lets a
+        // cold-launch reattach know there's a real gate_closed to catch — and,
+        // conversely, keeps a plain active rental from reattaching (and wedging
+        // the BLE radio) on every launch. Best-effort; never fail the return.
+        try {
+          useSessionStore.getState().markReturnInitiated();
+        } catch {
+          /* store access must not break the return write */
+        }
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         // Return write failed outright — no in-flight return to recover.
@@ -871,7 +880,20 @@ export function createBleDriver(): HardwareDriver {
  * call (e.g. a Fast-Refresh re-run of the boot effect, or AppState churn) is a
  * no-op instead of opening a duplicate subscription against the same station.
  */
-let reattachWatch: { stationId: string; sub: { stop: () => void } } | null = null;
+let reattachWatch: {
+  stationId: string;
+  sub: { stop: () => void };
+  timer: ReturnType<typeof setTimeout> | null;
+} | null = null;
+
+/**
+ * Hard cap on how long a cold-launch reattach watch may run. Its sole job is
+ * to catch a `gate_closed` the firmware emits within seconds of the user
+ * closing the door. If we haven't connected within this window the event isn't
+ * arriving over BLE (server-side reconciliation handles it), and continuing to
+ * scan just churns the radio and starves the single iOS scan. So we auto-stop.
+ */
+const REATTACH_MAX_MS = 3 * 60 * 1000;
 
 /**
  * Re-establish the passive watch + EVENTS subscription for a still-active
@@ -909,14 +931,7 @@ export function reattachActiveStationWatch(
     if (!decision.reattach) {
       // Nothing to resume. If a stale watch from a prior session is somehow
       // still live (e.g. the session ended in another tab), tear it down.
-      if (reattachWatch) {
-        try {
-          reattachWatch.sub.stop();
-        } catch {
-          /* already stopped — ignore */
-        }
-        reattachWatch = null;
-      }
+      stopActiveStationReattach();
       return false;
     }
 
@@ -924,14 +939,7 @@ export function reattachActiveStationWatch(
     if (reattachWatch?.stationId === decision.stationId) return true;
 
     // A watch for a different station is stale — replace it.
-    if (reattachWatch) {
-      try {
-        reattachWatch.sub.stop();
-      } catch {
-        /* ignore */
-      }
-      reattachWatch = null;
-    }
+    if (reattachWatch) stopActiveStationReattach();
 
     // Same wiring as the play screen's `useStationInRange`: watchStation
     // connects and subscribes to EVENTS, routing notifications through
@@ -939,7 +947,10 @@ export function reattachActiveStationWatch(
     // ProximityState here — only the side-effect subscription — so the
     // onChange callback is a no-op.
     const sub = driver.watchStation(decision.stationId, () => {});
-    reattachWatch = { stationId: decision.stationId, sub };
+    // Bounded lifetime: the gate_closed for a real return lands within
+    // seconds; if it doesn't, stop scanning rather than churn the radio.
+    const timer = setTimeout(stopActiveStationReattach, REATTACH_MAX_MS);
+    reattachWatch = { stationId: decision.stationId, sub, timer };
     return true;
   } catch (err) {
     // Best-effort: a re-attach failure must not crash launch.
@@ -951,6 +962,13 @@ export function reattachActiveStationWatch(
 /** Tear down any cold-launch re-attach watch. For tests + explicit teardown. */
 export function stopActiveStationReattach(): void {
   if (!reattachWatch) return;
+  if (reattachWatch.timer) {
+    try {
+      clearTimeout(reattachWatch.timer);
+    } catch {
+      /* ignore */
+    }
+  }
   try {
     reattachWatch.sub.stop();
   } catch {

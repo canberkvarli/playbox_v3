@@ -766,36 +766,40 @@ export function StationGateSelector({
       ) : null}
 
       {/* Phase 0 dev pill — shows live BLE state so we can see whether
-          proximity is finding the ESP32 or not. Remove once we trust it. */}
-      <View
-        style={{
-          alignSelf: 'flex-start',
-          paddingHorizontal: 10,
-          paddingVertical: 4,
-          marginBottom: 10,
-          borderRadius: 999,
-          backgroundColor:
-            proximityState.kind === 'in_range'
-              ? '#0a7d2c'
-              : proximityState.kind === 'scanning' || proximityState.kind === 'idle'
-              ? '#a06010'
-              : '#a01010',
-        }}
-      >
-        <Text
+          proximity is finding the ESP32 or not. DEV-only: end users should
+          never see raw proximity state ("BLE: scanning"), which reads as a
+          broken/loading UI. */}
+      {__DEV__ ? (
+        <View
           style={{
-            fontFamily: 'JetBrainsMono_700Bold',
-            fontSize: 10,
-            color: '#fff',
-            letterSpacing: 0.5,
+            alignSelf: 'flex-start',
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+            marginBottom: 10,
+            borderRadius: 999,
+            backgroundColor:
+              proximityState.kind === 'in_range'
+                ? '#0a7d2c'
+                : proximityState.kind === 'scanning' || proximityState.kind === 'idle'
+                ? '#a06010'
+                : '#a01010',
           }}
         >
-          BLE: {proximityState.kind}
-          {proximityState.kind === 'in_range'
-            ? ` (rssi ${proximityState.rssi})`
-            : ''}
-        </Text>
-      </View>
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              fontSize: 10,
+              color: '#fff',
+              letterSpacing: 0.5,
+            }}
+          >
+            BLE: {proximityState.kind}
+            {proximityState.kind === 'in_range'
+              ? ` (rssi ${proximityState.rssi})`
+              : ''}
+          </Text>
+        </View>
+      ) : null}
 
       <CTAButton
         label={ctaLabel}

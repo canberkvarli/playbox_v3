@@ -32,6 +32,14 @@ export type ActiveSession = {
    */
   returnConfirmed?: boolean;
   /**
+   * Set to Date.now() when the phone successfully writes `return_unlock` and
+   * begins awaiting `gate_closed`. Persisted so that the cold-launch reattach
+   * re-subscribes ONLY for sessions that actually have an inbound event to
+   * catch. A plain active rental must NOT reattach — doing so spins the BLE
+   * radio indefinitely and wedges proximity until a reinstall.
+   */
+  returnInitiatedAt?: number;
+  /**
    * Firmware reported the initial UNLOCKED state expired without the user
    * grabbing the gear (no door-closed reed transition within
    * UNLOCKED_TIMEOUT_MS). Implies the session should be cancelled and the
@@ -99,6 +107,13 @@ type SessionStore = {
    */
   markReturnConfirmed: () => void;
   /**
+   * Stamp the active session as "return in progress" (return_unlock written,
+   * awaiting gate_closed). Called by the BLE return path. Idempotent. This is
+   * the signal the cold-launch reattach uses to decide whether re-subscribing
+   * is worthwhile — see shouldReattach.
+   */
+  markReturnInitiated: () => void;
+  /**
    * Apply a firmware event flag to the active session. Called by the BLE
    * event dispatcher. No-op if there's no active session or the flag is
    * already set (events can arrive duplicated when multiple subscribers
@@ -163,6 +178,11 @@ export const useSessionStore = create<SessionStore>()(
         const cur = get().active;
         if (!cur || cur.returnConfirmed) return;
         set({ active: { ...cur, returnConfirmed: true } });
+      },
+      markReturnInitiated: () => {
+        const cur = get().active;
+        if (!cur || cur.returnInitiatedAt) return;
+        set({ active: { ...cur, returnInitiatedAt: Date.now() } });
       },
       markFirmwareEvent: (kind) => {
         const cur = get().active;

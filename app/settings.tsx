@@ -277,6 +277,103 @@ function EditModal({
   );
 }
 
+function formatUpdateTime(d: Date | null): string {
+  if (!d) return 'bilinmiyor';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/**
+ * Dev-friendly OTA status. Tells you at a glance which JS is actually
+ * running:
+ *   - green dot · "OTA güncellemesi aktif" → a downloaded update is live
+ *     (shows when it was published + the update id to match against EAS)
+ *   - grey dot · "yerleşik sürüm" → running the bundle baked into the build
+ *     (no OTA applied — or the last OTA crashed and rolled back)
+ *   - grey dot · "geliştirme modu" → __DEV__ / Expo Go, updates disabled
+ */
+function OtaStatusRow() {
+  const devMode = __DEV__ || !Updates.isEnabled;
+  // `isEmbeddedLaunch` is the canonical signal: true = build's embedded
+  // bundle, false = a downloaded OTA. Short-circuited so we never read it
+  // in dev where it isn't meaningful.
+  const otaActive = !devMode && !Updates.isEmbeddedLaunch;
+  const shortId = (Updates.updateId ?? '').slice(0, 8) || '—';
+  const channel = Updates.channel || 'dev';
+  const runtime = (Updates.runtimeVersion ?? '—').slice(0, 8);
+
+  const dotColor = otaActive ? '#3aaf6a' : palette.ink + '44';
+  const title = devMode
+    ? 'geliştirme modu · OTA kapalı'
+    : otaActive
+    ? '✓ OTA güncellemesi aktif'
+    : 'yerleşik sürüm · OTA yok';
+  const line2 = devMode
+    ? null
+    : otaActive
+    ? `yayınlandı: ${formatUpdateTime(Updates.createdAt)}`
+    : 'derlemeyle gelen bundle çalışıyor';
+
+  return (
+    <View
+      style={{
+        backgroundColor: palette.paper,
+        borderWidth: 1.5,
+        borderColor: otaActive ? '#3aaf6a55' : palette.ink + '22',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        marginBottom: 10,
+      }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View
+          style={{
+            width: 9,
+            height: 9,
+            borderRadius: 5,
+            backgroundColor: dotColor,
+            marginRight: 10,
+          }}
+        />
+        <Text
+          style={{
+            flex: 1,
+            fontFamily: 'Unbounded_700Bold',
+            color: palette.ink,
+            fontSize: 13,
+            letterSpacing: 0.2,
+          }}
+        >
+          {title}
+        </Text>
+      </View>
+      {line2 ? (
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.ink + '99',
+            fontSize: 11,
+            marginTop: 8,
+          }}
+        >
+          {line2}
+        </Text>
+      ) : null}
+      <Text
+        style={{
+          fontFamily: 'JetBrainsMono_500Medium',
+          color: palette.ink + '99',
+          fontSize: 11,
+          marginTop: 4,
+        }}
+      >
+        id: {shortId} · kanal: {channel} · rt: {runtime}
+      </Text>
+    </View>
+  );
+}
+
 export default function Settings() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
@@ -506,10 +603,7 @@ export default function Settings() {
               setRatingSheetOpen(true);
             }}
           />
-          <SettingRow
-            label="Sürüm"
-            value={`ch=${Updates.channel || 'dev'} rt=${Updates.runtimeVersion || '—'} id=${(Updates.updateId ?? 'embedded').slice(0, 12)}`}
-          />
+          <OtaStatusRow />
           <SettingRow
             label="Güncellemeyi kontrol et"
             onPress={async () => {

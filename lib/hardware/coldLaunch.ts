@@ -42,6 +42,14 @@ export type ReattachSession = {
   gate?: number | null;
   startedAt?: number | null;
   returnConfirmed?: boolean | null;
+  /**
+   * Set (to Date.now()) when the phone successfully writes `return_unlock` and
+   * begins awaiting `gate_closed`. ONLY a session in this state has an inbound
+   * BLE event worth re-subscribing for on cold launch. A plain active rental
+   * does not — reattaching one would scan the radio indefinitely and starve
+   * the single iOS scan, wedging proximity for every station.
+   */
+  returnInitiatedAt?: number | null;
 } | null | undefined;
 
 export type ReattachDecision =
@@ -54,7 +62,12 @@ export type ReattachDecision =
     }
   | {
       reattach: false;
-      reason: 'no_session' | 'already_returned' | 'expired' | 'incomplete';
+      reason:
+        | 'no_session'
+        | 'already_returned'
+        | 'expired'
+        | 'incomplete'
+        | 'not_returning';
     };
 
 export type ReattachOptions = {
@@ -76,8 +89,12 @@ export type ReattachOptions = {
  *   3. incomplete        — missing a field needed to resume (stationId,
  *      stationName, bleSessionId, gate, or a usable startedAt). Without these
  *      we cannot address the gate or correlate a `gate_closed`.
- *   4. expired           — older than maxAge; stale, skip.
- *   5. reattach: true.
+ *   4. not_returning     — no return is in progress (no `returnInitiatedAt`),
+ *      so there is no inbound `gate_closed` to catch. Reattaching here would
+ *      just spin the BLE radio forever (and starve the single iOS scan), which
+ *      is the cause of the "BLE wedged until reinstall" bug. Skip.
+ *   5. expired           — older than maxAge; stale, skip.
+ *   6. reattach: true.
  */
 export function shouldReattach(
   session: ReattachSession,
@@ -90,7 +107,7 @@ export function shouldReattach(
     return { reattach: false, reason: 'already_returned' };
   }
 
-  const { stationId, stationName, bleSessionId, gate, startedAt } = session;
+  const { stationId, stationName, bleSessionId, gate, startedAt, returnInitiatedAt } = session;
 
   if (
     !stationId ||
@@ -102,6 +119,13 @@ export function shouldReattach(
     !Number.isFinite(startedAt)
   ) {
     return { reattach: false, reason: 'incomplete' };
+  }
+
+  // No return in progress → no `gate_closed` is coming, so there's nothing to
+  // re-subscribe for. Crucially, this is what stops a plain active rental from
+  // spinning the BLE radio on every cold launch.
+  if (typeof returnInitiatedAt !== 'number' || !Number.isFinite(returnInitiatedAt)) {
+    return { reattach: false, reason: 'not_returning' };
   }
 
   const maxAgeMs = opts?.maxAgeMs ?? COLD_LAUNCH_MAX_AGE_MS;

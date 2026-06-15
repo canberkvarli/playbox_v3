@@ -15,6 +15,7 @@ function session(overrides: Record<string, unknown> = {}) {
     gate: 2,
     bleSessionId: 'ble-sess-xyz',
     returnConfirmed: false,
+    returnInitiatedAt: NOW - 30_000, // a return is awaiting gate_closed
     ...overrides,
   };
 }
@@ -36,6 +37,19 @@ describe('shouldReattach', () => {
     expect(shouldReattach(undefined as never, NOW)).toEqual({
       reattach: false,
       reason: 'no_session',
+    });
+  });
+
+  it('does not re-attach a session with no return in progress (the wedge fix)', () => {
+    // A plain active rental — no return_unlock written yet. Reattaching this is
+    // exactly what used to spin the BLE radio forever and wedge proximity.
+    expect(shouldReattach(session({ returnInitiatedAt: undefined }), NOW)).toEqual({
+      reattach: false,
+      reason: 'not_returning',
+    });
+    expect(shouldReattach(session({ returnInitiatedAt: null }), NOW)).toEqual({
+      reattach: false,
+      reason: 'not_returning',
     });
   });
 
