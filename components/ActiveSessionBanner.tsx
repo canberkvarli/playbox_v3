@@ -161,7 +161,7 @@ export function ActiveSessionBanner() {
       pointerEvents="box-none"
       style={{
         position: 'absolute',
-        bottom: insets.bottom + 10,
+        top: insets.top + 10,
         left: 12,
         right: 12,
         zIndex: 50,

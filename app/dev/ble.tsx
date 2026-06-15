@@ -157,6 +157,7 @@ export default function BleDebugScreen() {
       <Stack.Screen
         options={{
           title: "BLE Debug",
+          headerShown: true,
           headerStyle: { backgroundColor: "#000" },
           headerTintColor: "#fff",
         }}
@@ -232,7 +233,7 @@ function Btn({
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
-      className={`px-4 py-2 rounded ${
+      className={`px-4 py-3 rounded-lg ${
         disabled ? "bg-gray-800" : primary ? "bg-blue-600" : "bg-gray-700"
       }`}
     >

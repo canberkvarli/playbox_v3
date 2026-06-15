@@ -676,7 +676,7 @@ export default function Reservations() {
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="geri"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 20 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 16 })}
         >
           <View
             style={{
@@ -694,7 +694,9 @@ export default function Reservations() {
           </View>
         </Pressable>
         <Text
+          numberOfLines={1}
           style={{
+            flex: 1,
             fontFamily: 'Unbounded_800ExtraBold',
             color: TEXT,
             fontSize: 14,

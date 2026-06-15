@@ -6,6 +6,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
@@ -97,7 +98,7 @@ export function BadFeedbackModal({
     reset();
     onSubmitted?.();
     onClose();
-    if (res.ok) await hx.success();
+    if (res.ok) await hx.yes();
   };
 
   const titleKey = kind === 'session' ? 'feedback.bad.session.title' : 'feedback.bad.app.title';
@@ -107,51 +108,38 @@ export function BadFeedbackModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={dismiss}
       statusBarTranslucent
     >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1, justifyContent: 'flex-end' }}
+        style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}
       >
         <Pressable
           onPress={dismiss}
           accessibilityLabel="kapat"
-          style={{ flex: 1, backgroundColor: '#00000088' }}
+          style={[StyleSheet.absoluteFill, { backgroundColor: '#00000099' }]}
         />
 
         <View
           style={{
             backgroundColor: palette.paper,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            paddingHorizontal: 22,
-            paddingTop: 14,
-            paddingBottom: 28,
+            borderRadius: 28,
+            paddingHorizontal: 24,
+            paddingTop: 26,
+            paddingBottom: 22,
             shadowColor: palette.ink,
-            shadowOffset: { width: 0, height: -8 },
-            shadowOpacity: 0.18,
-            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.22,
+            shadowRadius: 32,
             elevation: 24,
           }}
         >
-          {/* Drag handle */}
-          <View
-            style={{
-              alignSelf: 'center',
-              width: 44,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: palette.ink + '22',
-              marginBottom: 14,
-            }}
-          />
-
           <ScrollView
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
-            style={{ maxHeight: 480 }}
+            style={{ maxHeight: 380 }}
           >
             <Text
               style={{
@@ -194,12 +182,15 @@ export function BadFeedbackModal({
                     accessibilityState={{ checked: selected }}
                     style={({ pressed }) => ({
                       paddingHorizontal: 14,
-                      paddingVertical: 10,
+                      paddingVertical: 11,
                       borderRadius: 12,
-                      backgroundColor: selected ? palette.ink : palette.ink + '0d',
-                      borderWidth: 1,
-                      borderColor: selected ? palette.ink : palette.ink + '14',
-                      opacity: pressed ? 0.7 : 1,
+                      backgroundColor: selected
+                        ? palette.coral
+                        : pressed
+                        ? palette.ink + '14'
+                        : palette.paper,
+                      borderWidth: 1.5,
+                      borderColor: selected ? palette.coral : palette.ink + '33',
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 6,
@@ -273,66 +264,66 @@ export function BadFeedbackModal({
           </ScrollView>
 
           {/* Actions */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-            <Pressable
-              onPress={dismiss}
-              accessibilityRole="button"
-              accessibilityLabel={t('feedback.bad.skip')}
-              style={({ pressed }) => ({
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: palette.ink + '0d',
-                borderWidth: 1,
-                borderColor: palette.ink + '14',
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
-                  fontSize: 13,
-                  letterSpacing: 0.3,
-                }}
-              >
-                {t('feedback.bad.skip')}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={submit}
-              disabled={submitting || (reasons.length === 0 && message.trim().length === 0)}
-              accessibilityRole="button"
-              accessibilityLabel={t('feedback.bad.submit')}
-              style={({ pressed }) => ({
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 14,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: palette.ink,
-                opacity:
-                  submitting || (reasons.length === 0 && message.trim().length === 0)
-                    ? 0.4
-                    : pressed
-                    ? 0.85
-                    : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
-                  fontSize: 13,
-                  letterSpacing: 0.3,
-                }}
-              >
-                {submitting ? t('feedback.bad.submitting') : t('feedback.bad.submit')}
-              </Text>
-            </Pressable>
-          </View>
+          {(() => {
+            const disabled =
+              submitting || (reasons.length === 0 && message.trim().length === 0);
+            return (
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, alignItems: 'center' }}>
+                <Pressable
+                  onPress={dismiss}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('feedback.bad.skip')}
+                  hitSlop={8}
+                  style={({ pressed }) => ({
+                    paddingVertical: 15,
+                    paddingHorizontal: 18,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: pressed ? 0.5 : 1,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_700Bold',
+                      color: palette.ink + '99',
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {t('feedback.bad.skip')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={submit}
+                  disabled={disabled}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled }}
+                  accessibilityLabel={t('feedback.bad.submit')}
+                  style={({ pressed }) => ({
+                    flex: 1,
+                    paddingVertical: 16,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: disabled ? palette.ink + '1f' : palette.coral,
+                    opacity: pressed && !disabled ? 0.9 : 1,
+                  })}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_800ExtraBold',
+                      color: disabled ? palette.ink + '88' : palette.paper,
+                      fontSize: 14,
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    {submitting ? t('feedback.bad.submitting') : t('feedback.bad.submit')}
+                  </Text>
+                </Pressable>
+              </View>
+            );
+          })()}
         </View>
       </KeyboardAvoidingView>
     </Modal>

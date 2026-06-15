@@ -207,29 +207,29 @@ function EditModal({
               backgroundColor: palette.paper,
             }}
           />
-          <View style={{ flexDirection: 'row', marginTop: 18 }}>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
             <Pressable
               onPress={onClose}
               style={({ pressed }) => ({
                 flex: 1,
-                marginRight: 10,
                 opacity: pressed ? 0.6 : 1,
               })}
             >
               <View
                 style={{
-                  paddingVertical: 14,
-                  borderRadius: 14,
+                  paddingVertical: 15,
+                  borderRadius: 16,
                   borderWidth: 1.5,
                   borderColor: palette.ink + '22',
-                  backgroundColor: palette.ink + '0d',
+                  backgroundColor: palette.paper,
                   alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 <Text
                   style={{
                     fontFamily: 'Unbounded_700Bold',
-                    color: palette.ink,
+                    color: palette.ink + '99',
                     fontSize: 14,
                   }}
                 >
@@ -239,18 +239,19 @@ function EditModal({
             </Pressable>
             <Pressable
               onPress={save}
-              disabled={saving}
+              disabled={saving || !value.trim()}
               style={({ pressed }) => ({
-                flex: 1,
-                opacity: saving ? 0.6 : pressed ? 0.92 : 1,
+                flex: 1.4,
+                opacity: saving || !value.trim() ? 0.5 : pressed ? 0.92 : 1,
               })}
             >
               <View
                 style={{
                   backgroundColor: palette.coral,
-                  borderRadius: 14,
-                  paddingVertical: 14,
+                  borderRadius: 16,
+                  paddingVertical: 15,
                   alignItems: 'center',
+                  justifyContent: 'center',
                   shadowColor: palette.coral,
                   shadowOffset: { width: 0, height: 6 },
                   shadowOpacity: 0.25,
@@ -260,7 +261,7 @@ function EditModal({
               >
                 <Text
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
+                    fontFamily: 'Unbounded_800ExtraBold',
                     color: palette.paper,
                     fontSize: 14,
                   }}
@@ -421,7 +422,7 @@ export default function Settings() {
           onPress={() => router.back()}
           hitSlop={14}
           accessibilityLabel={t('common.back')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 20 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 16 })}
         >
           <View
             style={{
@@ -439,7 +440,9 @@ export default function Settings() {
           </View>
         </Pressable>
         <Text
+          numberOfLines={1}
           style={{
+            flex: 1,
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 14,
@@ -455,7 +458,7 @@ export default function Settings() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: 24,
-          paddingBottom: insets.bottom + 140,
+          paddingBottom: insets.bottom + 32,
         }}
       >
         {/* Profil section */}
@@ -563,19 +566,10 @@ export default function Settings() {
             }}
           />
         </RiseIn>
-      </ScrollView>
 
-      {/* Pinned footer */}
-      <View
-        pointerEvents="box-none"
-        style={{
-          position: 'absolute',
-          bottom: insets.bottom + 16,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-        }}
-      >
+        {/* Footer — lives at the natural bottom of the scroll content so it
+            never floats over or clips the rows above it. */}
+        <View style={{ alignItems: 'center', marginTop: 48 }}>
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
@@ -648,7 +642,8 @@ export default function Settings() {
             </Text>
           </Pressable>
         </View>
-      </View>
+        </View>
+      </ScrollView>
 
       <EditModal
         visible={editField === 'name'}

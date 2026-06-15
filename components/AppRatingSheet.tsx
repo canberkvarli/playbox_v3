@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useT } from '@/hooks/useT';
 import { palette } from '@/constants/theme';
@@ -58,7 +58,7 @@ export function AppRatingSheet({ visible, onClose }: Props) {
     }
 
     // Good or neutral rating — show a quick thank-you, then close.
-    await hx.success();
+    await hx.yes();
     setThanksVisible(true);
     setTimeout(() => {
       closingRef.current = true;
@@ -70,43 +70,30 @@ export function AppRatingSheet({ visible, onClose }: Props) {
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={dismiss}
       statusBarTranslucent
     >
-      <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
         <Pressable
           onPress={dismiss}
           accessibilityLabel="kapat"
-          style={{ flex: 1, backgroundColor: '#00000088' }}
+          style={[StyleSheet.absoluteFill, { backgroundColor: '#00000099' }]}
         />
         <View
           style={{
             backgroundColor: palette.paper,
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            paddingHorizontal: 22,
-            paddingTop: 14,
-            paddingBottom: 28 + (Platform.OS === 'ios' ? 12 : 0),
+            borderRadius: 28,
+            paddingHorizontal: 24,
+            paddingTop: 28,
+            paddingBottom: 22,
             shadowColor: palette.ink,
-            shadowOffset: { width: 0, height: -8 },
-            shadowOpacity: 0.18,
-            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.22,
+            shadowRadius: 32,
             elevation: 24,
           }}
         >
-          {/* drag handle */}
-          <View
-            style={{
-              alignSelf: 'center',
-              width: 44,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: palette.ink + '22',
-              marginBottom: 14,
-            }}
-          />
-
           {!thanksVisible ? (
             <>
               <Text

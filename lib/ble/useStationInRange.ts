@@ -1,5 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getDriver, type ProximityState } from '@/lib/hardware';
+
+/**
+ * How long to keep showing `in_range` after the driver reports a drop out of
+ * range. BLE advertisement scans routinely miss a beacon for a tick or two,
+ * which without smoothing makes the station CTA flap between "oyna" and
+ * "kontrol ediliyor…". A real walk-away lasts far longer than this window, so
+ * a sustained drop still lands — just a few seconds late.
+ */
+const DOWNGRADE_GRACE_MS = 4000;
 
 export type ProximityResult = {
   inRange: boolean;
@@ -22,15 +31,64 @@ export type ProximityResult = {
  */
 export function useStationInRange(stationId: string | null) {
   const [state, setState] = useState<ProximityState>({ kind: 'idle' });
+  // Mirror of the smoothed state so the watcher callback can read the current
+  // value without re-subscribing. Holds the pending downgrade + its timer.
+  const stateRef = useRef<ProximityState>(state);
+  const downgradeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNext = useRef<ProximityState | null>(null);
 
   useEffect(() => {
+    const clearTimer = () => {
+      if (downgradeTimer.current) {
+        clearTimeout(downgradeTimer.current);
+        downgradeTimer.current = null;
+      }
+      pendingNext.current = null;
+    };
+    const apply = (next: ProximityState) => {
+      stateRef.current = next;
+      setState(next);
+    };
+
     if (!stationId) {
-      setState({ kind: 'idle' });
+      clearTimer();
+      apply({ kind: 'idle' });
       return;
     }
+
     const driver = getDriver();
-    const sub = driver.watchStation(stationId, setState);
-    return () => sub.stop();
+    const sub = driver.watchStation(stationId, (next) => {
+      // Coming (back) into range always wins immediately and cancels any
+      // pending downgrade — the user is close, show "oyna" right away.
+      if (next.kind === 'in_range') {
+        clearTimer();
+        apply(next);
+        return;
+      }
+      // Currently in range and the driver reports a drop: don't apply it yet.
+      // Stash the latest target and let the grace timer commit it, so a
+      // momentary scan miss doesn't flicker the CTA back to "kontrol ediliyor".
+      if (stateRef.current.kind === 'in_range') {
+        pendingNext.current = next;
+        if (!downgradeTimer.current) {
+          downgradeTimer.current = setTimeout(() => {
+            downgradeTimer.current = null;
+            const target = pendingNext.current;
+            pendingNext.current = null;
+            if (target) apply(target);
+          }, DOWNGRADE_GRACE_MS);
+        }
+        return;
+      }
+      // Not in range — permission/bluetooth/scanning/out-of-range all apply
+      // immediately so the user sees the true state without delay.
+      clearTimer();
+      apply(next);
+    });
+    return () => {
+      clearTimer();
+      sub.stop();
+    };
   }, [stationId]);
 
   const inRange = state.kind === 'in_range';

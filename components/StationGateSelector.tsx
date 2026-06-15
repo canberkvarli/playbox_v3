@@ -206,7 +206,8 @@ function GateCard({
         style={[
           {
             borderRadius: 24,
-            padding: 16,
+            paddingVertical: 16,
+            paddingHorizontal: 10,
             alignItems: 'center',
             justifyContent: 'center',
             minHeight: 134,
@@ -234,16 +235,18 @@ function GateCard({
         >
           <Feather name="check" size={11} color={palette.paper} />
         </Animated.View>
-        <Text style={{ fontSize: 44 }}>{SPORT_EMOJI[sport]}</Text>
+        <Text style={{ fontSize: 40 }}>{SPORT_EMOJI[sport]}</Text>
         <Text
           numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
           style={{
             fontFamily: 'Unbounded_700Bold',
-            fontSize: 14,
+            fontSize: 13,
             color: palette.ink,
             marginTop: 6,
             textTransform: 'lowercase',
-            letterSpacing: 0.2,
+            letterSpacing: 0,
             width: '100%',
             textAlign: 'center',
           }}

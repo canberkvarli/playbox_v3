@@ -384,6 +384,7 @@
   },
   "reservations": {
     "locked": "rezerve",
+    "create_failed_title": "Rezervasyon yapılamadı",
     "go_to_station": "istasyona git",
     "cancel_short": "iptal",
     "cancel_title": "rezervasyon iptal?",
@@ -502,7 +503,7 @@
       "expiry_label": "son kullanma",
       "cta": "kaydet",
       "cta_loading": "kaydediliyor...",
-      "trust": "iyzico · 3d secure · pci dss seviye 1"
+      "trust": "iyzico ile güvende · kart bilgilerin şifrelenir, telefonunda saklanmaz"
     },
     "post_session": {
       "title": "bir dahaki seans için kart ekle",

@@ -14,7 +14,8 @@ import { Feather } from '@expo/vector-icons';
 import { palette } from '@/constants/theme';
 import { hx } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
-import { STATIONS, type Sport } from '@/data/stations.seed';
+import { STATIONS, SPORT_LABELS, type Sport } from '@/data/stations.seed';
+import { useMapStore } from '@/stores/mapStore';
 import {
   useReservationsApi,
   useReservationState,
@@ -22,6 +23,18 @@ import {
 } from '@/lib/reservations';
 
 const SCREEN_W = Dimensions.get('window').width;
+
+/**
+ * Gate slugs are `${stationId}-${sport}-${n}` — surfacing the whole thing
+ * reads as garbage to a user. Show only the short door label they recognise:
+ * "K1", "K2", … (mirrors the reservations list).
+ */
+function gateLabel(gateId: string): string {
+  const tail = gateId.split('-').pop();
+  const n = Number(tail);
+  if (Number.isFinite(n) && n > 0) return `K${n}`;
+  return `K${gateId.slice(-1)}`;
+}
 
 type SlideSpec = {
   iconName: keyof typeof Feather.glyphMap;
@@ -46,7 +59,15 @@ export default function ReserveFlow() {
   const stationId = String(params.stationId);
   const sport = String(params.sport) as Sport;
   const gateId = String(params.gateId);
-  const station = useMemo(() => STATIONS.find((s) => s.id === stationId), [stationId]);
+  // Look up the station the same way the reservations list does: the seed
+  // list first (real, deployed units), then the persisted map cache (which
+  // also holds the generated demo stations the user has seen). Without the
+  // cache fallback the title degrades to the raw id (e.g. "gen-5-410110290-33").
+  const stationCache = useMapStore((s) => s.stationCache);
+  const station = useMemo(
+    () => STATIONS.find((s) => s.id === stationId) ?? stationCache[stationId] ?? null,
+    [stationId, stationCache],
+  );
 
   const { state, loading, refresh } = useReservationState({ pollMs: 0, sweepBeforeFetch: false });
   const { create } = useReservationsApi();
@@ -114,7 +135,7 @@ export default function ReserveFlow() {
       key = `reservations.errors.locked`;
     }
     const msg = t(key, { defaultValue: t('reservations.errors.bad_response') });
-    Alert.alert(t('reservations.locked'), msg);
+    Alert.alert(t('reservations.create_failed_title'), msg);
   };
 
   const goNext = async () => {
@@ -167,7 +188,7 @@ export default function ReserveFlow() {
               marginTop: 6,
             }}
           >
-            {sport} · kapı {gateId}
+            {SPORT_LABELS[sport] ?? sport} · {gateLabel(gateId)}
           </Text>
 
           <View

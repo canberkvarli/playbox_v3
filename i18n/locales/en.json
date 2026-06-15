@@ -372,6 +372,7 @@
   },
   "reservations": {
     "locked": "reserved",
+    "create_failed_title": "Couldn't reserve",
     "go_to_station": "go to station",
     "cancel_short": "cancel",
     "cancel_title": "cancel reservation?",
@@ -488,7 +489,7 @@
       "expiry_label": "expiry",
       "cta": "save",
       "cta_loading": "saving...",
-      "trust": "iyzico · 3d secure · pci dss level 1"
+      "trust": "Secured by iyzico · your card is encrypted, never stored on your phone"
     },
     "post_session": {
       "title": "add a card for next time",
