@@ -47,3 +47,6 @@ supabase/.branches/
 
 # Git worktrees (isolated workspaces for parallel feature work)
 .worktrees/
+
+# Firmware per-station HMAC secrets — real values never in git
+firmware/*/station_secret.h

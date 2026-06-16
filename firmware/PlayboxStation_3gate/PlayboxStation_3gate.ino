@@ -75,7 +75,9 @@ extern "C" {
 // secret per station and update the server station row to match.
 #define STATION_ID         "DEV-001"
 #define FW_VERSION         "0.5.0-3gate"
-#define STATION_SECRET_HEX "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+// Real secret lives in station_secret.h (gitignored — copy from
+// station_secret.example.h). MUST equal Supabase PLAYBOX_STATION_SECRET_DEV_001.
+#include "station_secret.h"
 
 // Self-test secret: the pinned host-test vector secret. Kept SEPARATE from the
 // station secret so the self-test works even on a unit provisioned with a real
@@ -90,11 +92,11 @@ extern "C" {
 #define NUM_GATES   3
 // 4-channel relay board (ACTIVE-LOW) driving one solenoid latch per gate.
 // Relay INx -> these pins. Open = momentary LOW pulse; idle = HIGH (relay off).
-// CAVEAT: gate 2 is GPIO 12, an ESP32 strapping pin that must read LOW at boot
-// for the correct flash voltage. An idle-HIGH active-low relay there can disturb
-// boot. Only gate 0 (GPIO 13) is wired today. Before wiring gate 2, either move
-// it off GPIO 12 (e.g. GPIO 27) or add an external pulldown on that line.
-static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 12, 14 };
+// Gate 2 was moved OFF GPIO 12 -> GPIO 27. GPIO 12 is an ESP32 strapping pin
+// that must read LOW at boot for the correct flash voltage; an idle-HIGH
+// active-low relay on it can block boot. GPIO 27 is a safe general-purpose
+// output, as are GPIO 13 (gate 1) and GPIO 14 (gate 3).
+static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
 static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 
 // Battery ADC: ADC1 input-only pin (safe alongside WiFi/BLE, unlike ADC2).
@@ -133,6 +135,15 @@ static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 #define BATTERY_CRIT_MV     11500   // ≈20% SoC — emit battery_critical + refuse unlock
 #define BATTERY_HYST_MV     150     // re-arm hysteresis so we emit once per crossing
 #define BATTERY_SAMPLE_MS   30000UL // sample cadence (also gates emit-once logic)
+
+// Set to 1 ONLY after the ~5:1 divider on GPIO34 is actually wired + calibrated.
+// Leave 0 (bench default): with no divider, GPIO34 floats and reads a garbage-low
+// "rail" -> firmware thinks battery_critical -> EVERY unlock is REFUSED (see the
+// unlock handler). When 0, readBatteryMvOnce() returns BATTERY_FULL_MV instead of
+// touching the pin, so battery stays "full": no battery_low/critical events and
+// unlocks are never gated on battery.
+#define BATTERY_ADC_WIRED 0
+#define BATTERY_FULL_MV   12700   // healthy rail reported when BATTERY_ADC_WIRED == 0
 
 // ---- Event ring buffer ------------------------------------------------------
 #define RING_K 64   // max unacked signed events held in NVS
@@ -541,12 +552,18 @@ static void checkTimeouts() {
 // Battery: median-filtered ADC → resting volts → SoC via SLA curve.
 // =============================================================================
 static int readBatteryMvOnce() {
+#if !BATTERY_ADC_WIRED
+  // No divider wired (bench): never read the floating ADC pin. Report a healthy
+  // rail so all battery logic stays inert — no events, no unlock gating.
+  return BATTERY_FULL_MV;
+#else
   // analogRead at 11dB attenuation maps ~0..3.3V to 0..4095. Scale back through
   // the divider to the rail in millivolts.
   int raw = analogRead(BATTERY_ADC_PIN);
   float vpin = (raw / ADC_MAX) * ADC_VREF;
   float vrail = vpin * BATTERY_DIVIDER;
   return (int)(vrail * 1000.0f);
+#endif
 }
 
 static int median5(int* a) {
