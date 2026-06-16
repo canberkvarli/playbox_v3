@@ -16,7 +16,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { useNearbyStore } from '@/stores/nearbyStore';
+import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
@@ -79,6 +79,22 @@ export default function StationDetail() {
       return () => sub.stop();
     }, []),
   );
+
+  // Live BLE presence for the header chip — advert-based (fed by the passive
+  // scan above), so the header reflects real reachability instead of a static
+  // "24/7 açık" label that meant nothing to the user.
+  const proximity = useFreshPresence(station?.id ?? '');
+  const inRange = proximity.present;
+  const rangeLabel = inRange
+    ? 'menzilde'
+    : proximity.reason === 'absent'
+    ? 'kontrol ediliyor'
+    : 'menzil dışında';
+  const rangeDot = inRange
+    ? '#3aaf6a'
+    : proximity.reason === 'absent'
+    ? palette.ink + '55'
+    : palette.coral;
 
   if (!station) {
     return (
@@ -252,7 +268,7 @@ export default function StationDetail() {
                 height: 10,
                 borderRadius: 5,
                 marginRight: 8,
-                backgroundColor: station.availableNow ? '#3aaf6a' : palette.coral,
+                backgroundColor: rangeDot,
               }}
             />
             <Text
@@ -263,12 +279,7 @@ export default function StationDetail() {
                 letterSpacing: 0.5,
               }}
             >
-              {t(
-                station.availableNow
-                  ? 'station.status.open'
-                  : 'station.status.closed'
-              )}
-              {' · 24/7'}
+              {rangeLabel}
             </Text>
           </View>
           <Pressable
