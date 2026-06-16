@@ -154,6 +154,34 @@ class StationClient {
     }
   }
 
+  /**
+   * Fully release the native BleManager / CBCentralManager.
+   *
+   * MUST be called before `Updates.reloadAsync()`. A JS reload re-runs this
+   * module and lazily creates a SECOND native BleManager while the pre-reload
+   * one still lives — two live CoreBluetooth managers wedge the radio so BLE
+   * becomes unreachable until the OS process is killed. That's the root cause
+   * of "have to reinstall after every OTA / new build": a reinstall was the
+   * only path with no reload. Destroying here lets the post-reload manager
+   * initialize from a clean slate. The `_manager` getter recreates lazily on
+   * next use, so this is safe to call even if BLE is used again afterwards.
+   */
+  destroy(): void {
+    this.passiveScan = null;
+    this.passiveScanActive = false;
+    this.device = null;
+    this.lastSeenDevice = null;
+    if (this._manager) {
+      try {
+        // destroy() natively stops scans + cancels all connections.
+        this._manager.destroy();
+      } catch {
+        // best-effort — we're tearing down anyway
+      }
+      this._manager = null;
+    }
+  }
+
   private runPassiveScan(): void {
     if (!this.passiveScan) return;
     if (this.passiveScanActive) return;

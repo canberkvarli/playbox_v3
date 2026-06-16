@@ -29,6 +29,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDriver } from '@/lib/hardware';
+import { reloadWithBleTeardown } from '@/lib/ble/safeReload';
 
 function SettingRow({
   label,
@@ -629,7 +630,7 @@ export default function Settings() {
                   'İndirildi',
                   `Yeniden başlatılıyor…\n\nyeni=${fetched?.manifest?.id?.slice?.(0, 12) ?? '?'}`,
                 );
-                await Updates.reloadAsync();
+                await reloadWithBleTeardown();
               } catch (e: any) {
                 Alert.alert('Güncelleme başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
               }
@@ -644,7 +645,7 @@ export default function Settings() {
                 return;
               }
               try {
-                await Updates.reloadAsync();
+                await reloadWithBleTeardown();
               } catch (e: any) {
                 Alert.alert('Yeniden başlatma başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
               }

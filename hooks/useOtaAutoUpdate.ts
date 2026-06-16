@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import * as Updates from 'expo-updates';
+import { reloadWithBleTeardown } from '@/lib/ble/safeReload';
 
 /**
  * Silent auto-update on cold launch.
@@ -31,7 +32,11 @@ export function useOtaAutoUpdate() {
         if (cancelled || !res.isAvailable) return;
         await Updates.fetchUpdateAsync();
         if (cancelled) return;
-        await Updates.reloadAsync();
+        // Reload via the BLE-safe path: a bare reloadAsync() leaves a second
+        // CoreBluetooth manager alongside the orphaned pre-reload one and
+        // wedges BLE until the process is killed (the "reinstall after every
+        // OTA" bug). reloadWithBleTeardown() destroys the native manager first.
+        await reloadWithBleTeardown();
       } catch {
         // Best-effort — never block or crash the app on an update check.
       }
