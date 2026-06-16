@@ -5,13 +5,21 @@
  * infrastructure to ship.
  *
  * Two notifications per session:
- *   1. Pre-warning ~5 minutes before the planned duration ends
- *   2. End notice exactly at the planned duration
+ *   1. Pre-warning 2 minutes before the planned duration ends (custom chime)
+ *   2. End notice exactly at the planned duration (custom chime)
+ *
+ * Both carry a CUSTOM sound (assets/sounds/{twomin,done}.wav, bundled via the
+ * expo-notifications config plugin) and — on Android — a distinctive vibration
+ * pattern via per-alert channels. iOS can't set a custom vibration pattern for
+ * a normal notification (only the system buzz tied to the sound), so on iOS the
+ * chime is the distinctive part. A foreground handler makes the alert sound
+ * even when the app is open.
  *
  * Both are scheduled at session start, cancelled at session end. expo-
  * notifications is loaded lazily so a missing/unbuilt native module
  * doesn't crash the bundle in dev.
  */
+import { Platform } from 'react-native';
 
 let Notifications: any = null;
 function load() {
@@ -27,8 +35,55 @@ function load() {
 
 const TAG_PRE = 'playbox:session-pre';
 const TAG_END = 'playbox:session-end';
+const CH_PRE = 'playbox-2min';
+const CH_END = 'playbox-end';
 
 const PRE_WARN_MIN = 2;
+
+let configured = false;
+/**
+ * Idempotently install the foreground handler (so alerts sound while the app
+ * is open) and the Android channels that carry the custom sound + distinctive
+ * vibration patterns. Safe to call repeatedly.
+ */
+async function ensureChannelsAndHandler() {
+  const N = load();
+  if (!N) return;
+  if (configured) return;
+  configured = true;
+  try {
+    N.setNotificationHandler?.({
+      handleNotification: async () => ({
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {
+    /* handler best-effort */
+  }
+  if (Platform.OS === 'android' && N.setNotificationChannelAsync) {
+    try {
+      await N.setNotificationChannelAsync(CH_PRE, {
+        name: '2 dakika uyarısı',
+        importance: N.AndroidImportance?.HIGH ?? 4,
+        sound: 'twomin', // res/raw name (no extension), bundled by the plugin
+        vibrationPattern: [0, 200, 120, 320],
+        enableVibrate: true,
+      });
+      await N.setNotificationChannelAsync(CH_END, {
+        name: 'Seans bitti',
+        importance: N.AndroidImportance?.HIGH ?? 4,
+        sound: 'done',
+        vibrationPattern: [0, 320, 160, 320],
+        enableVibrate: true,
+      });
+    } catch {
+      /* channels best-effort — fall back to the default channel */
+    }
+  }
+}
 
 async function ensurePermissions(): Promise<boolean> {
   const N = load();
@@ -59,6 +114,7 @@ export async function scheduleSessionEndAlerts({
   if (!N?.scheduleNotificationAsync) return;
   const ok = await ensurePermissions();
   if (!ok) return;
+  await ensureChannelsAndHandler();
 
   // Compute the two trigger times. If startedAt was in the past (resuming a
   // session after app reload), only schedule the alerts that are still in the
@@ -79,10 +135,10 @@ export async function scheduleSessionEndAlerts({
         content: {
           title: '2 dk kaldı',
           body: `${stationName} • ekipmanı toparlamaya başla.`,
-          sound: 'default',
+          sound: 'twomin.wav', // iOS: bundled custom chime (Android uses the channel)
           data: { kind: 'session-pre' },
         },
-        trigger: { type: 'date', date: new Date(preAt) },
+        trigger: { type: 'date', date: new Date(preAt), channelId: CH_PRE },
       });
     } catch (e) {
       if (__DEV__) console.warn('[sessionNotif] pre schedule failed', e);
@@ -96,14 +152,45 @@ export async function scheduleSessionEndAlerts({
         content: {
           title: 'süre doldu',
           body: `${stationName} • ekipmanı iade et, kapıyı kapat.`,
-          sound: 'default',
+          sound: 'done.wav',
           data: { kind: 'session-end' },
         },
-        trigger: { type: 'date', date: new Date(endAt) },
+        trigger: { type: 'date', date: new Date(endAt), channelId: CH_END },
       });
     } catch (e) {
       if (__DEV__) console.warn('[sessionNotif] end schedule failed', e);
     }
+  }
+}
+
+/**
+ * Present an immediate "session done" chime + banner — used when the user
+ * finishes manually (the scheduled end alert is cancelled at that point, so
+ * this is what actually makes the finish sound). Best-effort.
+ */
+export async function fireDoneAlertNow(stationName: string) {
+  const N = load();
+  if (!N?.scheduleNotificationAsync) return;
+  const ok = await ensurePermissions();
+  if (!ok) return;
+  await ensureChannelsAndHandler();
+  try {
+    await N.scheduleNotificationAsync({
+      content: {
+        title: 'seans tamamlandı',
+        body: stationName ? `${stationName} • teşekkürler!` : 'teşekkürler!',
+        sound: 'done.wav', // iOS custom chime; Android uses the channel below
+        data: { kind: 'session-done' },
+      },
+      // Immediate. On Android the channel carries the custom sound + vibration;
+      // on iOS the foreground handler + content.sound play the chime.
+      trigger:
+        Platform.OS === 'android'
+          ? ({ type: 'date', date: new Date(Date.now() + 50), channelId: CH_END } as any)
+          : null,
+    });
+  } catch (e) {
+    if (__DEV__) console.warn('[sessionNotif] done-now failed', e);
   }
 }
 

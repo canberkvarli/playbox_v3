@@ -90,8 +90,8 @@ export default function SessionReview() {
       style={{ flex: 1, backgroundColor: palette.paper }}
       contentContainerStyle={{
         flexGrow: 1,
-        paddingTop: insets.top + 40,
-        paddingBottom: insets.bottom + 20,
+        paddingTop: insets.top + 48,
+        paddingBottom: insets.bottom + 24,
         paddingHorizontal: 24,
       }}
       showsVerticalScrollIndicator={false}
@@ -115,10 +115,10 @@ export default function SessionReview() {
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
-              fontSize: 34,
-              lineHeight: 38,
+              fontSize: 30,
+              lineHeight: 36,
               textAlign: 'center',
-              marginTop: 20,
+              marginTop: 22,
             }}
           >
             seans{'\n'}tamamlandı
@@ -169,9 +169,11 @@ export default function SessionReview() {
         <View
           style={{
             backgroundColor: palette.butter,
-            borderRadius: 24,
-            padding: 20,
-            marginTop: 32,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: palette.ink + '14',
+            padding: 22,
+            marginTop: 28,
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -201,7 +203,7 @@ export default function SessionReview() {
             </View>
           </View>
 
-          <View style={{ height: 1, backgroundColor: palette.ink + '14', marginVertical: 16 }} />
+          <View style={{ height: 1, backgroundColor: palette.ink + '1f', marginVertical: 16 }} />
 
           <View style={{ flexDirection: 'row' }}>
             <View style={{ flex: 1, alignItems: 'center' }}>
@@ -225,7 +227,7 @@ export default function SessionReview() {
                 dakika
               </Text>
             </View>
-            <View style={{ width: 1, backgroundColor: palette.ink + '14' }} />
+            <View style={{ width: 1, backgroundColor: palette.ink + '1f' }} />
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text
                 style={{
@@ -253,12 +255,12 @@ export default function SessionReview() {
 
       {/* Quick rating */}
       <RiseIn delay={220}>
-        <View style={{ marginTop: 32 }}>
+        <View style={{ marginTop: 28 }}>
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
               color: palette.ink,
-              fontSize: 18,
+              fontSize: 17,
               textAlign: 'center',
             }}
           >
@@ -303,9 +305,9 @@ export default function SessionReview() {
                       borderRadius: 26,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: active ? palette.coral + '22' : palette.ink + '0d',
+                      backgroundColor: active ? palette.coral + '22' : palette.ink + '08',
                       borderWidth: 1.5,
-                      borderColor: active ? palette.coral : palette.ink + '22',
+                      borderColor: active ? palette.coral : palette.ink + '33',
                     }}
                   >
                     <Text style={{ fontSize: 24 }}>{face}</Text>
@@ -324,7 +326,7 @@ export default function SessionReview() {
       {/* Report-a-problem. Skippable — the screen finishes via
           "haritaya dön" regardless. */}
       <RiseIn delay={260}>
-        <View style={{ marginTop: 32, marginBottom: 28, alignItems: 'center' }}>
+        <View style={{ marginTop: 28, marginBottom: 24, alignItems: 'center' }}>
           <Pressable
             onPress={async () => {
               await hx.tap();
@@ -337,7 +339,7 @@ export default function SessionReview() {
             <Text
               style={{
                 fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + '88',
+                color: palette.ink + 'aa',
                 fontSize: 13,
                 textDecorationLine: 'underline',
               }}
@@ -359,16 +361,16 @@ export default function SessionReview() {
           <View
             style={{
               backgroundColor: palette.coral,
-              borderRadius: 24,
-              paddingVertical: 22,
+              borderRadius: 22,
+              paddingVertical: 20,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
               shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              elevation: 6,
             }}
           >
             <Feather name="map" size={20} color={palette.paper} style={{ marginRight: 10 }} />
@@ -376,8 +378,8 @@ export default function SessionReview() {
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.paper,
-                fontSize: 20,
-                letterSpacing: 1,
+                fontSize: 19,
+                letterSpacing: 0.5,
               }}
             >
               haritaya dön

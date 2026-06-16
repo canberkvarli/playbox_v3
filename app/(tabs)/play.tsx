@@ -11,7 +11,7 @@ import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore, type ActiveSession } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import { costForMs, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
-import { cancelSessionEndAlerts } from '@/lib/sessionNotifications';
+import { cancelSessionEndAlerts, fireDoneAlertNow } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
@@ -44,6 +44,7 @@ function fmt(ms: number): string {
 
 function LiveTimer({ session }: { session: ActiveSession }) {
   const [now, setNow] = useState(() => Date.now());
+  const firedTwoMinRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -56,6 +57,16 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   const overtime = elapsed > total;
   const remainingMs = Math.max(0, total - elapsed);
   const overMs = Math.max(0, elapsed - total);
+
+  // Distinctive foreground buzz the instant we cross the 2-minute mark (once).
+  // The scheduled local notification carries the chime and fires even when
+  // backgrounded; this adds the unique haptic while the user is on the screen.
+  useEffect(() => {
+    if (!overtime && remainingMs > 0 && remainingMs <= 120_000 && !firedTwoMinRef.current) {
+      firedTwoMinRef.current = true;
+      hx.alert2min();
+    }
+  }, [remainingMs, overtime]);
 
   const accent = overtime ? palette.coral : palette.butter;
 
@@ -337,6 +348,12 @@ export default function Play() {
     setEndModalOpen(false);
     if (fakeActiveSession) setFakeActiveSession(false);
     cancelSessionEndAlerts().catch(() => {});
+    // Distinctive finish buzz + a "done" chime. fireDoneAlertNow presents an
+    // immediate notification so the sound plays even though we just cancelled
+    // the scheduled end alert. Lives here so BOTH the manual and the auto
+    // (gate_closed) finish paths fire it exactly once (finalizingRef guards).
+    hx.alertDone();
+    fireDoneAlertNow(active?.stationName ?? '');
     endSession();
     router.replace('/session-review');
   };
@@ -487,7 +504,8 @@ export default function Play() {
   // (no reeds) this is the only way out. Either way we proceed regardless of
   // whether a closing photo was added — the photo is never a gate.
   const onManualConfirmClosed = async () => {
-    await hx.yes();
+    // The finish alert (haptic + chime) is fired inside finalizeReturn so the
+    // manual and the auto (gate_closed) paths both get it exactly once.
     finalizeReturn();
   };
 
