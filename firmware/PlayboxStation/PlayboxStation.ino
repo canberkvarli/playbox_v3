@@ -84,7 +84,9 @@ extern "C" {
 // the 32 RAW BYTES decoded from this hex (NOT the utf8 string).
 #define STATION_ID         "DEV-001"
 #define FW_VERSION         "0.5.0-dev1"
-#define STATION_SECRET_HEX "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+// Real secret lives in station_secret.h (gitignored — copy from
+// station_secret.example.h). MUST equal Supabase PLAYBOX_STATION_SECRET_DEV_001.
+#include "station_secret.h"
 
 // Self-test secret: the pinned host-test vector secret. Kept SEPARATE from the
 // station secret so the self-test works even on a unit provisioned with a real
