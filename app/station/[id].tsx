@@ -323,6 +323,39 @@ export default function StationDetail() {
             them. The buttons themselves are scoped server-side via
             dev_bypass which only honors station_id="DEV-001". */}
         <DevServoButtons stationId={station.id} />
+
+        {/* Support — always reachable from the station screen so a user stuck
+            at a station (no connection, jammed door, etc.) can get help fast. */}
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            router.push('/support');
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="destek"
+          style={({ pressed }) => ({
+            marginTop: 28,
+            alignSelf: 'center',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 16,
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Feather name="help-circle" size={16} color={palette.ink + '99'} />
+          <Text
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink + '99',
+              fontSize: 13,
+              letterSpacing: 0.3,
+            }}
+          >
+            sorun mu var? destek al
+          </Text>
+        </Pressable>
       </Animated.ScrollView>
     </View>
   );

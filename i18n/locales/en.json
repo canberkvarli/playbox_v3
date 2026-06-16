@@ -284,6 +284,8 @@
     },
     "cta_unlock": "PLAY",
     "checking_proximity": "checking range…",
+    "no_connection": "no connection",
+    "no_connection_hint": "can't reach this station. check your bluetooth, move closer, and try again. if it persists, contact support.",
     "out_of_range_title": "Get closer to the station",
     "out_of_range_msg": "You need to be near the Playbox station to open the gate. Walk closer and try again — or reserve below to hold it while you head over.",
     "cta_out_of_stock": "out of stock",

@@ -28,7 +28,7 @@ function load() {
 const TAG_PRE = 'playbox:session-pre';
 const TAG_END = 'playbox:session-end';
 
-const PRE_WARN_MIN = 5;
+const PRE_WARN_MIN = 2;
 
 async function ensurePermissions(): Promise<boolean> {
   const N = load();
@@ -77,7 +77,7 @@ export async function scheduleSessionEndAlerts({
       await N.scheduleNotificationAsync({
         identifier: TAG_PRE,
         content: {
-          title: '5 dk kaldı',
+          title: '2 dk kaldı',
           body: `${stationName} • ekipmanı toparlamaya başla.`,
           sound: 'default',
           data: { kind: 'session-pre' },

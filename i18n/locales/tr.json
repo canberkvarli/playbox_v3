@@ -296,6 +296,8 @@
     },
     "cta_unlock": "OYNA",
     "checking_proximity": "kontrol ediliyor…",
+    "no_connection": "bağlantı yok",
+    "no_connection_hint": "bu istasyona bağlanılamıyor. bluetooth'unu kontrol et, istasyona yaklaş ve tekrar dene. sorun sürerse destekle iletişime geç.",
     "out_of_range_title": "İstasyona yaklaşman gerek",
     "out_of_range_msg": "Kapıyı açmak için Playbox istasyonunun yanında olman lazım. Yakına gel ve tekrar dene — ya da aşağıdan rezerve edip yolda tut.",
     "cta_out_of_stock": "şu an boş",

@@ -182,11 +182,19 @@ function GateCard({
 
   const cardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + sel.value * 0.05 - press.value * 0.04 }],
-    borderColor: selected ? palette.coral : palette.ink + '33',
+    borderColor: disabled
+      ? palette.coral + '88'
+      : selected
+      ? palette.coral
+      : palette.ink + '33',
     borderWidth: 2,
-    // Subtle ink tint when unselected so the card doesn't visually
-    // disappear against the paper background of the screen.
-    backgroundColor: selected ? palette.butter : palette.ink + '0d',
+    // Coral wash when in use (disabled), butter when selected, else a subtle
+    // ink tint so the card doesn't vanish against the paper background.
+    backgroundColor: disabled
+      ? palette.coral + '14'
+      : selected
+      ? palette.butter
+      : palette.ink + '0d',
   }));
 
   const ringStyle = useAnimatedStyle(() => ({
@@ -200,7 +208,7 @@ function GateCard({
       onPress={onPress}
       onPressIn={() => (press.value = withTiming(1, { duration: 80 }))}
       onPressOut={() => (press.value = withTiming(0, { duration: 120 }))}
-      style={{ flexBasis: '30%', flexGrow: 1, opacity: disabled ? 0.4 : 1 }}
+      style={{ flexBasis: '30%', flexGrow: 1, opacity: disabled ? 0.7 : 1 }}
     >
       <Animated.View
         style={[
@@ -235,6 +243,30 @@ function GateCard({
         >
           <Feather name="check" size={11} color={palette.paper} />
         </Animated.View>
+        {disabled ? (
+          <View
+            style={{
+              position: 'absolute',
+              top: 6,
+              right: 6,
+              backgroundColor: palette.coral,
+              borderRadius: 8,
+              paddingHorizontal: 7,
+              paddingVertical: 3,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.paper,
+                fontSize: 9,
+                letterSpacing: 0.4,
+              }}
+            >
+              DOLU
+            </Text>
+          </View>
+        ) : null}
         <Text style={{ fontSize: 40 }}>{SPORT_EMOJI[sport]}</Text>
         <Text
           numberOfLines={1}
@@ -280,14 +312,18 @@ export function StationGateSelector({
 }: StationGateSelectorProps) {
   const { t } = useT();
   const router = useRouter();
-  const { inRange, state: proximityState } = useStationInRange(station.id);
-  const proximityFar = proximityState.kind === 'out_of_range';
-  // True while BLE is still finding the answer ("scanning"/"idle"). During
-  // this window we don't yet know whether the user is close enough — the
-  // CTA must not be tappable, otherwise they'll punch OYNA and get the
-  // out-of-range modal even when they're actually right next to it.
-  const proximityResolving =
-    proximityState.kind === 'idle' || proximityState.kind === 'scanning';
+  const {
+    inRange,
+    state: proximityState,
+    unreachable,
+    retry: retryProximity,
+  } = useStationInRange(station.id);
+  // Until we either connect (in_range) or give up (unreachable), present ONE
+  // stable "kontrol ediliyor" state. scanning and the transient out_of_range
+  // blips in between are the same thing to the user, so the CTA never toggles
+  // between "checking" and "out of range" while the radio hunts. After
+  // UNREACHABLE_MS the hook flips `unreachable` and stops scanning entirely.
+  const proximityChecking = !inRange && !unreachable;
 
   // Server-state hook — drives the disabled state if user has an active
   // reservation elsewhere. Polling is off here (not a long-lived screen);
@@ -368,10 +404,9 @@ export function StationGateSelector({
     !blockedByOtherReservation &&
     !sessionAtOtherStation &&
     !sessionAtThisStation &&
-    // Don't let the user tap OYNA while we're still resolving BLE
-    // proximity. Without this gate they get the "yaklaş" modal during
-    // the scan window even when they're actually close.
-    !proximityResolving;
+    // OYNA only lights up when the station is actually in range — never while
+    // we're still checking, and never once we've given up (unreachable).
+    inRange;
   const ctaEnabled = canContinueSession || canStartFresh;
 
   const ctaLabel = unlocking
@@ -388,7 +423,9 @@ export function StationGateSelector({
     ? t('station.cta_other_reservation')
     : !stockOk
     ? t('station.cta_out_of_stock')
-    : proximityResolving
+    : unreachable
+    ? t('station.no_connection')
+    : !inRange
     ? t('station.checking_proximity')
     : t('station.cta_unlock');
 
@@ -719,27 +756,60 @@ export function StationGateSelector({
         </Animated.View>
       ) : null}
 
-      {/* Status hint banner — only show after BLE has *confirmed* the
-          station is out of range. During the initial scanning phase
-          (the first ~½ second after mount) we suppress the banner so
-          users near the station don't see a "get closer" flash. */}
-      {selected && proximityFar && !blockedByOtherReservation && !activeSession ? (
+      {/* Terminal "no connection" banner — shown ONLY after the watch has
+          given up (UNREACHABLE_MS with no connect). During the checking window
+          we show nothing here; the CTA already reads "kontrol ediliyor". This
+          kills the old get-closer banner that flickered in/out while the radio
+          hunted. Offers a manual retry that re-arms the watch. */}
+      {selected && unreachable && !blockedByOtherReservation && !activeSession ? (
         <Animated.View
           entering={FadeInDown.duration(220)}
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
             marginTop: 24,
-            backgroundColor: palette.butter,
+            backgroundColor: palette.coral + '14',
             borderRadius: 14,
+            borderWidth: 1.5,
+            borderColor: palette.coral + '44',
             paddingHorizontal: 14,
-            paddingVertical: 10,
+            paddingVertical: 12,
           }}
         >
-          <Feather name="bluetooth" size={14} color={palette.ink} style={{ marginRight: 8 }} />
-          <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
-            {t('station.range_hint')}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+            <Feather name="bluetooth" size={14} color={palette.coral} style={{ marginRight: 8 }} />
+            <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
+              {t('station.no_connection_hint')}
+            </Text>
+          </View>
+          <Pressable
+            onPress={() => {
+              hx.tap();
+              retryProximity();
+            }}
+            style={({ pressed }) => ({ alignSelf: 'flex-start', opacity: pressed ? 0.7 : 1 })}
+          >
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: palette.ink,
+                borderRadius: 10,
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+              }}
+            >
+              <Feather name="refresh-cw" size={13} color={palette.paper} style={{ marginRight: 7 }} />
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_700Bold',
+                  color: palette.paper,
+                  fontSize: 12,
+                  letterSpacing: 0.4,
+                }}
+              >
+                tekrar dene
+              </Text>
+            </View>
+          </Pressable>
         </Animated.View>
       ) : null}
 
@@ -815,30 +885,31 @@ export function StationGateSelector({
       {!!selected && stockOk && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
         <Pressable
           onPress={onReservePress}
-          style={({ pressed }) => ({ marginTop: 22, opacity: pressed ? 0.65 : 1 })}
+          style={({ pressed }) => ({ marginTop: 18, alignSelf: 'center', opacity: pressed ? 0.6 : 1 })}
         >
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              paddingVertical: 16,
-              borderRadius: 18,
-              borderWidth: 2,
-              borderColor: palette.ink,
+              paddingVertical: 10,
+              paddingHorizontal: 18,
+              borderRadius: 12,
+              borderWidth: 1.5,
+              borderColor: palette.ink + '33',
               backgroundColor: palette.paper,
             }}
           >
-            <Feather name="clock" size={18} color={palette.ink} style={{ marginRight: 10 }} />
+            <Feather name="clock" size={14} color={palette.ink + 'aa'} style={{ marginRight: 8 }} />
             <Text
               style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.ink,
-                fontSize: 16,
-                letterSpacing: 0.4,
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.ink + 'aa',
+                fontSize: 13,
+                letterSpacing: 0.3,
               }}
             >
-              REZERVE ET
+              rezerve et
             </Text>
           </View>
         </Pressable>

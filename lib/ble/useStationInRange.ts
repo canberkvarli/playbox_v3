@@ -1,14 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDriver, type ProximityState } from '@/lib/hardware';
-
-/**
- * How long to keep showing `in_range` after the driver reports a drop out of
- * range. BLE advertisement scans routinely miss a beacon for a tick or two,
- * which without smoothing makes the station CTA flap between "oyna" and
- * "kontrol ediliyor…". A real walk-away lasts far longer than this window, so
- * a sustained drop still lands — just a few seconds late.
- */
-const DOWNGRADE_GRACE_MS = 4000;
 
 export type ProximityResult = {
   inRange: boolean;
@@ -19,23 +10,56 @@ export type ProximityResult = {
   bluetoothOff: boolean;
   /** True only on platforms without BLE (web, simulator without sim plugins). */
   unsupported: boolean;
+  /**
+   * Terminal verdict: we tried for {@link UNREACHABLE_MS} and never once
+   * connected, so we've STOPPED scanning. The station is treated as out of
+   * order / no connection. UI should show a clear dead-end (not keep toggling
+   * "kontrol ediliyor" forever) and offer {@link retry}.
+   */
+  unreachable: boolean;
+  /** Re-arm the watch after an `unreachable` verdict (user tapped "tekrar dene"). */
+  retry: () => void;
 };
+
+/**
+ * How long to keep showing `in_range` after the driver reports a drop out of
+ * range. BLE advertisement scans routinely miss a beacon for a tick or two,
+ * which without smoothing makes the station CTA flap between "oyna" and
+ * "kontrol ediliyor…". A real walk-away lasts far longer than this window, so
+ * a sustained drop still lands — just a few seconds late.
+ */
+const DOWNGRADE_GRACE_MS = 4000;
+
+/**
+ * If we never reach `in_range` within this window, give up: mark the station
+ * `unreachable` and STOP the watch. This kills the endless scanning ⇄
+ * out_of_range churn (the "kontrol ediliyor ⇄ oyna" toggling) that happens when
+ * the ESP32 is absent / stuck / out of order, and frees the radio. The user
+ * gets a clear "bağlantı yok" dead-end + a manual retry instead of a CTA that
+ * flickers for minutes. Reaching `in_range` even once cancels this.
+ */
+const UNREACHABLE_MS = 60_000;
 
 /**
  * Watches BLE proximity for the given station id. Backed by the active
  * hardware driver — mock by default in dev, real BLE in production (or in
  * dev when `useDevStore.bleHardware` is true).
- *
- * Returns both the simple `inRange` boolean and a richer `state` so screens
- * can show "scanning…", "bluetooth kapalı", "izin ver", etc.
  */
-export function useStationInRange(stationId: string | null) {
+export function useStationInRange(stationId: string | null): ProximityResult {
   const [state, setState] = useState<ProximityState>({ kind: 'idle' });
+  const [unreachable, setUnreachable] = useState(false);
+  // Bumping this re-runs the effect, re-arming the watch after a give-up.
+  const [retryNonce, setRetryNonce] = useState(0);
   // Mirror of the smoothed state so the watcher callback can read the current
   // value without re-subscribing. Holds the pending downgrade + its timer.
   const stateRef = useRef<ProximityState>(state);
   const downgradeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingNext = useRef<ProximityState | null>(null);
+
+  const retry = useCallback(() => {
+    setUnreachable(false);
+    setRetryNonce((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     const clearTimer = () => {
@@ -56,11 +80,21 @@ export function useStationInRange(stationId: string | null) {
       return;
     }
 
+    // Fresh subscription → not unreachable (yet).
+    setUnreachable(false);
+    let everInRange = false;
+    let giveUpTimer: ReturnType<typeof setTimeout> | null = null;
+
     const driver = getDriver();
     const sub = driver.watchStation(stationId, (next) => {
       // Coming (back) into range always wins immediately and cancels any
       // pending downgrade — the user is close, show "oyna" right away.
       if (next.kind === 'in_range') {
+        everInRange = true;
+        if (giveUpTimer) {
+          clearTimeout(giveUpTimer);
+          giveUpTimer = null;
+        }
         clearTimer();
         apply(next);
         return;
@@ -85,16 +119,40 @@ export function useStationInRange(stationId: string | null) {
       clearTimer();
       apply(next);
     });
+
+    // Give-up timer: never connected in the window → terminal + stop scanning.
+    giveUpTimer = setTimeout(() => {
+      giveUpTimer = null;
+      if (!everInRange) {
+        setUnreachable(true);
+        clearTimer();
+        try {
+          sub.stop();
+        } catch {
+          /* already stopped — ignore */
+        }
+      }
+    }, UNREACHABLE_MS);
+
     return () => {
+      if (giveUpTimer) clearTimeout(giveUpTimer);
       clearTimer();
       sub.stop();
     };
-  }, [stationId]);
+  }, [stationId, retryNonce]);
 
   const inRange = state.kind === 'in_range';
   const needsPermission = state.kind === 'permission_denied';
   const bluetoothOff = state.kind === 'bluetooth_off';
   const unsupported = state.kind === 'unsupported';
 
-  return { inRange, state, needsPermission, bluetoothOff, unsupported };
+  return {
+    inRange,
+    state,
+    needsPermission,
+    bluetoothOff,
+    unsupported,
+    unreachable,
+    retry,
+  };
 }

@@ -63,58 +63,61 @@ const FAQ_ITEMS: Faq[] = [
 function ChannelButton({
   icon,
   label,
-  sub,
+  value,
   accent,
   onPress,
 }: {
   icon: React.ComponentProps<typeof Feather>['name'];
   label: string;
-  sub: string;
+  value: string;
   accent: string;
   onPress: () => void;
 }) {
+  // One consistent contact row: fixed-width icon badge | label+value column
+  // (flex:1) | trailing chevron. Every row is built from the same flex recipe
+  // so WhatsApp, the two phones and the e-mail line up into a tidy list of
+  // equal-height cards.
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label} — ${sub}`}
+      accessibilityLabel={`${label} — ${value}`}
       style={({ pressed }) => ({
-        // Compact horizontal card: icon | text stack | chevron, all on one
-        // centered row. Tight padding keeps the four channels reading as a
-        // neat list of cards rather than tall floaty stacks.
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 13,
-        paddingVertical: 12,
-        paddingHorizontal: 12,
+        gap: 14,
+        paddingVertical: 13,
+        paddingHorizontal: 14,
         borderRadius: 15,
-        // White rows pop crisply against the tinted group panel; the channel
-        // tint lives only in the icon badge so the list reads cleanly.
         backgroundColor: palette.paper,
         borderWidth: 1,
-        borderColor: palette.ink + '0d',
+        borderColor: palette.ink + '12',
         opacity: pressed ? 0.6 : 1,
       })}
     >
+      {/* Leading icon badge — fixed square keeps every row's text column
+          starting at the same x, which is what gives the list its alignment. */}
       <View
         style={{
-          // Smaller badge keeps the channel tint but shrinks row height.
-          width: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: accent + '24',
+          width: 38,
+          height: 38,
+          borderRadius: 12,
+          backgroundColor: accent + '22',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name={icon} size={17} color={accent} />
+        <Feather name={icon} size={18} color={accent} />
       </View>
-      <View style={{ flex: 1, gap: 1 }}>
+
+      {/* Label over value, stacked; flex:1 so it eats the row and pushes the
+          chevron to the far edge. */}
+      <View style={{ flex: 1, gap: 2 }}>
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
             color: palette.ink,
-            fontSize: 13.5,
+            fontSize: 13,
             letterSpacing: 0.2,
           }}
           numberOfLines={1}
@@ -123,16 +126,17 @@ function ChannelButton({
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_400Regular',
-            color: palette.ink + '99',
-            fontSize: 12,
+            fontFamily: 'Inter_500Medium',
+            color: palette.ink + 'b3',
+            fontSize: 13,
           }}
           numberOfLines={1}
         >
-          {sub}
+          {value}
         </Text>
       </View>
-      <Feather name="chevron-right" size={18} color={palette.ink + '59'} />
+
+      <Feather name="chevron-right" size={18} color={palette.ink + '4d'} />
     </Pressable>
   );
 }
@@ -368,7 +372,7 @@ export default function Support() {
             <ChannelButton
               icon="message-circle"
               label="whatsapp"
-              sub="7/24 hızlı yanıt"
+              value="7/24 hızlı yanıt"
               accent={'#25D366'}
               onPress={whatsApp}
             />
@@ -377,7 +381,7 @@ export default function Support() {
                 key={p}
                 icon="phone"
                 label="telefon"
-                sub={p}
+                value={p}
                 accent={palette.coral}
                 onPress={() => call(p)}
               />
@@ -385,7 +389,7 @@ export default function Support() {
             <ChannelButton
               icon="mail"
               label="e-posta"
-              sub={SUPPORT_EMAIL}
+              value={SUPPORT_EMAIL}
               accent={palette.mauve}
               onPress={email}
             />
