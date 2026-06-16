@@ -307,6 +307,9 @@ export default function Play() {
   >('confirm');
   const returningRef = useRef(false);
   const finalizingRef = useRef(false);
+  // Fires the closing-camera exactly once per awaiting_close entry (so we don't
+  // re-pop it after the user cancels or every render).
+  const autoPhotoFiredRef = useRef(false);
 
   // Optional closing photo — captured during awaiting_close, BEFORE finalize.
   //   'idle'   — nothing yet
@@ -323,6 +326,7 @@ export default function Play() {
       setReturnPhase('confirm');
       returningRef.current = false;
       finalizingRef.current = false;
+      autoPhotoFiredRef.current = false;
       setPhotoState('idle');
     }
   }, [endModalOpen]);
@@ -486,6 +490,20 @@ export default function Play() {
     await hx.yes();
     finalizeReturn();
   };
+
+  // Auto-open the closing camera the instant the door-open screen appears, so
+  // the mandatory photo isn't a hidden step the user has to hunt for. Fires
+  // once per awaiting_close entry; if the user cancels, the primary CTA below
+  // re-opens it (it never becomes a dead button).
+  useEffect(() => {
+    if (returnPhase !== 'awaiting_close') return;
+    if (!ImagePicker) return;
+    if (photoState !== 'idle') return;
+    if (autoPhotoFiredRef.current) return;
+    autoPhotoFiredRef.current = true;
+    void addClosingPhoto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnPhase, photoState]);
 
   const onGoMap = async () => {
     await hx.tap();
@@ -1489,118 +1507,55 @@ function AwaitingClosePhase({
         </Text>
       </View>
 
-      {/* REQUIRED closing photo — capture is mandatory before finishing. The
-          finish CTA below stays disabled until a photo has been captured AND
-          an upload attempted (saved OR failed) so a network failure never
-          traps the user. Placed directly above the finish button as a step. */}
-      {ImagePicker ? (
-        <Pressable
-          onPress={onAddClosingPhoto}
-          disabled={photoState === 'busy' || photoState === 'saved'}
-          accessibilityRole="button"
-          accessibilityLabel="kapanış fotoğrafı çek"
-          style={({ pressed }) => ({
-            marginTop: 18,
-            opacity:
-              photoState === 'busy'
-                ? 0.5
-                : pressed && photoState !== 'saved'
-                ? 0.7
-                : 1,
-          })}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              paddingVertical: 14,
-              paddingHorizontal: 14,
-              borderRadius: 14,
-              backgroundColor:
-                photoState === 'saved' ? palette.ink + '10' : palette.ink + '08',
-              borderWidth: 1.5,
-              borderColor:
-                photoState === 'saved' ? palette.ink + '44' : palette.ink + '22',
-            }}
-          >
-            <Feather
-              name={photoState === 'saved' ? 'check-circle' : 'camera'}
-              size={18}
-              color={palette.ink}
-              style={{ marginRight: 10 }}
-            />
-            <Text
-              style={{
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
-                fontSize: 14,
-                letterSpacing: 0.2,
-              }}
-            >
-              {photoState === 'busy'
-                ? 'fotoğraf yükleniyor...'
-                : photoState === 'saved'
-                ? 'fotoğraf eklendi'
-                : photoState === 'failed'
-                ? 'tekrar dene'
-                : 'kapanış fotoğrafı çek'}
-            </Text>
-          </View>
-        </Pressable>
-      ) : null}
-
-      {photoState === 'failed' ? (
-        <Text
-          style={{
-            marginTop: 8,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.coral,
-            fontSize: 12,
-            textAlign: 'center',
-          }}
-        >
-          fotoğraf yüklenemedi — yine de bitirebilirsin.
-        </Text>
-      ) : null}
-
-      {/* PRIMARY finish action — DISABLED until a closing photo has been
-          captured and an upload attempted (saved OR failed). Capture is
-          required; a failed upload still lets the user finish (never trapped).
-          When no picker module is present the photo step can't apply, so the
-          button stays enabled. */}
+      {/* Single adaptive primary action — NEVER a dead tap. The closing photo
+          is mandatory, so until one has been captured this button opens the
+          camera ("kapanış fotoğrafı çek"); the camera also auto-opens on entry.
+          Once an upload has been attempted (saved OR failed — a network failure
+          must never trap the user) it becomes the finish button. */}
       {(() => {
         const photoSatisfied =
           !ImagePicker || photoState === 'saved' || photoState === 'failed';
+        const busy = photoState === 'busy';
+        const onPress = busy
+          ? undefined
+          : photoSatisfied
+          ? onManualConfirmClosed
+          : onAddClosingPhoto;
+        const label = busy
+          ? 'fotoğraf yükleniyor...'
+          : photoSatisfied
+          ? 'kapattım, bitir'
+          : 'kapanış fotoğrafı çek';
+        const bg = photoSatisfied ? palette.ink : palette.coral;
         return (
           <Pressable
-            onPress={photoSatisfied ? onManualConfirmClosed : undefined}
-            disabled={!photoSatisfied}
+            onPress={onPress}
+            disabled={busy}
             accessibilityRole="button"
-            accessibilityState={{ disabled: !photoSatisfied }}
-            accessibilityLabel="kapattım, bitir"
+            accessibilityState={{ disabled: busy }}
+            accessibilityLabel={label}
             style={({ pressed }) => ({
-              marginTop: 12,
-              opacity: !photoSatisfied ? 0.4 : pressed ? 0.92 : 1,
+              marginTop: 18,
+              opacity: busy ? 0.6 : pressed ? 0.92 : 1,
             })}
           >
             <View
               style={{
-                backgroundColor: palette.ink,
+                backgroundColor: bg,
                 borderRadius: 18,
                 paddingVertical: 18,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
-                shadowColor: palette.ink,
+                shadowColor: bg,
                 shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: photoSatisfied ? 0.25 : 0,
+                shadowOpacity: busy ? 0 : 0.25,
                 shadowRadius: 14,
-                elevation: photoSatisfied ? 8 : 0,
+                elevation: busy ? 0 : 8,
               }}
             >
               <Feather
-                name="check"
+                name={photoSatisfied ? 'check' : 'camera'}
                 size={20}
                 color={palette.paper}
                 style={{ marginRight: 10 }}
@@ -1613,14 +1568,15 @@ function AwaitingClosePhase({
                   letterSpacing: 0.4,
                 }}
               >
-                kapattım, bitir
+                {label}
               </Text>
             </View>
           </Pressable>
         );
       })()}
 
-      {ImagePicker && photoState !== 'saved' && photoState !== 'failed' ? (
+      {/* Status sub-line — always tells the user where they stand. */}
+      {ImagePicker && photoState === 'idle' ? (
         <Text
           style={{
             marginTop: 10,
@@ -1631,7 +1587,35 @@ function AwaitingClosePhase({
             lineHeight: 17,
           }}
         >
-          bitirmek için kapanış fotoğrafı gerekiyor.
+          bitirmek için kapanış fotoğrafı gerekiyor — kamera otomatik açılır.
+        </Text>
+      ) : null}
+      {photoState === 'saved' ? (
+        <Text
+          style={{
+            marginTop: 10,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.ink + '99',
+            fontSize: 12,
+            textAlign: 'center',
+            lineHeight: 17,
+          }}
+        >
+          ✓ kapanış fotoğrafı eklendi
+        </Text>
+      ) : null}
+      {photoState === 'failed' ? (
+        <Text
+          style={{
+            marginTop: 10,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.coral,
+            fontSize: 12,
+            textAlign: 'center',
+            lineHeight: 17,
+          }}
+        >
+          fotoğraf yüklenemedi — yine de bitirebilirsin.
         </Text>
       ) : null}
     </>
