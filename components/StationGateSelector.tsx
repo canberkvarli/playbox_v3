@@ -425,8 +425,6 @@ export function StationGateSelector({
     ? t('station.cta_out_of_stock')
     : unreachable
     ? t('station.no_connection')
-    : !inRange
-    ? t('station.checking_proximity')
     : t('station.cta_unlock');
 
   const onSelect = async (sp: Sport) => {

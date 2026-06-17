@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -84,17 +84,29 @@ export default function StationDetail() {
   // scan above), so the header reflects real reachability instead of a static
   // "24/7 açık" label that meant nothing to the user.
   const proximity = useFreshPresence(station?.id ?? '');
-  const inRange = proximity.present;
-  const rangeLabel = inRange
-    ? 'menzilde'
-    : proximity.reason === 'absent'
-    ? 'kontrol ediliyor'
-    : 'menzil dışında';
-  const rangeDot = inRange
+  const open = proximity.present;
+
+  // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
+  // neutral "bağlanıyor…" rather than flashing "kapalı" at someone standing in
+  // front of a powered station. Once we've either heard it (open) or the window
+  // lapses, we commit to açık / kapalı.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(true), 1500);
+    return () => clearTimeout(id);
+  }, []);
+  const closed = settled && !open;
+  const settling = !open && !settled;
+
+  // Two honest states (+ the brief settle): the ESP32 is Bluetooth-only, so
+  // "out of range" and "powered off" are the same thing to the phone — both are
+  // simply "not heard", i.e. kapalı. No "kontrol ediliyor" limbo.
+  const statusLabel = open ? 'açık' : closed ? 'kapalı' : 'bağlanıyor…';
+  const statusDot = open
     ? '#3aaf6a'
-    : proximity.reason === 'absent'
+    : closed
     ? palette.ink + '55'
-    : palette.coral;
+    : palette.ink + '33';
 
   if (!station) {
     return (
@@ -268,7 +280,7 @@ export default function StationDetail() {
                 height: 10,
                 borderRadius: 5,
                 marginRight: 8,
-                backgroundColor: rangeDot,
+                backgroundColor: statusDot,
               }}
             />
             <Text
@@ -279,7 +291,7 @@ export default function StationDetail() {
                 letterSpacing: 0.5,
               }}
             >
-              {rangeLabel}
+              {statusLabel}
             </Text>
           </View>
           <Pressable
@@ -311,11 +323,71 @@ export default function StationDetail() {
         </View>
 
         <View style={{ marginTop: 36 }}>
-          <StationGateSelector
-            station={station}
-            onUnlock={onUnlock}
-            unlocking={unlocking}
-          />
+          {open ? (
+            <StationGateSelector
+              station={station}
+              onUnlock={onUnlock}
+              unlocking={unlocking}
+            />
+          ) : closed ? (
+            // Not heard over BLE → off or out of range, same thing. No slot
+            // picker, no Play — just an honest "kapalı" with a calm hint.
+            <View style={{ alignItems: 'center', paddingVertical: 36, gap: 14 }}>
+              <View
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 32,
+                  backgroundColor: palette.ink + '0d',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather name="bluetooth" size={26} color={palette.ink + '66'} />
+              </View>
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  fontSize: 22,
+                  color: palette.ink,
+                }}
+              >
+                kapalı
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  color: palette.ink + '99',
+                  textAlign: 'center',
+                }}
+              >
+                bu istasyon şu anda kapalı.{'\n'}yaklaşınca otomatik açılır.
+              </Text>
+            </View>
+          ) : (
+            // Settle window — neutral, never a flash of "kapalı".
+            <View
+              style={{
+                alignItems: 'center',
+                paddingVertical: 44,
+                gap: 12,
+                opacity: 0.6,
+              }}
+            >
+              <ActivityIndicator color={palette.ink + '66'} />
+              <Text
+                style={{
+                  fontFamily: 'Inter_400Regular',
+                  fontSize: 14,
+                  color: palette.ink + '99',
+                }}
+              >
+                bağlanıyor…
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Phase 0: always render DevServoButtons on every station so we
@@ -339,18 +411,25 @@ export default function StationDetail() {
             flexDirection: 'row',
             alignItems: 'center',
             gap: 8,
-            paddingVertical: 10,
-            paddingHorizontal: 16,
+            paddingVertical: 11,
+            paddingHorizontal: 18,
+            borderRadius: 999,
+            backgroundColor: palette.ink + '08',
+            borderWidth: 1,
+            borderColor: palette.ink + '12',
             opacity: pressed ? 0.6 : 1,
           })}
         >
           <Feather name="help-circle" size={16} color={palette.ink + '99'} />
+          {/* Inter (not the wide Unbounded display face) + single line keeps the
+              icon and label on one baseline instead of wrapping to two rows. */}
           <Text
+            numberOfLines={1}
             style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.ink + '99',
-              fontSize: 13,
-              letterSpacing: 0.3,
+              fontFamily: 'Inter_500Medium',
+              color: palette.ink + 'b3',
+              fontSize: 13.5,
+              letterSpacing: 0.2,
             }}
           >
             sorun mu var? destek al

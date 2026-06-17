@@ -103,8 +103,9 @@ function StationMarkerView({
           justifyContent: 'center',
           gap: 2,
           borderWidth: nearby ? 3 : 2,
-          borderColor: nearby ? palette.coral : palette.ink,
-          shadowColor: nearby ? palette.coral : palette.ink,
+          // Green = "açık": the station's ESP32 is powered and in BLE range.
+          borderColor: nearby ? '#22c55e' : palette.ink,
+          shadowColor: nearby ? '#22c55e' : palette.ink,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: nearby ? 0.45 : 0.22,
           shadowRadius: nearby ? 8 : 5,
@@ -130,22 +131,60 @@ function StationMarkerView({
           +{overflow}
         </Text>
       ) : null}
-      {(station.availableNow || nearby) && (
+      {/* Status pill — "açık" only on a live BLE sighting (ESP32 powered and in
+          Bluetooth range); otherwise "kapalı". The ESP32s are Bluetooth-only
+          with no server heartbeat, so a station's status is only knowable when
+          you're physically near it — and the old static `availableNow` hint
+          implied "open" from seed data that never reflected reality. */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: 'absolute',
+          bottom: -19,
+          left: 0,
+          right: 0,
+          alignItems: 'center',
+        }}
+      >
         <View
           style={{
-            position: 'absolute',
-            top: -4,
-            right: -4,
-            width: nearby ? 14 : 12,
-            height: nearby ? 14 : 12,
-            borderRadius: 7,
-            // Live BLE sighting trumps the static "availableNow" hint.
-            backgroundColor: nearby ? '#22c55e' : palette.coral,
-            borderWidth: 2,
-            borderColor: palette.paper,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 4,
+            paddingHorizontal: 7,
+            paddingVertical: 2,
+            borderRadius: 999,
+            backgroundColor: palette.paper,
+            borderWidth: 1,
+            borderColor: nearby ? '#22c55e' : palette.ink + '1f',
+            shadowColor: '#22c55e',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: nearby ? 0.5 : 0,
+            shadowRadius: nearby ? 5 : 0,
           }}
-        />
-      )}
+        >
+          <View
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 3,
+              backgroundColor: nearby ? '#22c55e' : 'transparent',
+              borderWidth: nearby ? 0 : 1.5,
+              borderColor: palette.ink + '55',
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 10,
+              fontFamily: 'Unbounded_700Bold',
+              letterSpacing: 0.2,
+              color: nearby ? '#15803d' : palette.ink + '8c',
+            }}
+          >
+            {nearby ? 'açık' : 'kapalı'}
+          </Text>
+        </View>
+      </View>
     </Animated.View>
   );
 }

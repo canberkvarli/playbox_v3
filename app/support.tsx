@@ -110,15 +110,17 @@ function ChannelButton({
         <Feather name={icon} size={18} color={accent} />
       </View>
 
-      {/* Label over value, stacked; flex:1 so it eats the row and pushes the
-          chevron to the far edge. */}
-      <View style={{ flex: 1, gap: 2 }}>
+      {/* Channel name as a small caption over the actionable value (the number
+          / address / detail). Promoting the value to the primary line is what
+          makes each row read as one tappable contact instead of two loose
+          fragments. flex:1 eats the row and pushes the chevron to the far edge. */}
+      <View style={{ flex: 1, gap: 1 }}>
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
-            fontSize: 13,
-            letterSpacing: 0.2,
+            color: palette.ink + '8c',
+            fontSize: 10.5,
+            letterSpacing: 0.4,
           }}
           numberOfLines={1}
         >
@@ -127,8 +129,9 @@ function ChannelButton({
         <Text
           style={{
             fontFamily: 'Inter_500Medium',
-            color: palette.ink + 'b3',
-            fontSize: 13,
+            color: palette.ink,
+            fontSize: 15,
+            letterSpacing: 0.1,
           }}
           numberOfLines={1}
         >
