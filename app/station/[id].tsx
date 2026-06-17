@@ -83,7 +83,11 @@ export default function StationDetail() {
   // Live BLE presence for the header chip — advert-based (fed by the passive
   // scan above), so the header reflects real reachability instead of a static
   // "24/7 açık" label that meant nothing to the user.
-  const proximity = useFreshPresence(station?.id ?? '');
+  // Match the map marker's 15s freshness window (useIsNearby / nearbyStore
+  // STALE_MS) exactly, so a station that's green on the map is never
+  // simultaneously "kapalı" here. The 10s default caused that inconsistency —
+  // a sighting 10–15s old read present on the map but absent on this screen.
+  const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 15_000 });
   const open = proximity.present;
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a

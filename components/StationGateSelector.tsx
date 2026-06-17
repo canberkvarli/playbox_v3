@@ -890,21 +890,21 @@ export function StationGateSelector({
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              paddingVertical: 10,
-              paddingHorizontal: 18,
-              borderRadius: 12,
+              paddingVertical: 7,
+              paddingHorizontal: 12,
+              borderRadius: 10,
               borderWidth: 1.5,
-              borderColor: palette.ink + '33',
+              borderColor: palette.ink + '2e',
               backgroundColor: palette.paper,
             }}
           >
-            <Feather name="clock" size={14} color={palette.ink + 'aa'} style={{ marginRight: 8 }} />
+            <Feather name="clock" size={12} color={palette.ink + 'aa'} style={{ marginRight: 6 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
                 color: palette.ink + 'aa',
-                fontSize: 13,
-                letterSpacing: 0.3,
+                fontSize: 11.5,
+                letterSpacing: 0.2,
               }}
             >
               rezerve et
