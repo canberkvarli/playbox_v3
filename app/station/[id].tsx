@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -105,7 +105,10 @@ export default function StationDetail() {
   // Two honest states (+ the brief settle): the ESP32 is Bluetooth-only, so
   // "out of range" and "powered off" are the same thing to the phone — both are
   // simply "not heard", i.e. kapalı. No "kontrol ediliyor" limbo.
-  const statusLabel = open ? 'açık' : closed ? 'kapalı' : 'bağlanıyor…';
+  // No "kapalı" word in the corner — it read as harsh there, and the body
+  // banner already says it. Closed → just the muted dot; only surface a word
+  // for the positive ("açık") and transient ("bağlanıyor…") states.
+  const statusLabel = open ? 'açık' : settling ? 'bağlanıyor…' : '';
   const statusDot = open
     ? '#3aaf6a'
     : closed
@@ -327,71 +330,17 @@ export default function StationDetail() {
         </View>
 
         <View style={{ marginTop: 36 }}>
-          {open ? (
-            <StationGateSelector
-              station={station}
-              onUnlock={onUnlock}
-              unlocking={unlocking}
-            />
-          ) : closed ? (
-            // Not heard over BLE → off or out of range, same thing. No slot
-            // picker, no Play — just an honest "kapalı" with a calm hint.
-            <View style={{ alignItems: 'center', paddingVertical: 36, gap: 14 }}>
-              <View
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 32,
-                  backgroundColor: palette.ink + '0d',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Feather name="bluetooth" size={26} color={palette.ink + '66'} />
-              </View>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  fontSize: 22,
-                  color: palette.ink,
-                }}
-              >
-                kapalı
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Inter_400Regular',
-                  fontSize: 14,
-                  lineHeight: 20,
-                  color: palette.ink + '99',
-                  textAlign: 'center',
-                }}
-              >
-                bu istasyon şu anda kapalı.{'\n'}yaklaşınca otomatik açılır.
-              </Text>
-            </View>
-          ) : (
-            // Settle window — neutral, never a flash of "kapalı".
-            <View
-              style={{
-                alignItems: 'center',
-                paddingVertical: 44,
-                gap: 12,
-                opacity: 0.6,
-              }}
-            >
-              <ActivityIndicator color={palette.ink + '66'} />
-              <Text
-                style={{
-                  fontFamily: 'Inter_400Regular',
-                  fontSize: 14,
-                  color: palette.ink + '99',
-                }}
-              >
-                bağlanıyor…
-              </Text>
-            </View>
-          )}
+          {/* Always render the selector so the balls (sports) stay visible even
+              when closed — it dims + disables them and shows a calm "kapalı"
+              banner in place of the slider/CTA. `open`/`settling` come from the
+              header's presence so dot and body never disagree. */}
+          <StationGateSelector
+            station={station}
+            onUnlock={onUnlock}
+            unlocking={unlocking}
+            open={open}
+            settling={settling}
+          />
         </View>
 
         {/* Phase 0: always render DevServoButtons on every station so we

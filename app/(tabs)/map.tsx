@@ -38,7 +38,7 @@ import { useMenuStore } from '@/stores/menuStore';
 import { ReservationsPanel } from '@/components/ReservationsPanel';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { getDriver } from '@/lib/hardware';
-import { useIsNearby, useNearbyStore } from '@/stores/nearbyStore';
+import { useIsNearby, useNearbyIds, useNearbyStore } from '@/stores/nearbyStore';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -142,60 +142,31 @@ function StationMarkerView({
           +{overflow}
         </Text>
       ) : null}
-      {/* Status pill — "açık" only on a live BLE sighting (ESP32 powered and in
-          Bluetooth range); otherwise "kapalı". The ESP32s are Bluetooth-only
-          with no server heartbeat, so a station's status is only knowable when
-          you're physically near it — and the old static `availableNow` hint
-          implied "open" from seed data that never reflected reality. */}
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          bottom: -19,
-          left: 0,
-          right: 0,
-          alignItems: 'center',
-        }}
-      >
+      {/* No text label: a per-pin word ("kapalı") truncated against the narrow
+          one-emoji marker width and looked broken. Instead, open stations get a
+          glowing green "live" dot + the green border/pop above; closed stations
+          carry no badge at all — they simply gray out (see the opacity in
+          `style`). Status reads purely from color/brightness now. */}
+      {nearby && (
         <View
+          pointerEvents="none"
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 4,
-            paddingHorizontal: 7,
-            paddingVertical: 2,
-            borderRadius: 999,
-            backgroundColor: palette.paper,
-            borderWidth: 1,
-            borderColor: nearby ? '#22c55e' : palette.ink + '1f',
+            position: 'absolute',
+            top: -5,
+            right: -5,
+            width: 12,
+            height: 12,
+            borderRadius: 6,
+            backgroundColor: '#22c55e',
+            borderWidth: 2,
+            borderColor: palette.paper,
             shadowColor: '#22c55e',
             shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: nearby ? 0.5 : 0,
-            shadowRadius: nearby ? 5 : 0,
+            shadowOpacity: 0.6,
+            shadowRadius: 4,
           }}
-        >
-          <View
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: nearby ? '#22c55e' : 'transparent',
-              borderWidth: nearby ? 0 : 1.5,
-              borderColor: palette.ink + '55',
-            }}
-          />
-          <Text
-            style={{
-              fontSize: 10,
-              fontFamily: 'Unbounded_700Bold',
-              letterSpacing: 0.2,
-              color: nearby ? '#15803d' : palette.ink + '8c',
-            }}
-          >
-            {nearby ? 'açık' : 'kapalı'}
-          </Text>
-        </View>
-      </View>
+        />
+      )}
     </Animated.View>
   );
 }
@@ -925,6 +896,10 @@ function HomeBottomSheet({
     );
   }, [stations, userLoc]);
 
+  // Live open/closed for the drawer rows — driven by real BLE sightings, not
+  // the static `availableNow` seed (which falsely showed dummy stations "açık").
+  const nearbyIds = useNearbyIds();
+
   const onFilterPress = async (f: Sport | 'all') => {
     await hx.tap();
     setFilter(f);
@@ -1177,6 +1152,7 @@ function HomeBottomSheet({
                 ? haversineKm(userLoc, { lat: s.lat, lng: s.lng })
                 : null;
               const dimmed = filter !== 'all' && !s.sports.includes(filter as Sport);
+              const live = nearbyIds.has(s.id.toUpperCase());
               return (
                 <Pressable
                   key={s.id}
@@ -1192,7 +1168,7 @@ function HomeBottomSheet({
                     alignItems: 'center',
                     gap: 12,
                     transform: [{ scale: pressed ? 0.99 : 1 }],
-                    opacity: dimmed ? 0.35 : s.availableNow ? 1 : 0.6,
+                    opacity: dimmed ? 0.35 : live ? 1 : 0.6,
                   })}
                 >
                   {/* Sport emojis left-aligned */}
@@ -1228,12 +1204,12 @@ function HomeBottomSheet({
                       className="font-mono"
                       style={{
                         fontSize: 12,
-                        color: s.availableNow ? '#2a8a52' : palette.coral,
+                        color: live ? '#2a8a52' : palette.ink + '66',
                         fontWeight: '600',
                         marginTop: 3,
                       }}
                     >
-                      {s.availableNow ? 'açık' : 'kapalı'}
+                      {live ? 'açık' : 'kapalı'}
                     </Text>
                   </View>
 

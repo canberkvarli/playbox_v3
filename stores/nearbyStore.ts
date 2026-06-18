@@ -100,4 +100,33 @@ export function useFreshPresence(
   };
 }
 
+/**
+ * Hook: the set of station IDs (UPPER-CASED) currently nearby — i.e. with a
+ * sighting within `staleMs`. For list/drawer UIs that need live open/closed
+ * across many stations at once without calling a hook per row.
+ *
+ * Self-decays via a 1s tick, but ONLY while at least one sighting exists — an
+ * empty store (nothing ever seen) never ticks, so we pay no idle re-render
+ * cost. Returns a fresh Set each evaluation; callers read it inline.
+ */
+export function useNearbyIds(staleMs: number = STALE_MS): Set<string> {
+  const seen = useNearbyStore((s) => s.seen);
+  const hasAny = Object.keys(seen).length > 0;
+
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!hasAny) return;
+    const id = setInterval(() => tick((n) => n + 1), 1_000);
+    return () => clearInterval(id);
+  }, [hasAny]);
+
+  const now = Date.now();
+  const out = new Set<string>();
+  for (const key in seen) {
+    const entry = seen[key];
+    if (entry && now - entry.lastSeenAt < staleMs) out.add(key); // key already upper-cased
+  }
+  return out;
+}
+
 export const _NEARBY_STALE_MS = STALE_MS;

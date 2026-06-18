@@ -303,12 +303,23 @@ export type StationGateSelectorProps = {
     gateId?: string,
   ) => void | Promise<void>;
   unlocking?: boolean;
+  /**
+   * Whether the station is currently reachable over BLE (driven by the parent's
+   * presence so the header dot and this body never disagree). When false the
+   * balls stay visible but go non-interactive + dimmed, and the action area
+   * shows a calm "kapalı" instead of the slider/CTA. `settling` is the brief
+   * first-mount window before BLE resolves — show "bağlanıyor…", not "kapalı".
+   */
+  open?: boolean;
+  settling?: boolean;
 };
 
 export function StationGateSelector({
   station,
   onUnlock,
   unlocking,
+  open = true,
+  settling = false,
 }: StationGateSelectorProps) {
   const { t } = useT();
   const router = useRouter();
@@ -489,8 +500,16 @@ export function StationGateSelector({
       >
         {t('station.gates_label')}
       </Text>
+      {/* Balls stay rendered even when the station is closed — just dimmed and
+          non-interactive — so the user always sees what's offered here. */}
       <View
-        style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}
+        pointerEvents={open ? 'auto' : 'none'}
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          flexWrap: 'wrap',
+          opacity: open ? 1 : 0.45,
+        }}
       >
         {station.sports.map((sport, i) => {
           const out = (station.stock[sport] ?? 0) === 0;
@@ -506,6 +525,35 @@ export function StationGateSelector({
           );
         })}
       </View>
+
+      {/* Closed (or still settling): a calm status in the middle, in place of
+          the slider + CTA — no Bluetooth-icon block, the balls above carry the
+          visual. */}
+      {!open ? (
+        <View style={{ alignItems: 'center', paddingVertical: 30, gap: 6 }}>
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 21,
+              color: palette.ink,
+            }}
+          >
+            {settling ? 'bağlanıyor…' : 'kapalı'}
+          </Text>
+          {!settling ? (
+            <Text
+              style={{
+                fontFamily: 'Inter_400Regular',
+                fontSize: 13.5,
+                color: palette.ink + '99',
+                textAlign: 'center',
+              }}
+            >
+              yaklaşınca otomatik açılır
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Gate picker — hidden in v1 because auto-selection (first free
           gate on sport change) covers the common case and the manual pill
@@ -595,10 +643,17 @@ export function StationGateSelector({
         </View>
       ) : null}
 
-      {/* Duration slider — always visible, grayed when no gate selected */}
+      {/* Duration slider — visible while open, grayed when no gate selected;
+          fully removed from layout when the station is closed (the "kapalı"
+          banner stands in for the whole action area). */}
       <View
-        style={{ marginTop: 36, alignItems: 'center', opacity: selected ? 1 : 0.35 }}
-        pointerEvents={selected ? 'auto' : 'none'}
+        style={{
+          marginTop: 36,
+          alignItems: 'center',
+          opacity: selected ? 1 : 0.35,
+          display: open ? 'flex' : 'none',
+        }}
+        pointerEvents={open && selected ? 'auto' : 'none'}
       >
         <Text
           style={{
@@ -869,13 +924,15 @@ export function StationGateSelector({
         </View>
       ) : null}
 
-      <CTAButton
-        label={ctaLabel}
-        bg={palette.coral}
-        enabled={ctaEnabled}
-        hardBlocked={sessionAtOtherStation}
-        onPress={onPress}
-      />
+      {open ? (
+        <CTAButton
+          label={ctaLabel}
+          bg={palette.coral}
+          enabled={ctaEnabled}
+          hardBlocked={sessionAtOtherStation}
+          onPress={onPress}
+        />
+      ) : null}
 
       {/* Always-visible secondary "Rezerve et". Lets the user hold a gate
           remotely; the primary "open gate" button stays put on top and
