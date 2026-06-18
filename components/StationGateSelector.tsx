@@ -181,7 +181,10 @@ function GateCard({
   }, [selected, sel]);
 
   const cardStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + sel.value * 0.05 - press.value * 0.04 }],
+    // Gentle grow on select/press — kept small so a left-edge card doesn't
+    // expand into the screen margin (the selection is mostly carried by the
+    // border, butter fill and check ring anyway).
+    transform: [{ scale: 1 + sel.value * 0.03 - press.value * 0.025 }],
     borderColor: disabled
       ? palette.coral + '88'
       : selected
@@ -508,6 +511,9 @@ export function StationGateSelector({
           flexDirection: 'row',
           gap: 10,
           flexWrap: 'wrap',
+          // Small horizontal inset gives the cards' grow-on-select room so the
+          // edge cards never touch the screen margin when they scale up.
+          paddingHorizontal: 4,
           opacity: open ? 1 : 0.45,
         }}
       >

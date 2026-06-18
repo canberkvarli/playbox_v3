@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
@@ -16,7 +16,8 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { useFreshPresence } from '@/stores/nearbyStore';
+import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
+import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -69,9 +70,19 @@ export default function StationDetail() {
   // dropping — the flicker. Feeding nearbyStore here keeps presence stable and
   // advert-based, exactly like the map's green dot; the real unlock still
   // connects on tap (via scanAndConnect's lastSeenDevice fast path).
-  // (Passive BLE scan now runs app-wide from useNearbyScan() in _layout — it
-  // never stops on navigation, so presence here stays fed and consistent with
-  // the map without this screen running its own scan.)
+  // Feed the nearby store from this screen too, so the header presence stays
+  // advert-based and stable. Scoped to focus (stops on blur) so it never scans
+  // while the unlock/return flow holds a GATT connection — an always-on scan
+  // scanning mid-connection wedged the radio.
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((s) => {
+        useNearbyStore.getState().record(s);
+      });
+      return () => sub.stop();
+    }, []),
+  );
 
   // Live BLE presence for the header chip — advert-based (fed by the passive
   // scan above), so the header reflects real reachability instead of a static

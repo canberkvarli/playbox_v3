@@ -12,7 +12,6 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
-import { useNearbyScan } from '@/hooks/useNearbyScan';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
@@ -45,11 +44,6 @@ export default function RootLayout() {
   // user lands on the latest without the Settings button or a double relaunch.
   // No-op in dev; safe because runtimeVersion is fingerprint-pinned.
   useOtaAutoUpdate();
-
-  // App-wide passive BLE scan: keep one continuous scan running on every screen
-  // while foregrounded, so map / drawer / station-detail presence stay live and
-  // consistent and navigating between screens never opens a scan gap.
-  useNearbyScan();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming

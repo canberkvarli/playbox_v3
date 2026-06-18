@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import MapView, { PROVIDER_DEFAULT, Marker, Circle, Region } from 'react-native-maps';
 import { BlurView } from 'expo-blur';
 import { Feather } from '@expo/vector-icons';
@@ -37,7 +37,8 @@ import { StationSheet, type StationSheetHandle } from '@/components/StationSheet
 import { useMenuStore } from '@/stores/menuStore';
 import { ReservationsPanel } from '@/components/ReservationsPanel';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
-import { useIsNearby, useNearbyIds } from '@/stores/nearbyStore';
+import { getDriver } from '@/lib/hardware';
+import { useIsNearby, useNearbyIds, useNearbyStore } from '@/stores/nearbyStore';
 
 const FALLBACK_REGION: Region = {
   latitude: 41.0370, // Taksim
@@ -1276,10 +1277,22 @@ export default function Map() {
   // Stops on blur so we're not burning radio when the user is on another
   // tab or backgrounded the app. Scoped to focus, not mount, so navigating
   // to /station/[id] and back resumes cleanly.
-  // Passive BLE scan now runs app-wide from useNearbyScan() in _layout, so the
-  // map no longer starts/stops its own on focus/blur — that hand-off was what
-  // opened a scan gap and made live pins blink out when navigating. The map
-  // just consumes the nearby store (useIsNearby / useNearbyIds).
+  // Passive scan scoped to map focus — runs only while the user is on the map,
+  // freeing the radio for the connection-based unlock/return flow on other
+  // screens (an always-on scan was scanning *while connected*, which wedged
+  // BLE). Stops on blur; sightings expire on their own via the freshness
+  // windows, so the station screen still sees stable advert-based presence.
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((sighting) => {
+        useNearbyStore.getState().record(sighting);
+      });
+      return () => {
+        sub.stop();
+      };
+    }, []),
+  );
 
   // Search filters hard (hide) but sport filter is soft (dim). Keep non-matching
   // stations around so users still see where stuff exists — picking volleyball
