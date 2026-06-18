@@ -82,33 +82,40 @@ function ChannelButton({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${label} — ${value}`}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        paddingVertical: 13,
-        paddingHorizontal: 14,
-        borderRadius: 15,
-        backgroundColor: palette.paper,
-        borderWidth: 1,
-        borderColor: palette.ink + '12',
-        opacity: pressed ? 0.6 : 1,
-      })}
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
     >
-      {/* Leading icon badge — fixed square keeps every row's text column
-          starting at the same x, which is what gives the list its alignment. */}
+      {/* Layout lives on this STATIC inner View. Function-form Pressable
+          `style` is dropped on this RN build (same bug CTAButton works around
+          for its background) — it was discarding flexDirection:'row', the card
+          background, border and padding, so each row collapsed into a vertical
+          stack of icon / label / value / chevron. */}
       <View
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 12,
-          backgroundColor: accent + '22',
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
+          gap: 14,
+          paddingVertical: 13,
+          paddingHorizontal: 14,
+          borderRadius: 15,
+          backgroundColor: palette.paper,
+          borderWidth: 1,
+          borderColor: palette.ink + '12',
         }}
       >
-        <Feather name={icon} size={18} color={accent} />
-      </View>
+        {/* Leading icon badge — fixed square keeps every row's text column
+            starting at the same x, which is what gives the list its alignment. */}
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            backgroundColor: accent + '22',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name={icon} size={18} color={accent} />
+        </View>
 
       {/* Channel name as a small caption over the actionable value (the number
           / address / detail). Promoting the value to the primary line is what
@@ -139,7 +146,8 @@ function ChannelButton({
         </Text>
       </View>
 
-      <Feather name="chevron-right" size={18} color={palette.ink + '4d'} />
+        <Feather name="chevron-right" size={18} color={palette.ink + '4d'} />
+      </View>
     </Pressable>
   );
 }

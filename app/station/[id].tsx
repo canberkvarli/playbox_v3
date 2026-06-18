@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
@@ -16,8 +16,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
-import { getDriver } from '@/lib/hardware';
+import { useFreshPresence } from '@/stores/nearbyStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -70,15 +69,9 @@ export default function StationDetail() {
   // dropping — the flicker. Feeding nearbyStore here keeps presence stable and
   // advert-based, exactly like the map's green dot; the real unlock still
   // connects on tap (via scanAndConnect's lastSeenDevice fast path).
-  useFocusEffect(
-    useCallback(() => {
-      const driver = getDriver();
-      const sub = driver.watchNearbyStations((s) => {
-        useNearbyStore.getState().record(s);
-      });
-      return () => sub.stop();
-    }, []),
-  );
+  // (Passive BLE scan now runs app-wide from useNearbyScan() in _layout — it
+  // never stops on navigation, so presence here stays fed and consistent with
+  // the map without this screen running its own scan.)
 
   // Live BLE presence for the header chip — advert-based (fed by the passive
   // scan above), so the header reflects real reachability instead of a static
@@ -358,35 +351,37 @@ export default function StationDetail() {
           }}
           accessibilityRole="button"
           accessibilityLabel="destek"
-          style={({ pressed }) => ({
-            marginTop: 28,
-            alignSelf: 'center',
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            paddingVertical: 11,
-            paddingHorizontal: 18,
-            borderRadius: 999,
-            backgroundColor: palette.ink + '08',
-            borderWidth: 1,
-            borderColor: palette.ink + '12',
-            opacity: pressed ? 0.6 : 1,
-          })}
+          style={({ pressed }) => ({ marginTop: 28, alignSelf: 'center', opacity: pressed ? 0.6 : 1 })}
         >
-          <Feather name="help-circle" size={16} color={palette.ink + '99'} />
-          {/* Inter (not the wide Unbounded display face) + single line keeps the
-              icon and label on one baseline instead of wrapping to two rows. */}
-          <Text
-            numberOfLines={1}
+          {/* Layout on a STATIC inner View — function-form Pressable style is
+              dropped on this RN build, which was collapsing the row to a
+              vertical stack (icon over text). */}
+          <View
             style={{
-              fontFamily: 'Inter_500Medium',
-              color: palette.ink + 'b3',
-              fontSize: 13.5,
-              letterSpacing: 0.2,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+              paddingVertical: 11,
+              paddingHorizontal: 18,
+              borderRadius: 999,
+              backgroundColor: palette.ink + '08',
+              borderWidth: 1,
+              borderColor: palette.ink + '12',
             }}
           >
-            sorun mu var? destek al
-          </Text>
+            <Feather name="help-circle" size={16} color={palette.ink + '99'} />
+            <Text
+              numberOfLines={1}
+              style={{
+                fontFamily: 'Inter_500Medium',
+                color: palette.ink + 'b3',
+                fontSize: 13.5,
+                letterSpacing: 0.2,
+              }}
+            >
+              sorun mu var? destek al
+            </Text>
+          </View>
         </Pressable>
       </Animated.ScrollView>
     </View>
