@@ -30,6 +30,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDriver } from '@/lib/hardware';
 import { reloadWithBleTeardown } from '@/lib/ble/safeReload';
+import { stationClient } from '@/lib/ble/stationClient';
 
 function SettingRow({
   label,
@@ -648,6 +649,25 @@ export default function Settings() {
                 await reloadWithBleTeardown();
               } catch (e: any) {
                 Alert.alert('Yeniden başlatma başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
+              }
+            }}
+          />
+          {/* Reset the BLE radio in-place: destroys the native BleManager and
+              lets it recreate clean on next use — no app reload, no reinstall.
+              Recovers a wedged radio (e.g. a connection left scanning) without
+              killing the app. */}
+          <SettingRow
+            label="Bluetooth'u sıfırla"
+            onPress={async () => {
+              await hx.tap();
+              try {
+                stationClient.destroy();
+                Alert.alert(
+                  'Bluetooth sıfırlandı',
+                  'Radyo temizlendi ve bir sonraki taramada yeniden kurulacak. Haritaya dönün — uygulamayı silmeye gerek yok.',
+                );
+              } catch (e: any) {
+                Alert.alert('Sıfırlama başarısız', `${e?.name ?? 'Error'}: ${String(e?.message ?? e)}`);
               }
             }}
           />
