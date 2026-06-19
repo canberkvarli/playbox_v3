@@ -12,6 +12,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
+import { useConnectionPresence } from '@/hooks/useConnectionPresence';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
@@ -44,6 +45,11 @@ export default function RootLayout() {
   // user lands on the latest without the Settings button or a double relaunch.
   // No-op in dev; safe because runtimeVersion is fingerprint-pinned.
   useOtaAutoUpdate();
+
+  // Keep a connected station marked present (a peripheral stops advertising
+  // while we hold a GATT connection, so the passive scan can't see it). Read +
+  // store-write only, no radio work — safe to run app-wide.
+  useConnectionPresence();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming

@@ -727,7 +727,10 @@ function AgreementRow({
   }));
 
   const boxStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 0.85 + checkV.value * 0.15 }],
+    // Clamp checkV at 1 so the spring's overshoot can't scale the box ABOVE its
+    // layout size (1.0). The overshoot was growing the checkbox past its 36px
+    // box and pushing its edge into the screen margin on tap.
+    transform: [{ scale: 0.9 + Math.min(checkV.value, 1) * 0.1 }],
   }));
 
   const checkStyle = useAnimatedStyle(() => ({
