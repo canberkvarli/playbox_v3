@@ -7,6 +7,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "ota:prod": "eas update --channel production --environment production",
+    "ota:preview": "eas update --channel preview --environment preview",
+    "_ota-note": "ALWAYS publish OTAs via these scripts (or pass --environment). `eas update` WITHOUT --environment exports without the EAS-stored env vars, so EXPO_PUBLIC_SUPABASE_URL/ANON_KEY bundle as undefined → createClient() throws before first render → expo-updates rolls back (reason=updatePreviouslyFailed) and the update silently never lands. `eas build` loads the environment automatically; `eas update` does NOT. Usage: npm run ota:prod -- --message \"...\".",
     "test": "jest --watchAll",
     "_pinned-versions-note": "react-native-reanimated and @react-native-async-storage/async-storage are EXACT-pinned (no ~ or ^). Drift between JS and native binary causes silent runtime breakage (see April 2026 incident). If you bump either, do a full `npx expo prebuild --clean && npx expo run:ios` to rebuild the native side in lockstep.",
     "verify-native-versions": "node -e \"const p=require('./package.json').dependencies;const exact=k=>!/^[~^]/.test(p[k]);['react-native-reanimated','react-native-worklets','@react-native-async-storage/async-storage'].forEach(k=>{if(!exact(k))throw new Error(k+' must be exact-pinned, got '+p[k])});console.log('native deps OK')\""
