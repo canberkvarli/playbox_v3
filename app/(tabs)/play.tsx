@@ -478,6 +478,7 @@ export default function Play() {
       const userId = authSession?.user?.id ?? null;
       const sid = active.bleSessionId ?? `return-${active.startedAt}`;
       if (!userId) {
+        Alert.alert('fotoğraf yüklenemedi', 'no_user (oturum bulunamadı)');
         setPhotoState('failed');
         return;
       }
@@ -491,10 +492,14 @@ export default function Play() {
         await hx.yes();
         setPhotoState('saved');
       } else {
+        // Temporary diagnostic: surface the real Storage/RLS error so a
+        // "fotoğraf yüklenemedi" can be root-caused instead of guessed.
+        Alert.alert('fotoğraf yüklenemedi', up.error);
         setPhotoState('failed');
       }
-    } catch {
+    } catch (e: any) {
       // Pickers throw on some OEMs; swallow — photo stays optional.
+      Alert.alert('fotoğraf yüklenemedi', String(e?.message ?? e ?? 'picker_threw'));
       setPhotoState('failed');
     }
   };

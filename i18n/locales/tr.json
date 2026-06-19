@@ -509,7 +509,7 @@
     },
     "post_session": {
       "title": "bir dahaki seans için kart ekle",
-      "sub": "bu seans bizden. kartını kaydet, bir dahakine tek dokunuşla başla. istediğin zaman silebilirsin.",
+      "sub": "kartını kaydet, bir dahakine tek dokunuşla başla.",
       "cta_primary": "kart ekle",
       "cta_secondary": "sonra"
     },

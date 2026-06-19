@@ -72,55 +72,63 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
           {t('card.post_session.sub')}
         </Text>
 
+        {/* flex:1 lives statically on the Pressables (function-form Pressable
+            `style` is dropped on this RN build); the background + layout live on
+            a static inner View rendered via the function-CHILD. This is why the
+            orange "kart ekle" bg was disappearing and leaving its white label
+            invisible on the light card. */}
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-          <Pressable
-            onPress={onLater}
-            style={({ pressed }) => ({
-              flex: 1,
-              backgroundColor: 'transparent',
-              borderWidth: 1.5,
-              borderColor: palette.ink + '22',
-              borderRadius: 16,
-              paddingVertical: 14,
-              alignItems: 'center',
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
-                fontSize: 14,
-              }}
-            >
-              {t('card.post_session.cta_secondary')}
-            </Text>
+          <Pressable onPress={onLater} style={{ flex: 1 }}>
+            {({ pressed }) => (
+              <View
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: palette.ink + '22',
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  opacity: pressed ? 0.6 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_700Bold',
+                    color: palette.ink,
+                    fontSize: 14,
+                  }}
+                >
+                  {t('card.post_session.cta_secondary')}
+                </Text>
+              </View>
+            )}
           </Pressable>
-          <Pressable
-            onPress={onAddCard}
-            style={({ pressed }) => ({
-              flex: 1,
-              backgroundColor: '#e87527', // palette.coral — explicit solid orange, never transparent/white
-              borderRadius: 16,
-              paddingVertical: 14,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.3,
-              shadowRadius: 12,
-              elevation: 6,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_700Bold',
-                color: '#ffffff', // palette.paper — explicit white text on coral
-                fontSize: 14,
-              }}
-            >
-              {t('card.post_session.cta_primary')}
-            </Text>
+          <Pressable onPress={onAddCard} style={{ flex: 1 }}>
+            {({ pressed }) => (
+              <View
+                style={{
+                  backgroundColor: '#e87527',
+                  borderRadius: 16,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  shadowColor: '#e87527',
+                  shadowOffset: { width: 0, height: 6 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 12,
+                  elevation: 6,
+                  opacity: pressed ? 0.85 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_700Bold',
+                    color: '#ffffff',
+                    fontSize: 14,
+                  }}
+                >
+                  {t('card.post_session.cta_primary')}
+                </Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </View>
