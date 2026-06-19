@@ -67,13 +67,6 @@ function StationMarkerView({
   // front of them without tapping.
   const nearby = useIsNearby(station.id);
 
-  // Live presence drives a springy "pop": when a station's ESP32 comes within
-  // BLE range, `live` springs 0→1 with overshoot (a visible pop + grow) and the
-  // pin lifts to full opacity. Going offline springs it back down to a grayed
-  // state — never an unmount, so the marker transitions smoothly in place
-  // instead of disappearing and reappearing.
-  const live = useSharedValue(0);
-
   useEffect(() => {
     enter.value = withDelay(
       index * 40,
@@ -81,15 +74,15 @@ function StationMarkerView({
     );
   }, [enter, index]);
 
-  useEffect(() => {
-    live.value = withSpring(nearby ? 1 : 0, { damping: 9, stiffness: 190 });
-  }, [nearby, live]);
-
   const style = useAnimatedStyle(() => ({
     // Offline (not in BLE range) pins gray out to ~55%; filtered-out pins stay
     // at 25% (density without competing for attention); online pins are full.
+    // The online state is applied INSTANTLY (no spring "pop"): continuously
+    // animating a custom marker makes react-native-maps re-capture it every
+    // frame and flash the pin to the top-left corner on iOS while a station
+    // comes online. Border/green-dot still convey "live".
     opacity: enter.value * (dimmed ? 0.25 : nearby ? 1 : 0.55),
-    transform: [{ scale: 0.85 + 0.15 * enter.value + live.value * 0.12 }],
+    transform: [{ scale: 0.85 + 0.15 * enter.value }],
   }));
 
   // Show up to 3 sport emojis stacked horizontally so users see at a glance

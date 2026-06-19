@@ -427,7 +427,7 @@ type FwSnapshot = {
 };
 
 function DevServoButtons({ stationId }: { stationId: string }) {
-  const [busy, setBusy] = useState<null | 'unlock' | 'return' | 'refresh'>(null);
+  const [busy, setBusy] = useState<null | 'unlock' | 'return' | 'refresh' | 'close'>(null);
   const [lastResult, setLastResult] = useState<string>('');
   const [gate, setGate] = useState<1 | 2 | 3>(1);
   const [fw, setFw] = useState<FwSnapshot | null>(null);
@@ -487,6 +487,32 @@ function DevServoButtons({ stationId }: { stationId: string }) {
 
   const canUnlock = !busy && (fwState === undefined || fwState === 'LOCKED');
   const canReturn = !busy && fwState === 'IN_USE' && !!fwSessionId;
+  // Sim-close = app stand-in for the reed / EN(BOOT) door-closed edge, so the
+  // full rent→close→return→close cycle runs on-phone with no physical button.
+  // Advances UNLOCKED→IN_USE or RETURN_UNLOCKED→LOCKED; firmware honors it only
+  // when built DEV_SIM_CLOSE (the dev unit). Reed switches will replace this.
+  const canClose = !busy && (fwState === 'UNLOCKED' || fwState === 'RETURN_UNLOCKED');
+
+  const runClose = async () => {
+    if (busy) return;
+    setBusy('close');
+    setLastResult(`gate ${gate} → sim kapanış (reed/EN yerine)...`);
+    try {
+      if (!stationClient.isConnected()) {
+        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
+      }
+      await stationClient.simulateClose(gate);
+      const snap = await refreshFirmwareState();
+      const newState = snap?.states[gate]?.state;
+      setLastResult(`✓ gate ${gate} sim kapandı — state: ${newState ?? '?'}`);
+    } catch (e: unknown) {
+      const msg = String((e as Error)?.message ?? e);
+      setLastResult(`✗ ${msg}`);
+      Alert.alert('Sim close failed', msg);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const runUnlock = async () => {
     console.log('[DEV] UNLOCK tap gate=', gate, 'fwState=', fwState);
@@ -801,6 +827,48 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           </View>
         </Pressable>
       </View>
+
+      {/* Sim close — drives the reed / door-closed edge from the phone so you
+          don't have to press the ESP32 EN/BOOT button. Enabled after UNLOCK
+          (→IN_USE) and after RETURN (→LOCKED). */}
+      <Pressable
+        onPress={runClose}
+        disabled={!canClose}
+        style={({ pressed }) => ({
+          marginBottom: 16,
+          opacity: !canClose ? 0.4 : pressed ? 0.85 : 1,
+        })}
+      >
+        <View
+          style={{
+            paddingVertical: 18,
+            borderRadius: 20,
+            borderWidth: 2,
+            borderColor: palette.ink,
+            backgroundColor: 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'row',
+          }}
+        >
+          <Feather
+            name="check-square"
+            size={20}
+            color={palette.ink}
+            style={{ marginRight: 10 }}
+          />
+          <Text
+            style={{
+              color: palette.ink,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 16,
+              letterSpacing: 0.5,
+            }}
+          >
+            {busy === 'close' ? '...' : 'KAPAT (sim)'}
+          </Text>
+        </View>
+      </Pressable>
 
       {/* Manual refresh — re-reads INFO from the firmware in case state
           drifted (e.g. someone pressed BOOT outside the action flow).
