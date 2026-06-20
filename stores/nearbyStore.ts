@@ -21,7 +21,14 @@ import {
   type ProximityOpts,
 } from '@/lib/hardware/proximity';
 
-const STALE_MS = 15_000;
+// Presence stays "açık" this long after the last advertisement / connected
+// sighting. Kept generous (vs the old 15s) so the brief gaps that happen during
+// connect↔disconnect churn don't flicker a present station to "kapalı".
+// useConnectionPresence records a sighting every 3s while connected, so a live
+// connection keeps a station well inside this window even though it stops
+// advertising. The real unlock still does a live scanAndConnect, so a slightly
+// stale "açık" never lets someone act on a truly-gone station.
+const STALE_MS = 25_000;
 
 type NearbyStore = {
   seen: Record<string, NearbyStation>;

@@ -91,7 +91,7 @@ export default function StationDetail() {
   // STALE_MS) exactly, so a station that's green on the map is never
   // simultaneously "kapalı" here. The 10s default caused that inconsistency —
   // a sighting 10–15s old read present on the map but absent on this screen.
-  const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 15_000 });
+  const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 25_000 });
   const open = proximity.present;
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
