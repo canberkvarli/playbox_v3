@@ -112,6 +112,12 @@ static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 #define DEFAULT_DURATION_MIN 30
 #define REED_DEBOUNCE_MS    50
 
+// Dev unit only: honor the UNSIGNED `sim_close` command (the app's "KAPAT (sim)"
+// button / bench), a stand-in for the reed door-closed edge so the full
+// rent→close→return→close cycle runs before reeds are wired. Set to 0 for
+// production firmware so a phone can never fake a door-closed.
+#define DEV_SIM_CLOSE 1
+
 // ---- BLE UUIDs (must match lib/ble/protocol.ts) ----------------------------
 //   SERVICE ...def0, UNLOCK ...def1, EVENTS ...def2, INFO ...def3, BUFFER ...def4
 #define SERVICE_UUID     "12345678-1234-5678-1234-56789abcdef0"
@@ -708,6 +714,22 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
       handleAck((uint32_t)(doc["seq"] | (uint32_t)0));
       return;
     }
+
+#if DEV_SIM_CLOSE
+    // UNSIGNED, DEV ONLY: stand-in for the reed/door-closed edge so the full
+    // unlock→close→return→close cycle can be driven from the app's "KAPAT (sim)"
+    // button (or bench) before reeds are wired. Same effect as a real reed close
+    // on that gate (UNLOCKED→IN_USE, or RETURN_UNLOCKED→LOCKED + gate_closed).
+    // A production build (DEV_SIM_CLOSE 0) ignores it entirely.
+    if (cmd == "sim_close") {
+      int simGate = doc["gate"] | 1;
+      if (simGate >= 1 && simGate <= NUM_GATES) {
+        Serial.printf("[SIM] sim_close gate %d\n", simGate);
+        handleGateClose(simGate - 1);
+      }
+      return;
+    }
+#endif
 
     // ---- SIGNED actuation commands: unlock / return_unlock -----------------
     String   sessionId = doc["session_id"]   | "";
