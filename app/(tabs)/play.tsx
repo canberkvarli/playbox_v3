@@ -471,36 +471,34 @@ export default function Play() {
       const asset = res?.assets?.[0];
       if (!asset) return;
 
-      setPhotoState('busy');
-      const {
-        data: { session: authSession },
-      } = await supabase.auth.getSession();
-      const userId = authSession?.user?.id ?? null;
+      // The photo is captured — the user is DONE. Mark it saved immediately so
+      // they can close the door without waiting on the network, then push the
+      // bytes to Storage in the BACKGROUND (best-effort, audit-only). A failed
+      // upload is logged, never surfaced — no modal, never blocks the finish.
+      await hx.yes();
+      setPhotoState('saved');
+
       const sid = active.bleSessionId ?? `return-${active.startedAt}`;
-      if (!userId) {
-        Alert.alert('fotoğraf yüklenemedi', 'no_user (oturum bulunamadı)');
-        setPhotoState('failed');
-        return;
-      }
-      const up = await uploadReturnPhoto(
-        supabase,
-        userId,
-        sid,
-        asset.base64 ?? asset.uri,
-      );
-      if (up.ok) {
-        await hx.yes();
-        setPhotoState('saved');
-      } else {
-        // Temporary diagnostic: surface the real Storage/RLS error so a
-        // "fotoğraf yüklenemedi" can be root-caused instead of guessed.
-        Alert.alert('fotoğraf yüklenemedi', up.error);
-        setPhotoState('failed');
-      }
+      const photoBody = asset.base64 ?? asset.uri;
+      void (async () => {
+        try {
+          const {
+            data: { session: authSession },
+          } = await supabase.auth.getSession();
+          const userId = authSession?.user?.id ?? null;
+          if (!userId) {
+            console.warn('[return-photo] skipped — no authenticated user');
+            return;
+          }
+          const up = await uploadReturnPhoto(supabase, userId, sid, photoBody);
+          if (!up.ok) console.warn('[return-photo] upload failed:', up.error);
+        } catch (e: any) {
+          console.warn('[return-photo] background upload threw:', String(e?.message ?? e));
+        }
+      })();
     } catch (e: any) {
-      // Pickers throw on some OEMs; swallow — photo stays optional.
-      Alert.alert('fotoğraf yüklenemedi', String(e?.message ?? e ?? 'picker_threw'));
-      setPhotoState('failed');
+      // Picker itself threw (some OEMs) — photo stays optional, logged only.
+      console.warn('[return-photo] picker threw:', String(e?.message ?? e));
     }
   };
 
@@ -1627,20 +1625,9 @@ function AwaitingClosePhase({
           ✓ kapanış fotoğrafı eklendi
         </Text>
       ) : null}
-      {photoState === 'failed' ? (
-        <Text
-          style={{
-            marginTop: 10,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.coral,
-            fontSize: 12,
-            textAlign: 'center',
-            lineHeight: 17,
-          }}
-        >
-          fotoğraf yüklenemedi — yine de bitirebilirsin.
-        </Text>
-      ) : null}
+      {/* No failure surface: the upload is fire-and-forget in the background
+          (audit-only), so a failed upload is logged, never shown. The photo is
+          marked "eklendi" the moment it's captured. */}
     </>
   );
 }
