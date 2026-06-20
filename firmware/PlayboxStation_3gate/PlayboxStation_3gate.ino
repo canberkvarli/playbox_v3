@@ -813,11 +813,16 @@ void setup() {
     // error blink + Serial line make a broken flash obvious.
   }
 
-  // Relay outputs: set OUTPUT and idle OFF (HIGH) immediately so an active-low
-  // board never clicks a solenoid on during boot.
+  // Relay outputs: preset the latch HIGH (RELAY_OFF) BEFORE pinMode(OUTPUT).
+  // ESP32 records a digitalWrite into the output latch even while the pin is
+  // still an input, so by the time pinMode(OUTPUT) enables the driver the pin
+  // is already driving HIGH. Doing it the other way round (pinMode first) lets
+  // the default-LOW latch drive the pin LOW for a few microseconds — which an
+  // active-low relay board reads as "ON" and clicks every solenoid at boot.
   for (int g = 0; g < NUM_GATES; g++) {
-    pinMode(RELAY_PINS[g], OUTPUT);
-    digitalWrite(RELAY_PINS[g], RELAY_OFF);
+    digitalWrite(RELAY_PINS[g], RELAY_OFF);  // preset latch while still input
+    pinMode(RELAY_PINS[g], OUTPUT);          // becomes output already-HIGH
+    digitalWrite(RELAY_PINS[g], RELAY_OFF);  // confirm once the driver is on
   }
   initReeds();
 
