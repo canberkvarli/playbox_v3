@@ -45,7 +45,7 @@ Relay NO1   ─────────── Solenoid 1 (+) │ switched side
 Solenoid 1 (-) ──────── GND (12V return) ┘
 ```
 
-When the firmware drives GPIO 13 **LOW**, the optocoupler energises the relay coil, COM1 connects to NO1, +12V flows through the solenoid, the latch retracts, and the spring plunger pops the door open. After 800ms (`RELAY_PULSE_MS`) the firmware drives GPIO 13 **HIGH**, the relay drops out, the solenoid de-energises, and the latch is ready to re-engage when the user pushes the door closed.
+When the firmware drives GPIO 13 **LOW**, the optocoupler energises the relay coil, COM1 connects to NO1, +12V flows through the solenoid, the latch retracts, and the spring plunger pops the door open. After 400ms (`RELAY_PULSE_MS`) the firmware drives GPIO 13 **HIGH**, the relay drops out, the solenoid de-energises, and the latch is ready to re-engage when the user pushes the door closed.
 
 ## Flyback diodes (one per solenoid, x3)
 
@@ -81,7 +81,7 @@ INPUT_PULLUP in firmware. Magnet near → switch closes → GPIO reads LOW = "do
 
 - ESP32: 5V from LM2596 buck, ~150 mA peak
 - Relay logic: 5V from same buck, ~20 mA per energised channel
-- Solenoids: 12V direct from battery via relay NO/COM, ~1 A inrush per solenoid for 800 ms during pulse, 0 the rest of the time
+- Solenoids: 12V direct from battery via relay NO/COM, ~1 A inrush per solenoid for 400 ms during pulse, 0 the rest of the time
 - Reed switches: passive, no power draw
 
 Sizing: a 12V 7 Ah battery handles many hundreds of unlock cycles per charge. The brief solenoid pulses are negligible; the buck + ESP32 idle current dominate.
