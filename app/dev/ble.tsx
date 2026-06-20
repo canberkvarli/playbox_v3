@@ -18,8 +18,15 @@ import {
 const STATION_NAME = "Playbox-DEV-001";
 const STATION_ID = "DEV-001";
 const TEST_SESSION_ID = "sess-dev-001";
-const TEST_GATE = 1;
 const TEST_DURATION_MIN = 30;
+
+// DEV-001 gate ↔ solenoid ↔ sport (sports array order: football, basketball,
+// volleyball → gate 1/2/3 → relay GPIO 13/27/14).
+const GATES = [
+  { n: 1 as const, label: "⚽ G1" },
+  { n: 2 as const, label: "🏀 G2" },
+  { n: 3 as const, label: "🏐 G3" },
+];
 
 type Status = "idle" | "scanning" | "connected" | "disconnected" | "error";
 type LogLine = {
@@ -33,6 +40,7 @@ let logIdCounter = 0;
 
 export default function BleDebugScreen() {
   const [status, setStatus] = useState<Status>("idle");
+  const [gate, setGate] = useState<1 | 2 | 3>(1);
   const [logs, setLogs] = useState<LogLine[]>([]);
   const subRef = useRef<{ remove: () => void } | null>(null);
 
@@ -101,7 +109,7 @@ export default function BleDebugScreen() {
     try {
       const signed = await fetchSignedUnlock({
         stationId: STATION_ID,
-        gate: TEST_GATE,
+        gate: gate,
         sessionId: TEST_SESSION_ID,
         durationMin: TEST_DURATION_MIN,
         // Dev bench: skip the payment-hold check (server honors this only for
@@ -109,7 +117,7 @@ export default function BleDebugScreen() {
         devBypass: true,
       });
       await stationClient.unlock(signed);
-      log("info", `wrote signed unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
+      log("info", `wrote signed unlock cmd (gate=${gate}, ts=${signed.ts})`);
     } catch (e: unknown) {
       log("error", e instanceof Error ? e.message : String(e));
     }
@@ -119,13 +127,13 @@ export default function BleDebugScreen() {
     try {
       const signed = await fetchSignedReturnUnlock({
         stationId: STATION_ID,
-        gate: TEST_GATE,
+        gate: gate,
         sessionId: TEST_SESSION_ID,
         // Dev bench: skip the payment-hold check (DEV-001 only, server-gated).
         devBypass: true,
       });
       await stationClient.returnUnlock(signed);
-      log("info", `wrote signed return_unlock cmd (gate=${TEST_GATE}, ts=${signed.ts})`);
+      log("info", `wrote signed return_unlock cmd (gate=${gate}, ts=${signed.ts})`);
     } catch (e: unknown) {
       log("error", e instanceof Error ? e.message : String(e));
     }
@@ -136,8 +144,8 @@ export default function BleDebugScreen() {
   // return — so the whole cycle is drivable from the phone.
   async function onCloseDoor() {
     try {
-      await stationClient.simulateClose(TEST_GATE);
-      log("info", `wrote sim_close (gate=${TEST_GATE}) — simulated door shut`);
+      await stationClient.simulateClose(gate);
+      log("info", `wrote sim_close (gate=${gate}) — simulated door shut`);
     } catch (e: unknown) {
       log("error", e instanceof Error ? e.message : String(e));
     }
@@ -179,10 +187,22 @@ export default function BleDebugScreen() {
         <Btn label="Clear log" onPress={() => setLogs([])} />
       </View>
 
+      <Text className="text-gray-400 text-xs mb-1">Gate / solenoid</Text>
+      <View className="flex-row gap-2 mb-3">
+        {GATES.map((g) => (
+          <Btn
+            key={g.n}
+            label={g.label}
+            onPress={() => setGate(g.n)}
+            primary={gate === g.n}
+          />
+        ))}
+      </View>
+
       <Text className="text-gray-500 text-xs mb-2">
-        Cycle: Unlock → Close door → Return → Close door{"\n"}
-        (Close door = simulate the user shutting it; solenoid fires on Unlock &
-        Return)
+        Cycle for gate {gate}: Unlock → Close door → Return → Close door{"\n"}
+        (Close door = simulate the user shutting it; solenoid {gate} fires on
+        Unlock & Return)
       </Text>
       <View className="flex-row flex-wrap gap-2 mb-4">
         <Btn label="1 · Unlock" onPress={onUnlock} disabled={!isConnected} />
