@@ -32,23 +32,33 @@ const STALE_MS = 25_000;
 
 type NearbyStore = {
   seen: Record<string, NearbyStation>;
+  // The station we currently hold a LIVE GATT connection to (UPPER-CASED), or
+  // null. A connected peripheral stops advertising, so advert-based presence
+  // can't see it — but a held link is the strongest possible proof of "açık".
+  // Selectors OR this in so the map never shows kapalı for a station we're
+  // literally connected to (the map↔detail contradiction).
+  connectedId: string | null;
   record: (s: NearbyStation) => void;
+  setConnected: (id: string | null) => void;
   clear: () => void;
 };
 
 export const useNearbyStore = create<NearbyStore>((set) => ({
   seen: {},
+  connectedId: null,
   record: (s) =>
     set((state) => ({
       seen: { ...state.seen, [s.stationId.toUpperCase()]: s },
     })),
-  clear: () => set({ seen: {} }),
+  setConnected: (id) => set({ connectedId: id ? id.toUpperCase() : null }),
+  clear: () => set({ seen: {}, connectedId: null }),
 }));
 
 /** Hook: is this station currently nearby (sighting within STALE_MS)? */
 export function useIsNearby(stationId: string): boolean {
   const key = stationId.toUpperCase();
   return useNearbyStore((s) => {
+    if (s.connectedId === key) return true; // live link = authoritatively açık
     const entry = s.seen[key];
     if (!entry) return false;
     return Date.now() - entry.lastSeenAt < STALE_MS;
@@ -91,6 +101,7 @@ export function useFreshPresence(
 ): { present: boolean; reason: 'present' | 'stale' | 'absent' | 'weak' } {
   const key = stationId.toUpperCase();
   const sighting = useNearbyStore((s) => s.seen[key]);
+  const connected = useNearbyStore((s) => s.connectedId === key);
 
   // 1s tick to let freshness lapse without a new store write.
   const [, tick] = useState(0);
@@ -99,6 +110,9 @@ export function useFreshPresence(
     const id = setInterval(() => tick((n) => n + 1), 1_000);
     return () => clearInterval(id);
   }, [sighting]);
+
+  // A held GATT link is authoritative — no advert needed, no decay.
+  if (connected) return { present: true, reason: 'present' };
 
   const now = Date.now();
   return {
@@ -118,6 +132,7 @@ export function useFreshPresence(
  */
 export function useNearbyIds(staleMs: number = STALE_MS): Set<string> {
   const seen = useNearbyStore((s) => s.seen);
+  const connectedId = useNearbyStore((s) => s.connectedId);
   const hasAny = Object.keys(seen).length > 0;
 
   const [, tick] = useState(0);
@@ -133,6 +148,7 @@ export function useNearbyIds(staleMs: number = STALE_MS): Set<string> {
     const entry = seen[key];
     if (entry && now - entry.lastSeenAt < staleMs) out.add(key); // key already upper-cased
   }
+  if (connectedId) out.add(connectedId); // live link = always present
   return out;
 }
 
