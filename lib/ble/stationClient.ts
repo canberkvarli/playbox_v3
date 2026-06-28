@@ -234,6 +234,7 @@ class StationClient {
           // fresh scan on the next attempt.
           this.lastSeenDevice = null;
         });
+        await this.syncTimeBestEffort();
         return connected;
       } catch {
         // Fall back to the full scan — fast path is best-effort.
@@ -298,6 +299,7 @@ class StationClient {
               this.device = null;
               this.lastSeenDevice = null;
             });
+            await this.syncTimeBestEffort();
             finish(() => resolve(connected));
           } catch (e) {
             finish(() => reject(e));
@@ -317,6 +319,28 @@ class StationClient {
       UNLOCK_CHAR_UUID,
       b64,
     );
+  }
+
+  /**
+   * Anchor the station's wall clock right after connecting, so every event it
+   * emits carries a real timestamp instead of raw seconds-since-boot. Sent once
+   * per connection (which means it also re-anchors after an ESP32 reboot, since
+   * a reboot drops the link → we reconnect → this fires again).
+   *
+   * The `now` is NON-AUTHORITATIVE — the server never bills on wall_ts (see
+   * protocol.ts); this is purely for legible audit/event logs. Best-effort and
+   * never throws: a failed set_time only costs timestamp readability, so it must
+   * not block (or fail) a connect/unlock.
+   */
+  private async syncTimeBestEffort(): Promise<void> {
+    try {
+      await this.writeCommand({
+        cmd: "set_time",
+        now: Math.floor(Date.now() / 1000),
+      });
+    } catch {
+      // best-effort — events just stay uptime-relative until the next connect
+    }
   }
 
   /**
