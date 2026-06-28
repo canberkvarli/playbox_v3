@@ -37,6 +37,7 @@ import {
 } from './returnRecovery';
 import { extractGate } from './infoGate';
 import { shouldReattach } from './coldLaunch';
+import { awaitGateOpened, GATE_OPEN_CONFIRM_MS } from './gateConfirm';
 
 /**
  * Dispatcher for firmware-emitted BLE notifications. Called whenever an
@@ -779,9 +780,34 @@ export function createBleDriver(): HardwareDriver {
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
+        // Arm the gate_opened confirmation BEFORE the write so a fast event is
+        // never missed. A BLE write only ACKs that the ESP32 RECEIVED the bytes
+        // — the firmware still silently no-ops (emitting nothing) on a bad
+        // signature, a replayed ts, battery_critical, or a wrong gate state.
+        // gate_opened is the only positive proof the solenoid actually fired;
+        // without it we'd report success and start billing / hold the deposit on
+        // a gate that never opened. The firmware echoes our correlationId as the
+        // event's session_id (see emitGateOpened in the firmware).
+        const confirmed = awaitGateOpened(
+          correlationId,
+          (onEvent) => stationClient.subscribeToEvents(onEvent, () => {}),
+          GATE_OPEN_CONFIRM_MS,
+        );
         // Thread the station's BLE name so a mid-write reconnect can re-target
         // it by name (otherwise the retry falls back to lastSeenDevice?.name).
         await stationClient.unlock(signed, targetName);
+        if (!(await confirmed)) {
+          // Write landed but no gate_opened arrived — firmware rejected the
+          // command or the solenoid never fired. Report as a timeout so the
+          // caller releases the payment hold and the user can retry, instead of
+          // silently billing for a gate that stayed shut.
+          reportError(new Error('unlock: gate_opened not received'), {
+            source: 'ble.unlock.unconfirmed',
+            stationId,
+            gateId,
+          });
+          return { ok: false, error: 'timeout', message: 'gate_opened not received' };
+        }
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         const kind = classifyError(e);
