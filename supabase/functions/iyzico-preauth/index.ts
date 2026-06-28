@@ -2,7 +2,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { handleOptions, json } from '../_shared/cors.ts';
 import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
-import { checkEnv, preauth } from '../_shared/iyzico.ts';
+import { cancel, checkEnv, preauth } from '../_shared/iyzico.ts';
 
 type Input = {
   amountTry: number;
@@ -107,6 +107,42 @@ Deno.serve(async (req) => {
       msg.includes('decline') || msg.includes('reddedildi') ? 'card_declined' : 'generic_sub';
     console.warn('[iyzico-preauth] failed', { userId, iyz });
     return json({ ok: false, error: errorKey });
+  }
+
+  // Record the hold server-side BEFORE returning so it can never be orphaned.
+  // The client (session-review) captures/releases it later; if the app dies in
+  // between, session-hold-sweep releases it past a TTL. If we CAN'T persist the
+  // record, RELEASE the hold and fail — an untracked hold (frozen card) is worse
+  // than a failed unlock, which the user simply retries.
+  const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (SERVICE_ROLE_KEY) {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+    const { error: insErr } = await admin.from('session_holds').insert({
+      hold_id: iyz.paymentId,
+      hold_txn_id: iyz.paymentTransactionId ?? null,
+      user_id: userId,
+      amount_try: Math.round(amount),
+    });
+    if (insErr) {
+      console.error('[iyzico-preauth] session_holds insert failed — releasing hold', insErr);
+      try {
+        await cancel({
+          locale: 'tr',
+          conversationId: `preauth-comp:${iyz.paymentId}`,
+          paymentId: iyz.paymentId,
+          ip,
+        });
+      } catch (e) {
+        console.error('[iyzico-preauth] compensation release threw', e);
+      }
+      return json({ ok: false, error: 'generic_sub' });
+    }
+  } else {
+    // Should never happen in Supabase (auto-populated). Don't break unlocks, but
+    // make the orphan risk loud in logs.
+    console.error('[iyzico-preauth] SERVICE_ROLE_KEY missing — hold NOT recorded, orphan risk');
   }
 
   return json({ ok: true, holdId: iyz.paymentId });
