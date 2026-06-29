@@ -60,30 +60,18 @@ const StationMarkerView = memo(function StationMarkerView({
   index: number;
   dimmed?: boolean;
 }) {
-  const enter = useSharedValue(0);
   // Live BLE sighting — driven by the passive scan started on map focus.
-  // When true: stronger border, larger animated badge so the user can
-  // visually scan a busy map and find the station that's literally in
-  // front of them without tapping.
+  // When true: stronger border + a glowing green dot so the user can spot the
+  // station that's literally in front of them without tapping.
   const nearby = useIsNearby(station.id);
 
-  useEffect(() => {
-    enter.value = withDelay(
-      index * 40,
-      withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) })
-    );
-  }, [enter, index]);
-
-  const style = useAnimatedStyle(() => ({
-    // Offline (not in BLE range) pins gray out to ~55%; filtered-out pins stay
-    // at 25% (density without competing for attention); online pins are full.
-    // The online state is applied INSTANTLY (no spring "pop"): continuously
-    // animating a custom marker makes react-native-maps re-capture it every
-    // frame and flash the pin to the top-left corner on iOS while a station
-    // comes online. Border/green-dot still convey "live".
-    opacity: enter.value * (dimmed ? 0.25 : nearby ? 1 : 0.55),
-    transform: [{ scale: 0.85 + 0.15 * enter.value }],
-  }));
+  // STATIC marker — NO entrance/scale animation. Animating a custom marker makes
+  // react-native-maps re-capture the view every frame and flash the pin to the
+  // top-left corner on iOS (the bug). The live green state still updates because
+  // the parent REMOUNTS this marker (via its key) the moment `nearby` flips —
+  // see the Marker key at the render site. Offline pins gray to 55%; filtered-out
+  // pins to 25%; online pins full.
+  const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
 
   // Show up to 3 sport emojis stacked horizontally so users see at a glance
   // that one station hosts multiple games.
@@ -94,7 +82,7 @@ const StationMarkerView = memo(function StationMarkerView({
   const width = baseW + visibleSports.length * perEmoji + (overflow > 0 ? 14 : 0);
 
   return (
-    <Animated.View
+    <View
       style={[
         {
           backgroundColor: palette.butter,
@@ -114,8 +102,8 @@ const StationMarkerView = memo(function StationMarkerView({
           shadowOpacity: nearby ? 0.45 : 0.22,
           shadowRadius: nearby ? 8 : 5,
           elevation: 5,
+          opacity,
         },
-        style,
       ]}
     >
       {visibleSports.map((sp) => (
@@ -160,7 +148,7 @@ const StationMarkerView = memo(function StationMarkerView({
           }}
         />
       )}
-    </Animated.View>
+    </View>
   );
 });
 
@@ -1245,6 +1233,11 @@ export default function Map() {
   const stationSheetOpen = useMapStore((s) => s.stationSheetOpen);
   const pendingSheetStationId = useMapStore((s) => s.pendingSheetStationId);
   const setPendingSheetStationId = useMapStore((s) => s.setPendingSheetStationId);
+  // Live BLE presence set, used to key the station markers so a pin remounts
+  // (and re-captures green/gray) the moment its station comes online/offline.
+  // Self-decays on a 1s tick only while something is in range; markers are
+  // memoized so this re-render skips every pin whose nearby state didn't flip.
+  const nearbyIds = useNearbyIds();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
@@ -1514,7 +1507,15 @@ export default function Map() {
           }
           return (
             <Marker
-              key={`${filter}-${searchQuery}-${item.data.id}`}
+              // Include the live BLE 'nearby' state in the key so the marker
+              // REMOUNTS the instant a station comes online/offline. With
+              // tracksViewChanges={false} the native pin is captured once and
+              // frozen, so a plain re-render wouldn't redraw the green state —
+              // the remount forces a fresh capture. Now a powered-on ESP32 turns
+              // the pin green on the map with no tap-in/tap-out needed.
+              key={`${filter}-${searchQuery}-${item.data.id}-${
+                nearbyIds.has(item.data.id.toUpperCase()) ? 'on' : 'off'
+              }`}
               coordinate={{ latitude: item.data.lat, longitude: item.data.lng }}
               onPress={() => openStation(item.data)}
               tracksViewChanges={false}
