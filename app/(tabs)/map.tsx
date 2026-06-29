@@ -1402,7 +1402,17 @@ export default function Map() {
   }, [pendingSheetStationId, allStations, cacheStation, setPendingSheetStationId]);
 
   const onRegionChangeComplete = (region: Region) => {
-    setLatDelta(region.latitudeDelta);
+    // PERF: latDelta drives the clustering memo AND a full marker re-render.
+    // A PAN changes latitudeDelta by a sub-percent amount (map projection), so
+    // calling setLatDelta on every region settle re-clustered + re-rendered
+    // every marker on every pan. Only update when the ZOOM changes meaningfully
+    // (~10%, i.e. 0.15 in log2) — panning stays cheap, real zoom still tracks.
+    setLatDelta((prev) =>
+      prev > 0 &&
+      Math.abs(Math.log2(region.latitudeDelta) - Math.log2(prev)) < 0.15
+        ? prev
+        : region.latitudeDelta
+    );
   };
 
   const openStation = useGuardedPress(async (s: Station) => {
