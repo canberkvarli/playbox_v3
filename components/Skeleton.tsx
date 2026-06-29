@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { palette } from '@/constants/theme';
+import { useReduceMotion } from '@/hooks/useReduceMotion';
 
 /**
  * Pulsing rectangle used while async data is loading. Honest UX: replace
@@ -27,13 +28,19 @@ export function Skeleton({
   style?: object;
 }) {
   const v = useSharedValue(0);
+  const reduceMotion = useReduceMotion();
   useEffect(() => {
+    if (reduceMotion) {
+      // Static dimmed block — no infinite shimmer for motion-sensitive users.
+      v.value = 0.7;
+      return;
+    }
     v.value = withRepeat(
       withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
       -1,
       true,
     );
-  }, [v]);
+  }, [v, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: 0.5 + v.value * 0.4,
