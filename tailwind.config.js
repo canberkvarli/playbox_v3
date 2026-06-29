@@ -9,11 +9,15 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        paper:  '#fafaf7',
-        ink:    '#572c57',
-        mauve:  '#9f5f91',
-        coral:  '#e26972',
-        butter: '#f6ea98',
+        // Kept in sync with constants/theme.ts (single warm palette). These used
+        // to be a separate purple/plum set (#572c57 ink, #9f5f91 mauve, rose
+        // coral, yellow butter), which clashed with the inline palette AND read
+        // close to competitor Equip's violet. Unified to the warm slow-living set.
+        paper:  '#ffffff',
+        ink:    '#2e2419', // deep espresso brown
+        mauve:  '#b5654a', // warm terracotta (was purple)
+        coral:  '#e87527', // warm orange
+        butter: '#f5d4b8', // pale peach
       },
       fontFamily: {
         display:   ['Unbounded_700Bold'],
