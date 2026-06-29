@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
+import { openDirections } from '@/lib/directions';
 import { palette } from '@/constants/theme';
 import { type Station } from '@/data/stations.seed';
 
@@ -30,13 +31,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
     const onDirections = async () => {
       if (!station) return;
       await hx.tap();
-      const url = Platform.select({
-        ios: `maps:0,0?q=${encodeURIComponent(station.name)}@${station.lat},${station.lng}`,
-        android: `geo:${station.lat},${station.lng}?q=${station.lat},${station.lng}(${encodeURIComponent(
-          station.name
-        )})`,
-      });
-      if (url) Linking.openURL(url).catch(() => {});
+      openDirections({ name: station.name, lat: station.lat, lng: station.lng });
     };
 
     return (

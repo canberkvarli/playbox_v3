@@ -23,6 +23,7 @@ import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
+import { openDirections } from '@/lib/directions';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -170,13 +171,9 @@ export default function StationDetail() {
 
   const onDirections = async () => {
     await hx.tap();
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encodeURIComponent(station.name)}@${station.lat},${station.lng}`,
-      android: `geo:${station.lat},${station.lng}?q=${station.lat},${station.lng}(${encodeURIComponent(
-        station.name
-      )})`,
-    });
-    if (url) Linking.openURL(url).catch(() => {});
+    // Let the user pick their maps app (Apple / Google / Yandex) instead of
+    // hard-opening Apple Maps. See lib/directions.
+    openDirections({ name: station.name, lat: station.lat, lng: station.lng });
   };
 
   const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number, gateId?: string) => {
