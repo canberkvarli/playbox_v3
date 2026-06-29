@@ -61,18 +61,29 @@ Deno.serve(async (req) => {
     t5Query = t5Query.eq('user_id', userId);
   }
   const { data: t5Rows } = await t5Query;
-  let t5Sent = 0;
-  for (const r of t5Rows ?? []) {
-    await supabaseAdmin
-      .from('reservations')
-      .update({ t5_notified_at: new Date().toISOString() })
-      .eq('id', r.id);
-    await sendPush(supabaseAdmin, r.user_id, {
-      title: '5 dakikan kaldı',
-      body: 'rezervasyonun yakında düşecek. istasyona geldin mi?',
-      data: { kind: 'reservation_t5', reservation_id: r.id },
-    });
-    t5Sent++;
+  // Reminders are independent per row, so fan them out instead of awaiting each
+  // serially (was O(rows) round-trips back-to-back, up to 200/run). Keep the
+  // within-row order — mark t5_notified_at BEFORE the push so a concurrent run
+  // can't double-remind — and isolate failures with allSettled so one bad row
+  // never blocks the rest. The expired-CAPTURE pass below stays sequential: it
+  // moves money and must not be parallelized blindly.
+  const t5Results = await Promise.allSettled(
+    (t5Rows ?? []).map(async (r) => {
+      await supabaseAdmin
+        .from('reservations')
+        .update({ t5_notified_at: new Date().toISOString() })
+        .eq('id', r.id);
+      await sendPush(supabaseAdmin, r.user_id, {
+        title: '5 dakikan kaldı',
+        body: 'rezervasyonun yakında düşecek. istasyona geldin mi?',
+        data: { kind: 'reservation_t5', reservation_id: r.id },
+      });
+    }),
+  );
+  const t5Sent = t5Results.filter((x) => x.status === 'fulfilled').length;
+  const t5Failed = t5Results.length - t5Sent;
+  if (t5Failed > 0) {
+    console.error(`[reservation-sweep] ${t5Failed} T-5 reminder(s) failed`);
   }
 
   // ----- Expired-capture pass -----
