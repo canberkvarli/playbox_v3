@@ -3,10 +3,14 @@
  * the UI should pull from here so changing the rate or VAT is one edit, not
  * a grep across screens.
  *
- * KDV (Turkish VAT) is 18% as of 2026 — adjust if the law changes.
+ * KDV (Turkish VAT) standard rate is 20% (raised from 18% in July 2023,
+ * Decree 7346; still 20% in 2026). Sports-equipment rental is a standard-rate
+ * supply — it is NOT in the reduced 1% (List I) or 10% (List II) lists, whose
+ * cultural-entry row covers cinema/theatre/museum only, not sports. Confirm the
+ * exact classification with a mali müşavir; adjust here if the law changes.
  */
 export const RATE_PER_MIN_TRY = 1.5;
-export const KDV_RATE = 0.18;
+export const KDV_RATE = 0.2;
 
 /** Per-minute rate including KDV — what we actually charge per minute. */
 export const RATE_PER_MIN_GROSS = +(RATE_PER_MIN_TRY * (1 + KDV_RATE)).toFixed(2);
