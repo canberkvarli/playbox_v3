@@ -273,6 +273,7 @@ export default function StationDetail() {
             },
             bigTitleStyle,
           ]}
+          numberOfLines={2}
         >
           {station.name}
         </Animated.Text>

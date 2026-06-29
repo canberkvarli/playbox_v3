@@ -110,6 +110,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
             <Text
               className="font-display-x text-ink dark:text-paper text-5xl"
               style={{ lineHeight: 48 }}
+              numberOfLines={2}
             >
               {station.name}
             </Text>

@@ -73,6 +73,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
               <Text
                 className="font-display-x text-ink dark:text-paper text-3xl mt-5"
                 style={{ lineHeight: 34 }}
+                numberOfLines={2}
               >
                 {station.name}
               </Text>

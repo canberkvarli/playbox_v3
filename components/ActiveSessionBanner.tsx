@@ -17,6 +17,7 @@ import { palette } from '@/constants/theme';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useReduceMotion } from '@/hooks/useReduceMotion';
 
 function fmt(sec: number) {
   const abs = Math.abs(sec);
@@ -45,6 +46,7 @@ export function ActiveSessionBanner() {
   const segments = useSegments();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
   const [, setTick] = useState(0);
 
   // Marquee scroll
@@ -73,6 +75,12 @@ export function ActiveSessionBanner() {
       pulse.value = 0;
       return;
     }
+    if (reduceMotion) {
+      // Steady alert colour instead of a pulsing one.
+      cancelAnimation(pulse);
+      pulse.value = 1;
+      return;
+    }
     pulse.value = 0;
     pulse.value = withRepeat(
       withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
@@ -82,10 +90,15 @@ export function ActiveSessionBanner() {
     return () => {
       cancelAnimation(pulse);
     };
-  }, [active, overrun, pulse]);
+  }, [active, overrun, pulse, reduceMotion]);
 
   useEffect(() => {
     if (textWidth <= 0 || runningRef.current) return;
+    if (reduceMotion) {
+      // No scrolling marquee — show the (truncated) label statically.
+      x.value = 0;
+      return;
+    }
     runningRef.current = true;
     x.value = 0;
     x.value = withRepeat(
@@ -100,7 +113,7 @@ export function ActiveSessionBanner() {
       cancelAnimation(x);
       runningRef.current = false;
     };
-  }, [textWidth, x]);
+  }, [textWidth, x, reduceMotion]);
 
   const cardStyle = useAnimatedStyle(() => {
     const bg = overrun
