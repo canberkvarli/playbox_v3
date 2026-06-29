@@ -822,9 +822,8 @@ function TopBar({
         pointerStyle,
       ]}
     >
-      <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">
-        <Feather name="navigation" size={18} color={palette.ink} />
-      </TopBarPill>
+      {/* Brand wordmark sits LEFT (not centered) — deliberately distinct from
+          Equip's locate/center-wordmark/menu top bar. Action icons group right. */}
       <TopBarPill>
         <Text
           className="font-display-x"
@@ -839,9 +838,14 @@ function TopBar({
           Playbox
         </Text>
       </TopBarPill>
-      <TopBarPill square onPress={onMenu} accessibilityLabel="menü">
-        <Feather name="menu" size={18} color={palette.ink} />
-      </TopBarPill>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">
+          <Feather name="navigation" size={18} color={palette.ink} />
+        </TopBarPill>
+        <TopBarPill square onPress={onMenu} accessibilityLabel="menü">
+          <Feather name="menu" size={18} color={palette.ink} />
+        </TopBarPill>
+      </View>
     </Animated.View>
   );
 }
