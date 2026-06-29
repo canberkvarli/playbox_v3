@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -51,7 +51,7 @@ const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyb
 
 type SportCounts = Record<Sport | 'all', number>;
 
-function StationMarkerView({
+const StationMarkerView = memo(function StationMarkerView({
   station,
   index,
   dimmed = false,
@@ -162,7 +162,7 @@ function StationMarkerView({
       )}
     </Animated.View>
   );
-}
+});
 
 function ClusterMarker({ count, index }: { count: number; index: number }) {
   const enter = useSharedValue(0);
