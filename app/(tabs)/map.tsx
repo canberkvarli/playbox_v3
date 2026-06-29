@@ -834,7 +834,7 @@ function TopBar({
         pointerStyle,
       ]}
     >
-      <TopBarPill square onPress={onLocate} accessibilityLabel="locate me">
+      <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">
         <Feather name="navigation" size={18} color={palette.ink} />
       </TopBarPill>
       <TopBarPill>
@@ -851,7 +851,7 @@ function TopBar({
           Playbox
         </Text>
       </TopBarPill>
-      <TopBarPill square onPress={onMenu} accessibilityLabel="menu">
+      <TopBarPill square onPress={onMenu} accessibilityLabel="menü">
         <Feather name="menu" size={18} color={palette.ink} />
       </TopBarPill>
     </Animated.View>

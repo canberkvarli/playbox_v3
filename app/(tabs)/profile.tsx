@@ -299,7 +299,7 @@ export default function Profile() {
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="settings"
+          accessibilityLabel="ayarlar"
           onPress={onSettings}
           hitSlop={12}
           style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
@@ -508,7 +508,7 @@ export default function Profile() {
               {!capturing ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="share"
+                  accessibilityLabel="paylaş"
                   onPress={onShareFlex}
                   hitSlop={8}
                   style={({ pressed }) => ({
