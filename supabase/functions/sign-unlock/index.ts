@@ -79,6 +79,24 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'bad_cmd' }, 400);
   }
 
+  // SECURITY: the HMAC signing string is pipe-delimited
+  //   `${cmd}|${gate}|${session_id}|${duration_min}|${ts}`
+  // so a session_id containing `|` could forge a signature that is ALSO valid
+  // for a different (gate, duration) tuple. Enforce the documented charset
+  // invariant (see protocol.ts) here, BEFORE signing. Bound gate + duration to
+  // sane integers too, so a client can't sign an absurd gate or an unbounded
+  // rental duration. (The firmware re-checks gate against its own NUM_GATES,
+  // and 16 is just a server-side sanity ceiling.)
+  if (!/^[A-Za-z0-9-]{1,128}$/.test(session_id)) {
+    return json({ ok: false, error: 'bad_session_id' }, 400);
+  }
+  if (!Number.isInteger(gate) || gate < 1 || gate > 16) {
+    return json({ ok: false, error: 'bad_gate' }, 400);
+  }
+  if (!Number.isInteger(duration_min) || duration_min < 1 || duration_min > 600) {
+    return json({ ok: false, error: 'bad_duration' }, 400);
+  }
+
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!SERVICE_ROLE_KEY) return json({ ok: false, error: 'service_role_missing' }, 500);
