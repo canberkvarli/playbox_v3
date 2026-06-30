@@ -28,6 +28,7 @@ import { handleOptions, json } from '../_shared/cors.ts';
 import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
 import { signUnlock, signReturnUnlock } from '../_shared/blesign.ts';
 import { selectReservationToLink } from './link-session.ts';
+import { validateUnlockParams } from './validate.ts';
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -79,22 +80,12 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'bad_cmd' }, 400);
   }
 
-  // SECURITY: the HMAC signing string is pipe-delimited
-  //   `${cmd}|${gate}|${session_id}|${duration_min}|${ts}`
-  // so a session_id containing `|` could forge a signature that is ALSO valid
-  // for a different (gate, duration) tuple. Enforce the documented charset
-  // invariant (see protocol.ts) here, BEFORE signing. Bound gate + duration to
-  // sane integers too, so a client can't sign an absurd gate or an unbounded
-  // rental duration. (The firmware re-checks gate against its own NUM_GATES,
-  // and 16 is just a server-side sanity ceiling.)
-  if (!/^[A-Za-z0-9-]{1,128}$/.test(session_id)) {
-    return json({ ok: false, error: 'bad_session_id' }, 400);
-  }
-  if (!Number.isInteger(gate) || gate < 1 || gate > 16) {
-    return json({ ok: false, error: 'bad_gate' }, 400);
-  }
-  if (!Number.isInteger(duration_min) || duration_min < 1 || duration_min > 600) {
-    return json({ ok: false, error: 'bad_duration' }, 400);
+  // SECURITY: validate session_id charset (pipe-injection into the HMAC string)
+  // + bound gate/duration, BEFORE signing. Pure + unit-tested in
+  // lib/server/signUnlockValidate.test.ts.
+  const paramCheck = validateUnlockParams({ session_id, gate, duration_min });
+  if (!paramCheck.ok) {
+    return json({ ok: false, error: paramCheck.error }, 400);
   }
 
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;

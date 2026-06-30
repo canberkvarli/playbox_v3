@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.47.10';
 import { handleOptions, json } from '../_shared/cors.ts';
 import { getUserIdFromRequest } from '../_shared/auth.ts';
 import { cancel, checkEnv, postauth } from '../_shared/iyzico.ts';
+import { clampCaptureAmount } from './captureAmount.ts';
 
 type Input = {
   holdId: string;
@@ -102,11 +103,10 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
-  // Capture: NEVER trust the client amount beyond the recorded hold. Cap at the
-  // server-side amount_try (the deposit we actually authorized) and floor at 0.
-  const requested = Number(input.amountTry ?? hold.amount_try);
-  const safeRequested = Number.isFinite(requested) ? requested : hold.amount_try;
-  const amount = Math.min(Math.max(0, safeRequested), hold.amount_try);
+  // Capture: NEVER trust the client amount beyond the recorded hold. Clamp to
+  // [0, amount_try] (the deposit we actually authorized). Pure + unit-tested in
+  // lib/server/captureAmount.test.ts.
+  const amount = clampCaptureAmount(input.amountTry, hold.amount_try);
   const res = await postauth({
     locale: 'tr',
     conversationId,
