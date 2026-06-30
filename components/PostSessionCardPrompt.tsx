@@ -106,11 +106,11 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
             {({ pressed }) => (
               <View
                 style={{
-                  backgroundColor: '#e87527',
+                  backgroundColor: palette.coral,
                   borderRadius: 16,
                   paddingVertical: 14,
                   alignItems: 'center',
-                  shadowColor: '#e87527',
+                  shadowColor: palette.coral,
                   shadowOffset: { width: 0, height: 6 },
                   shadowOpacity: 0.3,
                   shadowRadius: 12,
