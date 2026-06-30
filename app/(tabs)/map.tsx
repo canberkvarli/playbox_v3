@@ -26,6 +26,7 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { EmptyState } from '@/components/EmptyState';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
@@ -1128,9 +1129,7 @@ function HomeBottomSheet({
       >
         {segment === 'stations' ? (
           sorted.length === 0 ? (
-            <Text className="font-sans text-ink dark:text-paper text-base text-center font-semibold mt-8">
-              {t('map.empty.no_stations')}
-            </Text>
+            <EmptyState icon="map-pin" title={t('map.empty.no_stations')} />
           ) : (
             sorted.map((s) => {
               const km = userLoc
