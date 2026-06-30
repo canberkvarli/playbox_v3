@@ -101,6 +101,33 @@ export default function SessionPrep() {
   const mustAddCardFirst =
     cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
 
+  // --- Unlock pre-fetch ------------------------------------------------------
+  // Stable correlationId for THIS prep session (== the firmware session_id).
+  // Generated once so the background pre-sign below and the eventual onOyna
+  // unlock use the SAME value (the pre-fetch cache is keyed on it).
+  const correlationIdRef = useRef<string | null>(null);
+  if (correlationIdRef.current === null) {
+    correlationIdRef.current = `unlock:${stationId}:${sport}:${Date.now()}`;
+  }
+  const correlationId = correlationIdRef.current;
+
+  // Pre-sign the unlock in the background while the user reads the prep slides,
+  // so the final OYNA tap skips the sign-unlock round-trip and the door opens
+  // sooner. Best-effort + additive: onOyna falls back to a fresh sign on a miss
+  // (e.g. a real station whose payment hold isn't placed until onOyna runs).
+  useEffect(() => {
+    if (!station) return;
+    const gateIdx = station.sports.indexOf(sport);
+    getDriver().prefetchUnlock?.({
+      stationId,
+      gate: Math.max(1, gateIdx + 1),
+      gateId: reservedGateId || undefined,
+      correlationId,
+      durationMin: durationMinutes,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station, sport, stationId, reservedGateId, correlationId, durationMinutes]);
+
   const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
   // Synchronous lock — React state updates are async, so a fast double-tap
@@ -312,7 +339,8 @@ export default function SessionPrep() {
     // explicitly (rather than re-parsed from the slug in the driver) so it stays
     // stable even when the linkage slug is omitted.
     const gate = Math.max(1, gateIndex + 1);
-    const correlationId = `unlock:${station.id}:${sport}:${Date.now()}`;
+    // correlationId is the stable one generated at mount (also used by the
+    // background pre-sign), so the pre-fetched payload matches this unlock.
     const unlockRes = await driver.unlockGate({
       stationId: station.id,
       gate,

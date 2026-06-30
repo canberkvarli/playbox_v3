@@ -108,6 +108,22 @@ export type HardwareDriver = {
   }): Promise<UnlockResult>;
 
   /**
+   * OPTIONAL: pre-sign an unlock in the background (e.g. while the user reads the
+   * prep slides) so the eventual `unlockGate` call can skip the sign-unlock
+   * round-trip and the door opens sooner. Best-effort and ADDITIVE — `unlockGate`
+   * falls back to a fresh fetch if nothing valid is cached, so this can only make
+   * unlock faster, never break it. MUST be called with the SAME `correlationId`
+   * (and gate/duration/gateId) the later `unlockGate` will use.
+   */
+  prefetchUnlock?(args: {
+    stationId: string;
+    gate?: number;
+    gateId?: string;
+    correlationId: string;
+    durationMin: number;
+  }): Promise<void>;
+
+  /**
    * Pulse the latch again so the user can put the gear back. Firmware
    * requires the same session_id that was signed at unlock time — caller is
    * responsible for passing what's been persisted on the active session.
