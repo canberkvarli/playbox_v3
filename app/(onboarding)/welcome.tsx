@@ -114,7 +114,7 @@ export default function Welcome() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.ink,
                 fontSize: 56,
-                lineHeight: 73,
+                lineHeight: 66,
               }}
             >
               {line}

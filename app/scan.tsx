@@ -119,7 +119,7 @@ export default function Scan() {
   if (!permission.granted) {
     return (
       <View className="flex-1 bg-surface items-center justify-center px-6">
-        <Text className="font-display-x text-fg text-3xl text-center leading-[39px]">
+        <Text className="font-display-x text-fg text-3xl text-center leading-[35px]">
           {t('scan.permission_needed')}
         </Text>
         <Pressable
@@ -203,7 +203,7 @@ export default function Scan() {
         }}
       >
         <Text
-          className="font-display-x text-fg text-3xl text-center leading-[39px]"
+          className="font-display-x text-fg text-3xl text-center leading-[35px]"
           style={{ lineHeight: 32 }}
         >
           {t('scan.title')}

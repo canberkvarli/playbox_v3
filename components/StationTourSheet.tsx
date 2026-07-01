@@ -86,7 +86,7 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
             {t('tour.eyebrow')}
           </Text>
           <Text
-            className="font-display-x text-ink dark:text-fg text-4xl text-center mt-2 leading-[47px]"
+            className="font-display-x text-ink dark:text-fg text-4xl text-center mt-2 leading-[42px]"
             style={{ lineHeight: 44 }}
           >
             {t('tour.title')}
@@ -113,7 +113,7 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
                   }}
                 >
                   <Text
-                    className="font-display-x text-2xl leading-[31px]"
+                    className="font-display-x text-2xl leading-[28px]"
                     style={{ color: palette.ink }}
                   >
                     {i + 1}

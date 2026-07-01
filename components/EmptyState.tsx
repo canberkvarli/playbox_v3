@@ -52,7 +52,7 @@ export function EmptyState({ icon, title, subtitle, cta }: Props) {
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 20,
-          lineHeight: 26,
+          lineHeight: 24,
           textTransform: 'uppercase',
           letterSpacing: 0.5,
           textAlign: 'center',

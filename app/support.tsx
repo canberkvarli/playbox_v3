@@ -339,7 +339,7 @@ export default function Support() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.fg,
                 fontSize: 38,
-                lineHeight: 49,
+                lineHeight: 45,
                 textTransform: 'uppercase',
               }}
             >
@@ -473,7 +473,7 @@ function SectionLabel({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 20,
-          lineHeight: 26,
+          lineHeight: 24,
           letterSpacing: 0.2,
           textTransform: 'uppercase',
         }}

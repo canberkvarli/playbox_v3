@@ -167,7 +167,7 @@ export default function CardAdd() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 36,
-              lineHeight: 47,
+              lineHeight: 42,
               marginTop: 8,
               textTransform: 'uppercase',
             }}

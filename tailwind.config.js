@@ -8,20 +8,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Legacy keys (values remapped to Asphalt Volt — names are legacy).
-        paper:  '#17181C', // asphalt — app background  (was cream)
-        ink:    '#F4F3EE', // primary foreground/text   (was plum)
-        mauve:  '#9A9AA6', // muted/secondary text      (was teal)
-        coral:  '#D6FB3C', // VOLT — primary action     (was coral)
-        butter: '#FF5C39', // CORAL — destructive       (was tangerine)
+        // LIGHT (default) values. Static className colors don't react to the
+        // runtime scheme toggle; the app is light-first so these mirror the
+        // light ramp. Inline `palette.X` styles flip for dark via root remount.
+        // Legacy key names kept.
+        paper:  '#F4F3EE', // cream — app background
+        ink:    '#2A2C33', // primary foreground/text
+        mauve:  '#6B6B75', // muted/secondary text
+        coral:  '#D6FB3C', // VOLT — primary action
+        butter: '#FF5C39', // CORAL — destructive
         // Additive semantic colors (preferred for new/reskinned code).
-        bg:         '#17181C',
-        surface:    '#202127',
-        'surface-alt': '#23252E',
-        deep:       '#0D0D10',
-        fg:         '#F4F3EE',
-        muted:      '#9A9AA6',
-        border:     '#3A3C45',
+        bg:         '#F4F3EE',
+        surface:    '#FFFFFF',
+        'surface-alt': '#F4F3EE',
+        deep:       '#E2E0D8',
+        fg:         '#2A2C33',
+        muted:      '#6B6B75',
+        border:     '#E2E0D8',
         volt:       '#D6FB3C',
         'volt-ink': '#17181C',
         danger:     '#FF5C39',

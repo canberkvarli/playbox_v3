@@ -171,7 +171,7 @@ export default function Otp() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 57,
+              lineHeight: 52,
             }}
           >
             {t('onb.otp.title')}

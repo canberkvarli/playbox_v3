@@ -144,7 +144,7 @@ export default function StationDetail() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 28,
-            lineHeight: 36,
+            lineHeight: 33,
             textAlign: 'center',
           }}
         >
@@ -296,7 +296,7 @@ export default function StationDetail() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 38,
-              lineHeight: 49,
+              lineHeight: 45,
               letterSpacing: 0.2,
               textTransform: 'uppercase',
             },
@@ -692,7 +692,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
                   fontSize: 26,
-                  lineHeight: 34,
+                  lineHeight: 31,
                   color: selected ? palette.ink : palette.ink + '88',
                 }}
               >

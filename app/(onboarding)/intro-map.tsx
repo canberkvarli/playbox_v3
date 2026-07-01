@@ -130,7 +130,7 @@ export default function IntroMap() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.ink,
                 fontSize: 44,
-                lineHeight: 57,
+                lineHeight: 52,
               }}
             >
               {line}

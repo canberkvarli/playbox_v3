@@ -118,7 +118,7 @@ export default function Terms() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 36,
-            lineHeight: 47,
+            lineHeight: 42,
             textTransform: 'uppercase',
           }}
         >

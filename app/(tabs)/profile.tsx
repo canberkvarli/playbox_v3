@@ -14,10 +14,18 @@ let Sharing: any = { isAvailableAsync: async () => false, shareAsync: async () =
 try { Sharing = require('expo-sharing'); } catch {}
 let FileSystem: any = null;
 try { FileSystem = require('expo-file-system'); } catch {}
-// Optional gradient — falls back to a solid coral (palette.danger) when the
-// package isn't installed. Visual-only; no logic depends on it.
+// Optional gradient — falls back to solid coral (palette.danger). We check the
+// NATIVE module is actually in the running binary (not just the JS package),
+// because an OTA can deliver this JS to an older build that predates the native
+// view — rendering <LinearGradient> there shows a raw "Unimplemented component"
+// box (it doesn't throw, so an error boundary alone wouldn't catch it).
 let LinearGradient: any = null;
-try { LinearGradient = require('expo-linear-gradient').LinearGradient; } catch {}
+try {
+  const { requireOptionalNativeModule } = require('expo');
+  if (requireOptionalNativeModule?.('ExpoLinearGradient')) {
+    LinearGradient = require('expo-linear-gradient').LinearGradient;
+  }
+} catch {}
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
@@ -168,90 +176,63 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
-      {/* Sticky header */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 20,
-          paddingBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: palette.border,
-          backgroundColor: palette.bg,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-          onPress={async () => {
-            await hx.tap();
-            router.replace('/(tabs)/map');
-          }}
-          hitSlop={14}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.surface,
-              borderWidth: 1,
-              borderColor: palette.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
-          </View>
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 14,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-          }}
-        >
-          {t('profile.title')}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="ayarlar"
-          onPress={onSettings}
-          hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.surface,
-              borderWidth: 1,
-              borderColor: palette.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="settings" size={20} color={palette.ink} />
-          </View>
-        </Pressable>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
+          paddingTop: insets.top + 20,
           paddingBottom: insets.bottom + 40,
           paddingHorizontal: 24,
         }}
       >
+        {/* Top row: PROFİL kicker + settings gear. No sticky bar — the avatar
+            gets room to breathe instead of butting against a header. */}
+        <RiseIn delay={0}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'JetBrainsMono_500Medium',
+                color: palette.muted,
+                fontSize: 12,
+                letterSpacing: 2.5,
+                textTransform: 'uppercase',
+              }}
+            >
+              {t('profile.title')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="ayarlar"
+              onPress={onSettings}
+              hitSlop={12}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: palette.surface,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather name="settings" size={20} color={palette.ink} />
+              </View>
+            </Pressable>
+          </View>
+        </RiseIn>
+
         {/* Hero identity — tap routes to settings where the name + username
             overrides live (and persist via zustand-persist + AsyncStorage). */}
-        <RiseIn delay={0}>
+        <RiseIn delay={40}>
           <Pressable
             onPress={async () => {
               await hx.tap();
@@ -262,7 +243,7 @@ export default function Profile() {
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
-              marginTop: 24,
+              marginTop: 20,
               opacity: pressed ? 0.65 : 1,
             })}
           >
@@ -282,7 +263,7 @@ export default function Profile() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.voltInk,
                   fontSize: 24,
-                  lineHeight: 31,
+                  lineHeight: 28,
                 }}
               >
                 {initial}
@@ -297,7 +278,7 @@ export default function Profile() {
                     fontFamily: 'Unbounded_800ExtraBold',
                     color: palette.fg,
                     fontSize: 22,
-                    lineHeight: 29,
+                    lineHeight: 26,
                     marginRight: 8,
                   }}
                 >
@@ -448,7 +429,7 @@ export default function Profile() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.volt,
                   fontSize: 56,
-                  lineHeight: 73,
+                  lineHeight: 66,
                   marginTop: 6,
                 }}
               >

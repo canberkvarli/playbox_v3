@@ -6,3 +6,4 @@ export { Tag } from './Tag';
 export { SelectRow } from './SelectRow';
 export { CircularTimer } from './CircularTimer';
 export { ScreenHeader } from './ScreenHeader';
+export { Wordmark } from './Wordmark';

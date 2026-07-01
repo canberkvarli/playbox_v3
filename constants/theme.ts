@@ -63,21 +63,31 @@ function paletteFor(n: Neutral) {
   } as const;
 }
 
-// Default (dark) palette — what static `palette.X` consumers get.
-export const palette = paletteFor(darkNeutral);
-export const lightPalette = paletteFor(lightNeutral);
+export type PaletteKey = keyof ReturnType<typeof paletteFor>;
+type Palette = Record<PaletteKey, string>;
 
-export function themeFor(scheme: 'light' | 'dark') {
-  return scheme === 'dark' ? palette : lightPalette;
+export const lightPalette: Palette = paletteFor(lightNeutral);
+export const darkPalette: Palette = paletteFor(darkNeutral);
+
+// MUTABLE singleton, seeded LIGHT (the default scheme). ~980 call sites read
+// `palette.X` directly and can't react to a hook, so `applyScheme` swaps the
+// values IN PLACE and the root remounts (`key={scheme}` in app/_layout.tsx) so
+// every static read refreshes. Light is default; dark is a settings toggle.
+export const palette: Palette = { ...lightPalette };
+
+export function applyScheme(scheme: 'light' | 'dark') {
+  Object.assign(palette, scheme === 'dark' ? darkPalette : lightPalette);
 }
 
-// Back-compat: a few callers referenced darkSurfaces. Repointed to Asphalt Volt.
-export const darkSurfaces = {
-  bg:     palette.bg,
-  fg:     palette.fg,
-  accent: palette.volt,
-  warm:   palette.danger,
-  muted:  palette.muted,
-} as const;
+export function themeFor(scheme: 'light' | 'dark') {
+  return scheme === 'dark' ? darkPalette : lightPalette;
+}
 
-export type PaletteKey = keyof typeof palette;
+// Back-compat: a few callers referenced darkSurfaces (always the dark ramp).
+export const darkSurfaces = {
+  bg:     darkPalette.bg,
+  fg:     darkPalette.fg,
+  accent: darkPalette.volt,
+  warm:   darkPalette.danger,
+  muted:  darkPalette.muted,
+} as const;

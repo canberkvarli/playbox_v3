@@ -1,11 +1,10 @@
-import { useColorScheme as useSystemColorScheme } from 'react-native';
+import { useSettingsStore } from '@/stores/settingsStore';
 
 /**
- * Asphalt Volt is dark-first. We default to 'dark' and only honour an explicit
- * system 'light' preference (light is a supported fallback, dark is the brand).
- * To hard-lock dark, return 'dark' unconditionally.
+ * Playbox is LIGHT by default; dark is a persisted opt-in (settings toggle).
+ * The value comes from the settings store, not the OS — people shouldn't get
+ * dark just because their phone is dark on a bright day.
  */
 export function useColorScheme(): 'light' | 'dark' {
-  const system = useSystemColorScheme();
-  return system === 'light' ? 'light' : 'dark';
+  return useSettingsStore((s) => s.scheme);
 }

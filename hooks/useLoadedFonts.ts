@@ -1,5 +1,4 @@
 import { useFonts } from 'expo-font';
-import { Anton_400Regular } from '@expo-google-fonts/anton';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import {
   JetBrainsMono_400Regular,
@@ -9,14 +8,16 @@ import {
 
 export function useLoadedFonts() {
   const [loaded, error] = useFonts({
-    // DISPLAY = Anton (punchy athletic grotesque). Loaded UNDER the legacy
-    // `Unbounded_*` keys so every existing `fontFamily: 'Unbounded_700Bold'` /
-    // `fontFamily: 'Unbounded_800ExtraBold'` and the `font-display`/`font-display-x`
-    // tailwind classes render Anton — no need to edit the 31 files that
-    // reference the old names. Anton ships a single 400 weight; both display
-    // slots map to it.
-    Unbounded_700Bold: Anton_400Regular,
-    Unbounded_800ExtraBold: Anton_400Regular,
+    // DISPLAY = Archivo Expanded ("Wide Court") — wide athletic grotesque.
+    // Loaded UNDER the legacy `Unbounded_*` keys so every existing
+    // `fontFamily: 'Unbounded_700Bold'` / `'Unbounded_800ExtraBold'` and the
+    // `font-display`/`font-display-x` tailwind classes render Archivo Expanded
+    // with no per-file churn. ExtraBold slot → Black for the punchiest headlines.
+    Unbounded_700Bold: require('../assets/fonts/ArchivoExpanded-Bold.ttf'),
+    Unbounded_800ExtraBold: require('../assets/fonts/ArchivoExpanded-Black.ttf'),
+    // A real alias too, for any new code that wants to be explicit.
+    ArchivoExpanded_600SemiBold: require('../assets/fonts/ArchivoExpanded-SemiBold.ttf'),
+    ArchivoExpanded_800ExtraBold: require('../assets/fonts/ArchivoExpanded-ExtraBold.ttf'),
     // Body stays Inter, timers/station-IDs stay JetBrains Mono.
     Inter_400Regular,
     Inter_500Medium,

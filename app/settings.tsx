@@ -184,7 +184,7 @@ function EditModal({
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 22,
-              lineHeight: 29,
+              lineHeight: 26,
               textTransform: 'uppercase',
             }}
           >
@@ -386,6 +386,8 @@ export default function Settings() {
   const [badFeedbackRating, setBadFeedbackRating] = useState<number | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePhase, setDeletePhase] = useState<'confirm' | 'goodbye'>('confirm');
+  const scheme = useSettingsStore((s) => s.scheme);
+  const setScheme = useSettingsStore((s) => s.setScheme);
   const setNameOverride = useSettingsStore((s) => s.setNameOverride);
   const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
 
@@ -571,6 +573,57 @@ export default function Settings() {
             value={`@${username}`}
             onPress={() => setEditField('username')}
           />
+        </RiseIn>
+
+        {/* Görünüm — tema (light default; dark opt-in) */}
+        <RiseIn delay={40}>
+          <SectionLabel>görünüm</SectionLabel>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 8 }}>
+            {(['light', 'dark'] as const).map((s) => {
+              const on = scheme === s;
+              return (
+                <Pressable
+                  key={s}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  onPress={async () => {
+                    if (on) return;
+                    await hx.tap();
+                    setScheme(s);
+                  }}
+                  style={{
+                    flex: 1,
+                    height: 50,
+                    borderRadius: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    backgroundColor: on ? palette.volt : palette.surface,
+                    borderWidth: 1,
+                    borderColor: on ? palette.volt : palette.border,
+                  }}
+                >
+                  <Feather
+                    name={s === 'light' ? 'sun' : 'moon'}
+                    size={16}
+                    color={on ? palette.voltInk : palette.muted}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: 'Inter_600SemiBold',
+                      fontSize: 14,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      color: on ? palette.voltInk : palette.fg,
+                    }}
+                  >
+                    {s === 'light' ? 'açık' : 'koyu'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </RiseIn>
 
         {/* Hesap section */}
@@ -884,7 +937,7 @@ function DeleteAccountModal({
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.fg,
                   fontSize: 32,
-                  lineHeight: 42,
+                  lineHeight: 38,
                   textAlign: 'center',
                   textTransform: 'uppercase',
                 }}
@@ -926,7 +979,7 @@ function DeleteAccountModal({
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 26,
-              lineHeight: 34,
+              lineHeight: 31,
               textTransform: 'uppercase',
             }}
           >

@@ -106,7 +106,7 @@ export default function Privacy() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 36,
-            lineHeight: 47,
+            lineHeight: 42,
             textTransform: 'uppercase',
           }}
         >

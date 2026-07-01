@@ -3,6 +3,14 @@ import { Alert, Linking, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
@@ -41,6 +49,42 @@ function fmt(ms: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
   return `${h}sa ${m}dk`;
+}
+
+/**
+ * Small live-status dot for the active-session eyebrow — gently pulses so the
+ * header reads as "live". Purely visual; carries no timer state.
+ */
+function PulseDot({ color }: { color: string }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+  }, [p]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.5 + p.value * 0.5,
+    transform: [{ scale: 0.85 + p.value * 0.4 }],
+  }));
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: color,
+          marginRight: 8,
+        },
+        style,
+      ]}
+    />
+  );
 }
 
 function LiveTimer({ session }: { session: ActiveSession }) {
@@ -82,13 +126,50 @@ function LiveTimer({ session }: { session: ActiveSession }) {
     ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
     : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
 
+  // Subtle "alive" pulse behind the ring — a soft accent halo that gently
+  // breathes (scale + opacity). PURELY visual: it never touches the per-second
+  // timer tick above; it just signals that the session is live.
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+  }, [pulse]);
+
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: 0.06 + pulse.value * 0.12,
+    transform: [{ scale: 0.94 + pulse.value * 0.08 }],
+  }));
+
+  const HERO = 300;
+
   return (
-    <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
+      {/* Breathing accent halo — sits behind the ring, non-interactive. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: 'absolute',
+            width: HERO + 40,
+            height: HERO + 40,
+            borderRadius: (HERO + 40) / 2,
+            backgroundColor: accent,
+          },
+          haloStyle,
+        ]}
+      />
       <CircularTimer
         progress={remainingFraction}
         time={centerTime}
         caption={caption}
-        size={260}
+        size={HERO}
+        stroke={16}
         color={accent}
       />
     </View>
@@ -393,43 +474,105 @@ export default function Play() {
           flex: 1,
           backgroundColor: palette.paper,
           paddingTop: insets.top + 40,
-          paddingHorizontal: 24,
+          paddingBottom: insets.bottom + 32,
+          paddingHorizontal: 28,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="zap" size={48} color={palette.volt} />
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.fg,
-            fontSize: 30,
-            lineHeight: 39,
-            textAlign: 'center',
-            textTransform: 'uppercase',
-            marginTop: 18,
-          }}
-        >
-          aktif seans yok
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter_500Medium',
-            color: palette.muted,
-            fontSize: 16,
-            textAlign: 'center',
-            marginTop: 10,
-          }}
-        >
-          haritadan bir istasyona git ve oyna
-        </Text>
-        <Button
-          label="haritayı aç"
-          icon="map"
+        {/* Money moment: strong centered empty state whose one job is to send
+            the user to the map. Big Archivo Expanded headline, a muted line,
+            and a large volt CTA that dominates the screen. */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+          {/* Volt bolt badge — a warm, inviting anchor above the headline. */}
+          <View
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 42,
+              backgroundColor: palette.volt,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 26,
+              shadowColor: palette.volt,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+              elevation: 10,
+            }}
+          >
+            <Feather name="zap" size={40} color={palette.voltInk} />
+          </View>
+
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.fg,
+              fontSize: 40,
+              lineHeight: 44,
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            aktif seans yok
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_500Medium',
+              color: palette.muted,
+              fontSize: 16,
+              lineHeight: 23,
+              textAlign: 'center',
+              marginTop: 14,
+              maxWidth: 300,
+            }}
+          >
+            haritadan bir istasyona git ve oyna
+          </Text>
+        </View>
+
+        {/* Prominent, centered, LARGER primary CTA — volt pill, voltInk text,
+            bigger than a standard Button (~58 tall, larger label). Keeps the
+            existing onGoMap handler. */}
+        <Pressable
           onPress={onGoMap}
-          full={false}
-          style={{ marginTop: 24 }}
-        />
+          accessibilityRole="button"
+          accessibilityLabel="haritayı aç"
+          style={({ pressed }) => ({
+            width: '100%',
+            opacity: pressed ? 0.92 : 1,
+          })}
+        >
+          <View
+            style={{
+              height: 58,
+              borderRadius: 999,
+              backgroundColor: palette.volt,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: palette.volt,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 18,
+              elevation: 10,
+            }}
+          >
+            <Feather name="map" size={22} color={palette.voltInk} style={{ marginRight: 10 }} />
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.voltInk,
+                fontSize: 18,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+              }}
+            >
+              haritayı aç
+            </Text>
+          </View>
+        </Pressable>
       </View>
     );
   }
@@ -485,15 +628,7 @@ export default function Play() {
             justifyContent: 'center',
           }}
         >
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: isOvertime ? palette.danger : palette.volt,
-              marginRight: 8,
-            }}
-          />
+          <PulseDot color={isOvertime ? palette.danger : palette.volt} />
           <Text
             numberOfLines={1}
             style={{
@@ -984,7 +1119,7 @@ function ConfirmPhase({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 28,
-          lineHeight: 36,
+          lineHeight: 33,
           textTransform: 'uppercase',
         }}
       >
@@ -1194,7 +1329,7 @@ function OpeningPhase() {
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 24,
-          lineHeight: 31,
+          lineHeight: 28,
           textAlign: 'center',
           textTransform: 'uppercase',
         }}
@@ -1248,7 +1383,7 @@ function AwaitingClosePhase({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 28,
-          lineHeight: 36,
+          lineHeight: 33,
           textTransform: 'uppercase',
         }}
       >

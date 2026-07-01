@@ -116,7 +116,7 @@ export default function SessionReview() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 30,
-              lineHeight: 39,
+              lineHeight: 35,
               textAlign: 'center',
               marginTop: 22,
             }}
@@ -212,7 +212,7 @@ export default function SessionReview() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.ink,
                   fontSize: 28,
-                  lineHeight: 36,
+                  lineHeight: 33,
                 }}
               >
                 {elapsedMin}
@@ -235,7 +235,7 @@ export default function SessionReview() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.ink,
                   fontSize: 28,
-                  lineHeight: 36,
+                  lineHeight: 33,
                 }}
               >
                 ₺{total}

@@ -9,6 +9,7 @@ import { ThemeProvider, DefaultTheme, DarkTheme } from '@react-navigation/native
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { applyScheme } from '@/constants/theme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
@@ -35,6 +36,10 @@ AppState.addEventListener('change', (state) => {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Sync the mutable `palette` singleton to the active scheme every render
+  // (cheap Object.assign). The `key={colorScheme}` on the tree below forces a
+  // remount when the scheme flips so the ~980 static `palette.X` reads refresh.
+  applyScheme(colorScheme);
   const { loaded, error } = useLoadedFonts();
 
   // Register the Expo push token once permissions land. Best-effort,
@@ -72,7 +77,7 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView key={colorScheme} style={{ flex: 1 }}>
       <AppErrorBoundary>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
@@ -128,7 +133,7 @@ export default function RootLayout() {
               options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
             />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </ThemeProvider>
       </AppErrorBoundary>
     </GestureHandlerRootView>

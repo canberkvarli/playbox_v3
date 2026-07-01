@@ -234,7 +234,7 @@ export function GearReportSheet({
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.fg,
                 fontSize: 22,
-                lineHeight: 29,
+                lineHeight: 26,
                 textTransform: 'uppercase',
                 letterSpacing: 0.5,
               }}

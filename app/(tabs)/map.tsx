@@ -28,6 +28,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { EmptyState } from '@/components/EmptyState';
+import { Wordmark } from '@/components/ui';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
@@ -75,14 +76,15 @@ const StationMarkerView = memo(function StationMarkerView({
   // pins to 25%; online pins full.
   const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
 
-  // Teardrop pin (Asphalt Volt comp): a single sport "ball" emoji centered in a
-  // rounded head with a pointed tail below. Open/live = volt fill; offline =
-  // coral fill (muted via opacity). The lead sport drives the emoji shown; a
-  // "+N" count badge preserves the multi-sport signal the old row conveyed.
-  const leadSport = station.sports[0];
-  const overflow = Math.max(0, station.sports.length - 1);
+  // Teardrop pin (Asphalt Volt comp): up to 3 tiny sport "ball" emojis stacked
+  // side-by-side inside a rounded head with a pointed tail below. Open/live =
+  // volt fill; offline = coral fill (muted via opacity). Stations with >3 sports
+  // just show the first 3 — no "+N" overflow number, the balls carry the signal.
+  const ballSports = station.sports.slice(0, 3);
   const fill = nearby ? palette.volt : palette.danger;
   const size = 42;
+  // Shrink the balls a touch when 3 are shown so they stay legible in the head.
+  const ballSize = ballSports.length >= 3 ? 12 : 15;
 
   return (
     <View
@@ -102,13 +104,14 @@ const StationMarkerView = memo(function StationMarkerView({
           borderRadius: 3,
         }}
       />
-      {/* Round head with the sport ball centered */}
+      {/* Round head with up to 3 tiny sport balls stacked side-by-side */}
       <View
         style={{
           width: size,
           height: size,
           borderRadius: size / 2,
           backgroundColor: fill,
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: nearby ? 3 : 2,
@@ -121,31 +124,19 @@ const StationMarkerView = memo(function StationMarkerView({
           elevation: 5,
         }}
       >
-        <Text style={{ fontSize: 20 }}>{SPORT_EMOJI[leadSport]}</Text>
-      </View>
-      {overflow > 0 ? (
-        <View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            top: -4,
-            right: -2,
-            minWidth: 16,
-            height: 16,
-            borderRadius: 8,
-            paddingHorizontal: 3,
-            backgroundColor: palette.surface,
-            borderWidth: 1.5,
-            borderColor: fill,
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text style={{ fontSize: 9, color: palette.fg, fontWeight: '700' }}>
-            +{overflow}
+        {ballSports.map((sp, i) => (
+          <Text
+            key={sp}
+            style={{
+              fontSize: ballSize,
+              // Slight overlap so 3 balls read as a tight cluster, not a spread.
+              marginLeft: i === 0 ? 0 : -2,
+            }}
+          >
+            {SPORT_EMOJI[sp]}
           </Text>
-        </View>
-      ) : null}
+        ))}
+      </View>
       {/* No text label: a per-pin word ("kapalı") truncated against the narrow
           marker width and looked broken. Instead, open stations get a glowing
           "live" dot + the volt border/pop above; closed stations carry no badge
@@ -864,20 +855,10 @@ function TopBar({
       ]}
     >
       {/* Brand wordmark sits LEFT (not centered) — deliberately distinct from
-          Equip's locate/center-wordmark/menu top bar. Action icons group right. */}
+          Equip's locate/center-wordmark/menu top bar. Action icons group right.
+          Wordmark lockup: "play" (fg) + "box" (volt), flips with theme. */}
       <TopBarPill>
-        <Text
-          className="font-display-x"
-          style={{
-            color: palette.ink,
-            fontSize: 17,
-            letterSpacing: 0.6,
-            lineHeight: 20,
-            includeFontPadding: false,
-          }}
-        >
-          Playbox
-        </Text>
+        <Wordmark size={22} />
       </TopBarPill>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">

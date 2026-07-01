@@ -67,7 +67,7 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
           fontFamily: 'Unbounded_800ExtraBold',
           color: isYou ? palette.volt : palette.fg,
           fontSize: 22,
-          lineHeight: 29,
+          lineHeight: 26,
           width: 32,
           textAlign: 'center',
           marginRight: 10,
@@ -213,7 +213,7 @@ export default function IntroSocial() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.ink,
                 fontSize: 44,
-                lineHeight: 57,
+                lineHeight: 52,
               }}
             >
               {line}

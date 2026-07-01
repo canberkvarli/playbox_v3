@@ -521,7 +521,7 @@ export function StationGateSelector({
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 21,
-              lineHeight: 27,
+              lineHeight: 25,
               color: palette.ink,
             }}
           >
@@ -660,7 +660,7 @@ export function StationGateSelector({
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 64,
-              lineHeight: 83,
+              lineHeight: 76,
               color: palette.ink,
               includeFontPadding: false,
               marginRight: 6,

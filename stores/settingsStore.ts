@@ -3,8 +3,13 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type CityKey = 'istanbul' | 'ankara' | 'izmir';
+export type ColorScheme = 'light' | 'dark';
 
 type SettingsStore = {
+  // Theme. Light is the default; dark is an opt-in toggle.
+  scheme: ColorScheme;
+  setScheme: (v: ColorScheme) => void;
+
   notifReturnReminder: boolean;
   notifFriendActivity: boolean;
   setReturnReminder: (v: boolean) => void;
@@ -21,6 +26,9 @@ type SettingsStore = {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
+      scheme: 'light',
+      setScheme: (v) => set({ scheme: v }),
+
       notifReturnReminder: true,
       notifFriendActivity: true,
       setReturnReminder: (v) => set({ notifReturnReminder: v }),

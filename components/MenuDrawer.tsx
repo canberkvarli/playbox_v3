@@ -18,13 +18,14 @@ import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { useMenuStore } from '@/stores/menuStore';
+import { Wordmark } from '@/components/ui';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const DRAWER_W = Math.round(SCREEN_W * 0.86);
 
 const SAFE_TOP = Platform.OS === 'ios' ? 54 : (StatusBar.currentHeight ?? 24) + 8;
 const SAFE_BOTTOM = Platform.OS === 'ios' ? 28 : 16;
-const ROW_H = 56;
+const PAD = 24;
 
 type Item = {
   key: string;
@@ -50,6 +51,16 @@ export function MenuDrawer() {
     }).start();
   }, [open, t]);
 
+  // Press-scale for the share tile (local, native-driven).
+  const shareScale = useRef(new Animated.Value(1)).current;
+  const springShare = (to: number) =>
+    Animated.spring(shareScale, {
+      toValue: to,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 8,
+    }).start();
+
   const close = () => setOpen(false);
   const go = (href: string) => {
     setOpen(false);
@@ -68,10 +79,8 @@ export function MenuDrawer() {
   const ITEMS: Item[] = [
     { key: 'map', label: 'harita', icon: 'map', onPress: () => go('/(tabs)/map') },
     { key: 'profile', label: 'profil', icon: 'user', onPress: () => go('/(tabs)/profile') },
-    { key: 'settings', label: 'ayarlar', icon: 'settings', onPress: () => go('/settings') },
     { key: 'reservations', label: 'rezervasyonlar', icon: 'calendar', onPress: () => go('/reservations') },
     { key: 'billing', label: 'ödemeler', icon: 'credit-card', onPress: () => go('/payments') },
-    { key: 'share', label: "playbox'ı paylaş", icon: 'share-2', onPress: shareApp },
   ];
 
   const translateX = t.interpolate({
@@ -82,6 +91,26 @@ export function MenuDrawer() {
     inputRange: [0, 1],
     outputRange: [0, 0.5],
   });
+
+  // Staggered cascade: each nav row fades + rises in, keyed off the SAME
+  // drawer-open value `t`. Later rows start their reveal later in the timeline,
+  // so they appear to spring in one after another as the panel slides.
+  const rowAnim = (index: number) => {
+    const start = 0.25 + index * 0.14;
+    const end = Math.min(start + 0.4, 1);
+    const inputRange = start < end ? [start, end] : [0, 1];
+    const opacity = t.interpolate({
+      inputRange,
+      outputRange: [0, 1],
+      extrapolate: 'clamp',
+    });
+    const translateY = t.interpolate({
+      inputRange,
+      outputRange: [16, 0],
+      extrapolate: 'clamp',
+    });
+    return { opacity, transform: [{ translateY }] };
+  };
 
   return (
     <View
@@ -119,9 +148,13 @@ export function MenuDrawer() {
           right: 0,
           width: DRAWER_W,
           height: SCREEN_H,
-          backgroundColor: palette.paper,
-          borderTopLeftRadius: 28,
-          borderBottomLeftRadius: 28,
+          backgroundColor: palette.bg,
+          borderTopLeftRadius: 32,
+          borderBottomLeftRadius: 32,
+          borderLeftWidth: 1,
+          borderTopWidth: 1,
+          borderBottomWidth: 1,
+          borderColor: palette.border,
           shadowColor: '#000',
           shadowOffset: { width: -8, height: 0 },
           shadowOpacity: 0.18,
@@ -129,18 +162,18 @@ export function MenuDrawer() {
           transform: [{ translateX }],
         }}
       >
-        {/* Top close-X bar */}
+        {/* Top bar: wordmark lockup + close-X */}
         <View
           style={{
-            width: DRAWER_W,
-            height: SAFE_TOP + 12,
             flexDirection: 'row',
-            justifyContent: 'flex-end',
-            alignItems: 'flex-end',
-            paddingRight: 16,
-            paddingBottom: 4,
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: SAFE_TOP,
+            paddingHorizontal: PAD,
+            paddingBottom: 18,
           }}
         >
+          <Wordmark size={26} />
           <Pressable
             onPress={close}
             hitSlop={14}
@@ -150,7 +183,9 @@ export function MenuDrawer() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.surfaceAlt,
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: pressed ? 0.6 : 1,
@@ -160,191 +195,258 @@ export function MenuDrawer() {
           </Pressable>
         </View>
 
-        {/* Header — same inner-View pattern as the menu items so the row
-            layout actually applies. */}
-        <Pressable
-          onPress={() => {
-            hx.tap();
-            go('/(tabs)/profile');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={displayName}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
+        {/* User card — tap name/avatar → profile; gear → settings */}
+        <View style={{ paddingHorizontal: PAD }}>
           <View
             style={{
-              width: DRAWER_W,
-              height: 84,
               flexDirection: 'row',
               alignItems: 'center',
-              paddingHorizontal: 20,
+              backgroundColor: palette.surface,
+              borderRadius: 22,
+              borderWidth: 1,
+              borderColor: palette.border,
+              padding: 14,
             }}
           >
-            <View
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: 26,
-                backgroundColor: palette.surface,
+            <Pressable
+              onPress={() => {
+                hx.tap();
+                go('/(tabs)/profile');
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={displayName}
+              style={({ pressed }) => ({
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: 26,
+                  backgroundColor: palette.volt,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}
+              >
+                <Text
+                  style={{
+                    color: palette.voltInk,
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    fontSize: 20,
+                  }}
+                >
+                  {initial}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: palette.fg,
+                    fontFamily: 'Unbounded_700Bold',
+                    fontSize: 17,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  {displayName}
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: palette.muted,
+                    fontFamily: 'JetBrainsMono_500Medium',
+                    fontSize: 13,
+                    marginTop: 4,
+                    letterSpacing: 0.2,
+                  }}
+                >
+                  @{username}
+                </Text>
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                await hx.tap();
+                go('/settings');
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="ayarlar"
+              style={({ pressed }) => ({
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                backgroundColor: palette.surfaceAlt,
+                borderWidth: 1,
+                borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 14,
-              }}
+                marginLeft: 10,
+                opacity: pressed ? 0.55 : 1,
+              })}
             >
-              <Text
-                style={{
-                  color: palette.fg,
-                  fontSize: 20,
-                  fontWeight: '800',
-                }}
-              >
-                {initial}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: palette.fg,
-                  fontSize: 18,
-                  fontWeight: '700',
-                  letterSpacing: 0.2,
-                }}
-              >
-                {displayName}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{
-                  color: palette.muted,
-                  fontFamily: 'JetBrainsMono_500Medium',
-                  fontSize: 13,
-                  marginTop: 3,
-                  letterSpacing: 0.2,
-                }}
-              >
-                @{username}
-              </Text>
-            </View>
+              <Feather name="settings" size={20} color={palette.fg} />
+            </Pressable>
           </View>
-        </Pressable>
+        </View>
 
-        <View
-          style={{
-            width: DRAWER_W - 40,
-            marginLeft: 20,
-            height: 1,
-            backgroundColor: palette.border,
-          }}
-        />
-
-        {/* Items list — fixed maxHeight so destek footer always fits */}
+        {/* Nav list — big uppercase display labels, cascading entrance */}
         <ScrollView
           style={{
             width: DRAWER_W,
             maxHeight:
               SCREEN_H -
-              (SAFE_TOP + 12) -
-              80 -
-              1 -
-              (1 + ROW_H + SAFE_BOTTOM),
+              (SAFE_TOP + 18 + 26) -
+              (14 + 52 + 14) -
+              (SAFE_BOTTOM + 132),
           }}
-          contentContainerStyle={{ paddingVertical: 6 }}
+          contentContainerStyle={{ paddingHorizontal: PAD, paddingTop: 26, paddingBottom: 8 }}
           showsVerticalScrollIndicator={false}
         >
-          {ITEMS.map((item) => (
-            <Pressable
-              key={item.key}
-              onPress={async () => {
-                await hx.tap();
-                item.onPress();
-              }}
-              style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
-            >
-              <View
-                style={{
-                  width: DRAWER_W,
-                  height: ROW_H,
+          {ITEMS.map((item, index) => (
+            <Animated.View key={item.key} style={rowAnim(index)}>
+              <Pressable
+                onPress={async () => {
+                  await hx.tap();
+                  item.onPress();
+                }}
+                style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',
-                  paddingHorizontal: 22,
-                }}
+                  paddingVertical: 15,
+                  opacity: pressed ? 0.5 : 1,
+                })}
               >
-                <Feather
-                  name={item.icon}
-                  size={22}
-                  color={palette.ink}
-                  style={{ marginRight: 14 }}
-                />
+                <View
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 13,
+                    backgroundColor: palette.surface,
+                    borderWidth: 1,
+                    borderColor: palette.border,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 16,
+                  }}
+                >
+                  <Feather name={item.icon} size={19} color={palette.fg} />
+                </View>
                 <Text
                   numberOfLines={1}
                   style={{
                     flex: 1,
-                    color: palette.ink,
-                    fontSize: 17,
-                    fontWeight: '600',
+                    color: palette.fg,
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    fontSize: 20,
+                    letterSpacing: 0.5,
+                    textTransform: 'uppercase',
                   }}
                 >
                   {item.label}
                 </Text>
-              </View>
-            </Pressable>
+                <Feather name="arrow-up-right" size={18} color={palette.muted} />
+              </Pressable>
+            </Animated.View>
           ))}
         </ScrollView>
 
-        {/* Destek footer — absolutely pinned to the bottom of the panel */}
+        {/* Share tile — distinct volt-tinted card with press-scale */}
         <View
           style={{
             position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: SAFE_BOTTOM,
-            width: DRAWER_W,
+            left: PAD,
+            right: PAD,
+            bottom: SAFE_BOTTOM + 64,
           }}
         >
-          <View
-            style={{
-              width: DRAWER_W - 40,
-              marginLeft: 20,
-              height: 1,
-              backgroundColor: palette.border,
-            }}
-          />
+          <Animated.View style={{ transform: [{ scale: shareScale }] }}>
+            <Pressable
+              onPress={async () => {
+                await hx.tap();
+                shareApp();
+              }}
+              onPressIn={() => springShare(0.96)}
+              onPressOut={() => springShare(1)}
+              accessibilityRole="button"
+              accessibilityLabel="playbox'ı paylaş"
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: palette.volt,
+                borderRadius: 20,
+                paddingVertical: 16,
+                paddingHorizontal: 18,
+              }}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 13,
+                  backgroundColor: 'rgba(0,0,0,0.10)',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 14,
+                }}
+              >
+                <Feather name="share-2" size={20} color={palette.voltInk} />
+              </View>
+              <Text
+                numberOfLines={1}
+                style={{
+                  flex: 1,
+                  color: palette.voltInk,
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  fontSize: 15,
+                  letterSpacing: 0.3,
+                }}
+              >
+                playbox'ı paylaş
+              </Text>
+              <Feather name="arrow-right" size={20} color={palette.voltInk} />
+            </Pressable>
+          </Animated.View>
+        </View>
+
+        {/* Destek — pinned bottom-left, ghost/subtle */}
+        <View
+          style={{
+            position: 'absolute',
+            left: PAD,
+            bottom: SAFE_BOTTOM,
+          }}
+        >
           <Pressable
             onPress={async () => {
               await hx.tap();
               go('/support');
             }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.55 : 1 })}
+            accessibilityRole="button"
+            accessibilityLabel="destek"
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingVertical: 8,
+              opacity: pressed ? 0.5 : 1,
+            })}
           >
-            <View
+            <Feather name="phone" size={16} color={palette.muted} style={{ marginRight: 8 }} />
+            <Text
               style={{
-                width: DRAWER_W,
-                height: 72,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 22,
+                color: palette.muted,
+                fontFamily: 'Inter_600SemiBold',
+                fontSize: 14,
+                letterSpacing: 0.2,
               }}
             >
-              <Feather
-                name="phone"
-                size={26}
-                color={palette.coral}
-                style={{ marginRight: 16 }}
-              />
-              <Text
-                numberOfLines={1}
-                style={{
-                  flex: 1,
-                  color: palette.coral,
-                  fontSize: 20,
-                  fontWeight: '800',
-                  letterSpacing: 0.2,
-                }}
-              >
-                destek
-              </Text>
-            </View>
+              destek
+            </Text>
           </Pressable>
         </View>
       </Animated.View>

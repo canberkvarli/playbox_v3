@@ -1,5 +1,6 @@
-// Asphalt Volt is dark-first. On web we render dark to match the native default
-// and keep first-paint stable (no media-query flash).
+import { useSettingsStore } from '@/stores/settingsStore';
+
+// Light by default on web too (mirrors native). Reads the persisted preference.
 export function useColorScheme(): 'light' | 'dark' {
-  return 'dark';
+  return useSettingsStore((s) => s.scheme);
 }
