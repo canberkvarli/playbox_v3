@@ -45,13 +45,13 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
         <RiseIn delay={0}>
           <View
             style={{
-              backgroundColor: palette.butter,
+              backgroundColor: palette.surface,
               borderRadius: 28,
               padding: 24,
               minHeight: 140,
               overflow: 'hidden',
               borderWidth: 1,
-              borderColor: palette.ink + '1a',
+              borderColor: palette.border,
             }}
           >
             {[0.25, 0.5, 0.75].map((p) => (
@@ -63,7 +63,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                   right: 0,
                   top: `${p * 100}%`,
                   height: 1,
-                  backgroundColor: palette.surface + '0d',
+                  backgroundColor: palette.border + '55',
                 }}
               />
             ))}
@@ -76,7 +76,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                   bottom: 0,
                   left: `${p * 100}%`,
                   width: 1,
-                  backgroundColor: palette.surface + '0d',
+                  backgroundColor: palette.border + '55',
                 }}
               />
             ))}
@@ -95,7 +95,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                 </Text>
               ))}
             </View>
-            <Text className="font-mono text-ink/60 text-xs text-center mt-4">
+            <Text className="font-mono text-muted text-xs text-center mt-4">
               {t('station.gate_count', {
                 total: station.sports.length,
                 available: availableCount,
@@ -108,25 +108,31 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
         <RiseIn delay={80}>
           <View className="mt-6">
             <Text
-              className="font-display-x text-ink dark:text-fg text-5xl leading-[54px]"
-              style={{ lineHeight: 48 }}
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.fg,
+                fontSize: 24,
+                lineHeight: 30,
+                letterSpacing: 0.2,
+                textTransform: 'uppercase',
+              }}
               numberOfLines={2}
             >
               {station.name}
             </Text>
             <View className="flex-row items-center gap-4 mt-3">
               <View className="flex-row items-center gap-1.5">
-                <Feather name="map-pin" size={14} color={palette.ink + '88'} />
-                <Text className="font-sans text-ink/60 dark:text-fg/60 text-sm">
+                <Feather name="map-pin" size={14} color={palette.muted} />
+                <Text className="font-sans text-muted text-sm">
                   {station.city}
                 </Text>
               </View>
               <View
-                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: palette.surface + '44' }}
+                style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: palette.border }}
               />
               <View className="flex-row items-center gap-1.5">
-                <Feather name="clock" size={14} color={palette.ink + '88'} />
-                <Text className="font-mono text-ink/60 dark:text-fg/60 text-sm">24/7</Text>
+                <Feather name="clock" size={14} color={palette.muted} />
+                <Text className="font-mono text-muted text-sm">24/7</Text>
               </View>
             </View>
           </View>
@@ -135,7 +141,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
         {/* Gate grid — tappable sport cards with K{n} badges */}
         <RiseIn delay={160}>
           <View className="mt-8">
-            <Text className="font-medium text-ink/60 dark:text-fg/60 uppercase tracking-wider text-xs mb-3">
+            <Text className="font-medium text-muted uppercase tracking-wider text-xs mb-3">
               {t('station.available_equipment')}
             </Text>
             <View>
@@ -147,9 +153,9 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                   <View
                     key={sport}
                     style={{
-                      backgroundColor: out ? palette.ink + '0d' : palette.paper,
+                      backgroundColor: out ? palette.surface : palette.surfaceAlt,
                       borderWidth: 1.5,
-                      borderColor: palette.ink + '22',
+                      borderColor: palette.border,
                       borderRadius: 20,
                       padding: 16,
                       marginBottom: 12,
@@ -169,7 +175,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                         <Text
                           style={{
                             fontFamily: 'Unbounded_800ExtraBold',
-                            color: palette.ink,
+                            color: palette.fg,
                             fontSize: 18,
                             letterSpacing: 0.2,
                           }}
@@ -180,7 +186,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                           <Text
                             style={{
                               fontFamily: 'Inter_700Bold',
-                              color: palette.coral,
+                              color: palette.danger,
                               fontSize: 12,
                               marginTop: 3,
                             }}
@@ -207,7 +213,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                             <Text
                               style={{
                                 fontFamily: 'Unbounded_700Bold',
-                                color: palette.ink,
+                                color: palette.volt,
                                 fontSize: 11,
                                 letterSpacing: 0.6,
                                 textTransform: 'uppercase',
@@ -220,7 +226,9 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                       </View>
                       <View
                         style={{
-                          backgroundColor: palette.surface,
+                          backgroundColor: palette.bg,
+                          borderWidth: 1,
+                          borderColor: palette.border,
                           borderRadius: 8,
                           paddingHorizontal: 8,
                           paddingVertical: 4,
@@ -254,24 +262,24 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                         >
                           <View
                             style={{
-                              backgroundColor: palette.coral,
-                              borderRadius: 14,
+                              backgroundColor: palette.volt,
+                              borderRadius: 999,
                               paddingVertical: 14,
                               alignItems: 'center',
                               flexDirection: 'row',
                               justifyContent: 'center',
-                              shadowColor: palette.coral,
+                              shadowColor: palette.volt,
                               shadowOffset: { width: 0, height: 6 },
                               shadowOpacity: 0.28,
                               shadowRadius: 10,
                               elevation: 6,
                             }}
                           >
-                            <Feather name="play" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+                            <Feather name="play" size={14} color={palette.voltInk} style={{ marginRight: 8 }} />
                             <Text
                               style={{
                                 fontFamily: 'Unbounded_800ExtraBold',
-                                color: palette.fg,
+                                color: palette.voltInk,
                                 fontSize: 13,
                                 letterSpacing: 0.4,
                               }}
@@ -292,14 +300,16 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                           <View
                             style={{
                               backgroundColor: palette.surface,
-                              borderRadius: 14,
+                              borderWidth: 1.5,
+                              borderColor: palette.border,
+                              borderRadius: 999,
                               paddingVertical: 14,
                               alignItems: 'center',
                               flexDirection: 'row',
                               justifyContent: 'center',
                             }}
                           >
-                            <Feather name="clock" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+                            <Feather name="clock" size={14} color={palette.fg} style={{ marginRight: 8 }} />
                             <Text
                               style={{
                                 fontFamily: 'Unbounded_800ExtraBold',

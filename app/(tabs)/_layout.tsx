@@ -16,11 +16,20 @@ export default function TabLayout() {
           headerShown: false,
           tabBarActiveTintColor: palette.volt,
           tabBarInactiveTintColor: palette.muted,
-          tabBarStyle: { display: 'none' },
+          // Bar is currently hidden (accessed via ActiveSessionBanner + drawer);
+          // dark surface + hairline top border are tokenized here so the bar
+          // matches the Asphalt Volt comp the moment it's shown.
+          tabBarStyle: {
+            display: 'none',
+            backgroundColor: palette.surface,
+            borderTopColor: palette.border,
+            borderTopWidth: 1,
+          },
           tabBarLabelStyle: {
             fontFamily: 'Inter_500Medium',
             fontSize: 11,
             letterSpacing: 0.3,
+            textTransform: 'lowercase',
           },
         }}
       >

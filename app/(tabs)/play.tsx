@@ -19,7 +19,7 @@ import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
-import { Button } from '@/components/ui';
+import { Button, CircularTimer } from '@/components/ui';
 
 // Safe-import expo-image-picker the same way GearReportSheet does — keeps the
 // bundle from exploding if the native module isn't linked in some build, and
@@ -71,174 +71,26 @@ function LiveTimer({ session }: { session: ActiveSession }) {
 
   const accent = overtime ? palette.danger : palette.volt;
 
+  // Comp target (Asphalt Volt): a single volt ring on the dark app bg — big
+  // JetBrains Mono countdown in cream, muted caption. When overtime, the arc
+  // switches to coral and the center shows how far past planned we are.
+  // The `progress` prop drives the REMAINING fraction (arc empties as time
+  // runs out), so we pass `1 - progress`.
+  const remainingFraction = Math.max(0, 1 - progress);
+  const centerTime = overtime ? `+${fmt(overMs)}` : fmt(remainingMs);
+  const caption = overtime
+    ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
+    : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
+
   return (
-    <View
-      style={{
-        backgroundColor: palette.surface,
-        borderRadius: 32,
-        paddingVertical: 32,
-        paddingHorizontal: 28,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: palette.border,
-        shadowColor: palette.deep,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.22,
-        shadowRadius: 24,
-        elevation: 10,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: 'JetBrainsMono_500Medium',
-          color: accent + 'cc',
-          fontSize: 11,
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
-        }}
-      >
-        geçen süre
-      </Text>
-
-      <Text
-        style={{
-          fontFamily: 'JetBrainsMono_400Regular',
-          color: palette.fg,
-          fontSize: 80,
-          lineHeight: 86,
-          letterSpacing: 3,
-          marginTop: 6,
-          includeFontPadding: false,
-        }}
-      >
-        {fmt(elapsed)}
-      </Text>
-
-      {/* Progress bar — strokes full-width with overtime bleed */}
-      <View
-        style={{
-          width: '100%',
-          height: 8,
-          backgroundColor: palette.surfaceAlt,
-          borderRadius: 4,
-          marginTop: 22,
-          overflow: 'hidden',
-        }}
-      >
-        <View
-          style={{
-            width: `${progress * 100}%`,
-            height: '100%',
-            backgroundColor: accent,
-            borderRadius: 4,
-          }}
-        />
-      </View>
-
-      {/* Remaining status chip */}
-      <View
-        style={{
-          marginTop: 18,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 999,
-          backgroundColor: overtime ? palette.danger : palette.surfaceAlt,
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <Feather
-          name={overtime ? 'alert-triangle' : 'clock'}
-          size={13}
-          color={overtime ? palette.fg : accent}
-          style={{ marginRight: 8 }}
-        />
-        <Text
-          style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: overtime ? palette.fg : accent,
-            fontSize: 13,
-            letterSpacing: 0.4,
-          }}
-        >
-          {overtime
-            ? `${fmt(overMs)} geciktin`
-            : `${fmt(remainingMs)} kaldı`}
-        </Text>
-      </View>
-
-      {/* Cost row — rate disclosure on the left, running accrued total on
-          the right. Coral when overtime so the user feels the penalty. */}
-      <View
-        style={{
-          marginTop: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 4,
-          width: '100%',
-        }}
-      >
-        <Text
-          style={{
-            fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.fg + '99',
-            fontSize: 11,
-            letterSpacing: 0.6,
-          }}
-        >
-          {formatTry(RATE_PER_MIN_GROSS)}/dk · KDV dahil
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'JetBrainsMono_700Bold',
-            color: overtime ? palette.danger : palette.volt,
-            fontSize: 16,
-            letterSpacing: 0.4,
-          }}
-        >
-          {formatTry(costForMs(elapsed))}
-        </Text>
-      </View>
-
-      {/* Overtime breakdown — only when over the planned duration */}
-      {overtime ? (
-        <View
-          style={{
-            marginTop: 8,
-            backgroundColor: palette.danger + '33',
-            borderRadius: 10,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            alignSelf: 'stretch',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.fg,
-              fontSize: 11,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-            }}
-          >
-            ek ücret
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'JetBrainsMono_700Bold',
-              color: palette.fg,
-              fontSize: 13,
-              letterSpacing: 0.4,
-            }}
-          >
-            +{formatTry(costForMs(overMs))}
-          </Text>
-        </View>
-      ) : null}
+    <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+      <CircularTimer
+        progress={remainingFraction}
+        time={centerTime}
+        caption={caption}
+        size={260}
+        color={accent}
+      />
     </View>
   );
 }
@@ -622,17 +474,39 @@ export default function Play() {
             <Feather name="chevron-left" size={22} color={palette.fg} />
           </View>
         </Pressable>
-        <Text
+        {/* Comp header: a small VOLT dot + tracked JetBrains Mono line reading
+            "<SPORT> · <STATION SHORT>". Station short = first token of the
+            station name, uppercased (no dedicated short field on the session).
+            Recolors coral on overtime, mirroring the old eyebrow behavior. */}
+        <View
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: isOvertime ? palette.danger : palette.muted,
-            fontSize: 13,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {isOvertime ? 'süre aşımı' : 'aktif seans'}
-        </Text>
+          <View
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: isOvertime ? palette.danger : palette.volt,
+              marginRight: 8,
+            }}
+          />
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              color: isOvertime ? palette.danger : palette.volt,
+              fontSize: 13,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+            }}
+          >
+            {`${SPORT_LABELS[active.sport] ?? active.sport} · ${active.stationName.split(' ')[0]}`}
+          </Text>
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -795,42 +669,22 @@ export default function Play() {
 
       <View style={{ flex: 1 }} />
 
-      {/* Primary CTA — can't-miss coral with strong shadow */}
-      <Pressable
-        onPress={onFinishSession}
-        accessibilityRole="button"
-        accessibilityLabel="seansı bitir"
-        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
+      {/* Primary CTA — comp coral-OUTLINE pill (transparent fill, coral border
+          + coral label). Same onPress; the Button primitive owns the styling. */}
+      <Button variant="danger" label="seansı bitir" onPress={onFinishSession} />
+
+      {/* Hint under the end button — muted, centered. */}
+      <Text
+        style={{
+          marginTop: 12,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
+          fontSize: 13,
+          textAlign: 'center',
+        }}
       >
-        <View
-          style={{
-            backgroundColor: palette.danger,
-            borderRadius: 999,
-            paddingVertical: 22,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: palette.danger,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.35,
-            shadowRadius: 18,
-            elevation: 12,
-          }}
-        >
-          <Feather name="check" size={22} color={palette.fg} style={{ marginRight: 12 }} />
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.fg,
-              fontSize: 22,
-              lineHeight: 25,
-              letterSpacing: 1.2,
-            }}
-          >
-            seansı bitir
-          </Text>
-        </View>
-      </Pressable>
+        süre dolmadan telefonun titrer ⏱
+      </Text>
 
       {/* Report-a-problem — subtle text link under the primary CTA. Opens the
           gear report sheet with the active session context. Best-effort: never

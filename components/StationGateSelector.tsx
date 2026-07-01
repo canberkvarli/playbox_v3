@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, {
-  Easing,
   FadeInDown,
   useAnimatedStyle,
   useSharedValue,
@@ -22,6 +21,7 @@ import { useRouter } from 'expo-router';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { Button } from '@/components/ui';
 import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
 import { gatesForStation, SPORT_LABELS, STATIONS, type Gate, type Station, type Sport } from '@/data/stations.seed';
@@ -180,29 +180,17 @@ function GateCard({
     sel.value = withSpring(selected ? 1 : 0, { damping: 14, stiffness: 220 });
   }, [selected, sel]);
 
-  const cardStyle = useAnimatedStyle(() => ({
-    // Gentle grow on select/press — kept small so a left-edge card doesn't
-    // expand into the screen margin (the selection is mostly carried by the
-    // border, butter fill and check ring anyway).
-    transform: [{ scale: 1 + sel.value * 0.03 - press.value * 0.025 }],
+  const rowStyle = useAnimatedStyle(() => ({
+    // Gentle grow on press/select — subtle; the selection is carried by the
+    // volt border + the "seç" volt label on the right.
+    transform: [{ scale: 1 + sel.value * 0.01 - press.value * 0.02 }],
     borderColor: disabled
-      ? palette.coral + '88'
+      ? palette.danger + '88'
       : selected
-      ? palette.coral
-      : palette.ink + '33',
-    borderWidth: 2,
-    // Coral wash when in use (disabled), butter when selected, else a subtle
-    // ink tint so the card doesn't vanish against the paper background.
-    backgroundColor: disabled
-      ? palette.coral + '14'
-      : selected
-      ? palette.butter
-      : palette.ink + '0d',
-  }));
-
-  const ringStyle = useAnimatedStyle(() => ({
-    opacity: sel.value,
-    transform: [{ scale: 0.6 + sel.value * 0.4 }],
+      ? palette.volt
+      : palette.border,
+    borderWidth: selected ? 2 : 1,
+    backgroundColor: disabled ? palette.danger + '14' : palette.surface,
   }));
 
   return (
@@ -211,83 +199,80 @@ function GateCard({
       onPress={onPress}
       onPressIn={() => (press.value = withTiming(1, { duration: 80 }))}
       onPressOut={() => (press.value = withTiming(0, { duration: 120 }))}
-      style={{ flexBasis: '30%', flexGrow: 1, opacity: disabled ? 0.7 : 1 }}
+      style={{ opacity: disabled ? 0.7 : 1 }}
     >
       <Animated.View
         style={[
           {
-            borderRadius: 24,
-            paddingVertical: 16,
-            paddingHorizontal: 10,
+            borderRadius: 16,
+            padding: 14,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 134,
-            position: 'relative',
             overflow: 'hidden',
           },
-          cardStyle,
+          rowStyle,
         ]}
       >
-        <Animated.View
-          style={[
-            {
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              width: 18,
-              height: 18,
-              borderRadius: 9,
-              backgroundColor: palette.coral,
-              alignItems: 'center',
-              justifyContent: 'center',
-            },
-            ringStyle,
-          ]}
+        {/* Emoji tile */}
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 12,
+            backgroundColor: palette.surfaceAlt,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 14,
+          }}
         >
-          <Feather name="check" size={11} color={palette.paper} />
-        </Animated.View>
+          <Text style={{ fontSize: 24 }}>{SPORT_EMOJI[sport]}</Text>
+        </View>
+        {/* Sport name */}
+        <Text
+          numberOfLines={1}
+          style={{
+            flex: 1,
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 16,
+            color: palette.fg,
+            letterSpacing: 0.2,
+          }}
+        >
+          {SPORT_LABELS[sport]}
+        </Text>
+        {/* Right-side affordance — "DOLU" when in use, else the "seç" volt label. */}
         {disabled ? (
           <View
             style={{
-              position: 'absolute',
-              top: 6,
-              right: 6,
-              backgroundColor: palette.coral,
+              backgroundColor: palette.danger,
               borderRadius: 8,
-              paddingHorizontal: 7,
+              paddingHorizontal: 8,
               paddingVertical: 3,
             }}
           >
             <Text
               style={{
-                fontFamily: 'Unbounded_700Bold',
+                fontFamily: 'Inter_600SemiBold',
                 color: palette.fg,
-                fontSize: 9,
+                fontSize: 11,
                 letterSpacing: 0.4,
               }}
             >
               DOLU
             </Text>
           </View>
-        ) : null}
-        <Text style={{ fontSize: 40 }}>{SPORT_EMOJI[sport]}</Text>
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.7}
-          style={{
-            fontFamily: 'Unbounded_700Bold',
-            fontSize: 13,
-            color: palette.ink,
-            marginTop: 6,
-            textTransform: 'lowercase',
-            letterSpacing: 0,
-            width: '100%',
-            textAlign: 'center',
-          }}
-        >
-          {SPORT_LABELS[sport]}
-        </Text>
+        ) : (
+          <Text
+            style={{
+              fontFamily: 'Inter_600SemiBold',
+              fontSize: 14,
+              color: palette.volt,
+              letterSpacing: 0.2,
+            }}
+          >
+            seç
+          </Text>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -493,11 +478,11 @@ export function StationGateSelector({
       {/* Gates */}
       <Text
         style={{
-          color: palette.ink,
-          fontSize: 11,
-          letterSpacing: 1.2,
+          color: palette.muted,
+          fontFamily: 'JetBrainsMono_500Medium',
+          fontSize: 12,
+          letterSpacing: 2,
           textTransform: 'uppercase',
-          fontWeight: '600',
           marginBottom: 12,
         }}
       >
@@ -508,12 +493,7 @@ export function StationGateSelector({
       <View
         pointerEvents={open ? 'auto' : 'none'}
         style={{
-          flexDirection: 'row',
           gap: 10,
-          flexWrap: 'wrap',
-          // Small horizontal inset gives the cards' grow-on-select room so the
-          // edge cards never touch the screen margin when they scale up.
-          paddingHorizontal: 4,
           opacity: open ? 1 : 0.45,
         }}
       >
@@ -932,13 +912,28 @@ export function StationGateSelector({
       ) : null}
 
       {open ? (
-        <CTAButton
-          label={ctaLabel}
-          bg={palette.coral}
-          enabled={ctaEnabled}
-          hardBlocked={sessionAtOtherStation}
-          onPress={onPress}
-        />
+        <View style={{ marginTop: 32 }} pointerEvents={sessionAtOtherStation ? 'none' : 'auto'}>
+          {/* Hint above the CTA — centered, muted. */}
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              fontSize: 12,
+              color: palette.muted,
+              textAlign: 'center',
+              letterSpacing: 0.3,
+              marginBottom: 14,
+            }}
+          >
+            açmak için istasyona yaklaş 🛰
+          </Text>
+          {/* Primary CTA — full-width VOLT pill. onPress/label logic unchanged. */}
+          <Button
+            label={ctaLabel}
+            onPress={onPress}
+            variant="primary"
+            disabled={!ctaEnabled}
+          />
+        </View>
       ) : null}
 
       {/* Always-visible secondary "Rezerve et". Lets the user hold a gate
@@ -980,85 +975,3 @@ export function StationGateSelector({
   );
 }
 
-/**
- * Animated CTA button. Springs in scale and shadow when it becomes actionable
- * (e.g. user picks a gate and "bir kapı seç" turns into "oyna"). The bg colour
- * lives on an inner View — Pressable function-style props were dropping the
- * backgroundColor on this RN build, leaving the button as white-on-white.
- */
-function CTAButton({
-  label,
-  bg,
-  enabled,
-  hardBlocked,
-  onPress,
-}: {
-  label: string;
-  bg: string;
-  enabled: boolean;
-  hardBlocked: boolean;
-  onPress: () => void;
-}) {
-  const activate = useSharedValue(enabled ? 1 : 0);
-  const press = useSharedValue(0);
-
-  useEffect(() => {
-    activate.value = withSpring(enabled ? 1 : 0, { damping: 14, stiffness: 180 });
-  }, [enabled, activate]);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + activate.value * 0.02 - press.value * 0.04 }],
-    opacity: hardBlocked ? 0.5 : 0.7 + activate.value * 0.3,
-  }));
-
-  return (
-    <View
-      style={{ marginTop: 32 }}
-      pointerEvents={hardBlocked ? 'none' : 'auto'}
-    >
-      <Pressable
-        onPress={onPress}
-        disabled={!enabled}
-        onPressIn={() => (press.value = withTiming(1, { duration: 80 }))}
-        onPressOut={() => (press.value = withTiming(0, { duration: 120, easing: Easing.out(Easing.cubic) }))}
-      >
-        <Animated.View
-          style={[
-            {
-              width: '100%',
-              backgroundColor: bg,
-              borderRadius: 28,
-              paddingVertical: 24,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: bg,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: enabled ? 0.35 : 0.15,
-              shadowRadius: 20,
-              elevation: enabled ? 12 : 4,
-            },
-            animatedStyle,
-          ]}
-        >
-          <Animated.Text
-            // Re-mount on label change so FadeIn re-runs and the label
-            // crossfades when state flips (e.g. "bir kapı seç" → "oyna").
-            key={label}
-            entering={FadeInDown.duration(180)}
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.fg,
-              letterSpacing: 2,
-              fontSize: 26,
-              lineHeight: 30,
-              textAlign: 'center',
-              includeFontPadding: false,
-            }}
-          >
-            {label}
-          </Animated.Text>
-        </Animated.View>
-      </Pressable>
-    </View>
-  );
-}

@@ -75,27 +75,42 @@ const StationMarkerView = memo(function StationMarkerView({
   // pins to 25%; online pins full.
   const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
 
-  // Show up to 3 sport emojis stacked horizontally so users see at a glance
-  // that one station hosts multiple games.
-  const visibleSports = station.sports.slice(0, 3);
-  const overflow = Math.max(0, station.sports.length - 3);
-  const baseW = 30;
-  const perEmoji = 18;
-  const width = baseW + visibleSports.length * perEmoji + (overflow > 0 ? 14 : 0);
+  // Teardrop pin (Asphalt Volt comp): a single sport "ball" emoji centered in a
+  // rounded head with a pointed tail below. Open/live = volt fill; offline =
+  // coral fill (muted via opacity). The lead sport drives the emoji shown; a
+  // "+N" count badge preserves the multi-sport signal the old row conveyed.
+  const leadSport = station.sports[0];
+  const overflow = Math.max(0, station.sports.length - 1);
+  const fill = nearby ? palette.volt : palette.danger;
+  const size = 42;
 
   return (
     <View
-      style={[
-        {
-          backgroundColor: nearby ? palette.volt : palette.danger,
-          borderRadius: 16,
-          height: 40,
-          width,
-          paddingHorizontal: 8,
-          flexDirection: 'row',
+      pointerEvents="none"
+      style={{ width: size, height: size + 8, alignItems: 'center', opacity }}
+    >
+      {/* Pointed tail — a rotated square peeking below the head reads as the
+          teardrop point. Same fill/shadow as the head so it looks like one pin. */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 2,
+          width: 14,
+          height: 14,
+          backgroundColor: fill,
+          transform: [{ rotate: '45deg' }],
+          borderRadius: 3,
+        }}
+      />
+      {/* Round head with the sport ball centered */}
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: fill,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 2,
           borderWidth: nearby ? 3 : 2,
           // Volt = "açık": the station's ESP32 is powered and in BLE range.
           borderColor: nearby ? palette.voltInk : palette.deep,
@@ -104,39 +119,45 @@ const StationMarkerView = memo(function StationMarkerView({
           shadowOpacity: nearby ? 0.45 : 0.22,
           shadowRadius: nearby ? 8 : 5,
           elevation: 5,
-          opacity,
-        },
-      ]}
-    >
-      {visibleSports.map((sp) => (
-        <Text key={sp} style={{ fontSize: 16 }}>
-          {SPORT_EMOJI[sp]}
-        </Text>
-      ))}
+        }}
+      >
+        <Text style={{ fontSize: 20 }}>{SPORT_EMOJI[leadSport]}</Text>
+      </View>
       {overflow > 0 ? (
-        <Text
+        <View
+          pointerEvents="none"
           style={{
-            fontSize: 10,
-            color: palette.voltInk,
-            fontWeight: '700',
-            marginLeft: 2,
+            position: 'absolute',
+            top: -4,
+            right: -2,
+            minWidth: 16,
+            height: 16,
+            borderRadius: 8,
+            paddingHorizontal: 3,
+            backgroundColor: palette.surface,
+            borderWidth: 1.5,
+            borderColor: fill,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          +{overflow}
-        </Text>
+          <Text style={{ fontSize: 9, color: palette.fg, fontWeight: '700' }}>
+            +{overflow}
+          </Text>
+        </View>
       ) : null}
       {/* No text label: a per-pin word ("kapalı") truncated against the narrow
-          one-emoji marker width and looked broken. Instead, open stations get a
-          glowing green "live" dot + the green border/pop above; closed stations
-          carry no badge at all — they simply gray out (see the opacity in
-          `style`). Status reads purely from color/brightness now. */}
+          marker width and looked broken. Instead, open stations get a glowing
+          "live" dot + the volt border/pop above; closed stations carry no badge
+          — they simply gray out (see the opacity above). Status reads purely
+          from color/brightness now. */}
       {nearby && (
         <View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: -5,
-            right: -5,
+            top: -3,
+            left: -1,
             width: 12,
             height: 12,
             borderRadius: 6,
@@ -693,7 +714,18 @@ function StationListView({
                 {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
               </Text>
             )}
-            <Text className="font-display text-ink dark:text-fg text-xl mt-1 leading-[22px]">{s.name}</Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 18,
+                lineHeight: 22,
+                color: palette.fg,
+                textTransform: 'uppercase',
+                marginTop: 4,
+              }}
+            >
+              {s.name}
+            </Text>
             <View className="flex-row flex-wrap gap-2 mt-3">
               {s.sports.map((sport) => {
                 const stock = s.stock[sport] ?? 0;
@@ -909,9 +941,9 @@ function HomeBottomSheet({
       // search row and filters pill butt up against the Dynamic Island.
       topInset={insets.top}
       backgroundStyle={{
-        backgroundColor: palette.paper,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        backgroundColor: palette.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
       }}
       handleIndicatorStyle={{ backgroundColor: palette.border, width: 44, height: 5 }}
     >
@@ -1150,7 +1182,7 @@ function HomeBottomSheet({
                   key={s.id}
                   onPress={() => onPickStation(s)}
                   style={({ pressed }) => ({
-                    backgroundColor: palette.surface,
+                    backgroundColor: palette.surfaceAlt,
                     borderColor: palette.border,
                     borderWidth: 1,
                     borderRadius: 20,
@@ -1182,11 +1214,12 @@ function HomeBottomSheet({
                   {/* Name + status */}
                   <View style={{ flex: 1 }}>
                     <Text
-                      className="font-display"
                       style={{
+                        fontFamily: 'Unbounded_800ExtraBold',
                         fontSize: 16,
                         lineHeight: 20,
-                        color: palette.ink,
+                        color: palette.fg,
+                        textTransform: 'uppercase',
                       }}
                       numberOfLines={1}
                     >

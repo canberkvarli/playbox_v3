@@ -14,7 +14,7 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
+import { CITY_LABELS, STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { getDriver } from '@/lib/hardware';
@@ -199,7 +199,9 @@ export default function StationDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
-      {/* Top chrome — back arrow only (info icon removed; directions inline below) */}
+      {/* Top bar — back chevron (dark rounded square) · centered location line ·
+          info "i" (dark rounded circle). The mini-title (scroll-driven) stacks
+          over the location line and fades in once the big title scrolls away. */}
       <View
         style={{
           paddingTop: insets.top + 12,
@@ -214,38 +216,67 @@ export default function StationDetail() {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: palette.paper,
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: palette.surface,
             alignItems: 'center',
             justifyContent: 'center',
-            borderWidth: 1.5,
-            borderColor: palette.ink + '1a',
           }}
         >
-          <Feather name="arrow-left" size={22} color={palette.ink} />
+          <Feather name="chevron-left" size={24} color={palette.fg} />
         </Pressable>
 
-        {/* Mini title — appears in the fixed header row once the big title
-            has scrolled away. Fades + slides in via miniTitleStyle. */}
-        <Animated.Text
-          numberOfLines={1}
-          style={[
-            {
-              flex: 1,
-              marginLeft: 14,
-              marginRight: 8,
-              fontFamily: 'Unbounded_700Bold',
-              fontSize: 17,
-              color: palette.ink,
-              letterSpacing: 0.2,
-            },
-            miniTitleStyle,
-          ]}
+        {/* Centered location line + scroll-driven mini title stacked on top. */}
+        <View style={{ flex: 1, marginHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              fontSize: 13,
+              color: palette.fg,
+              letterSpacing: 0.3,
+              textAlign: 'center',
+            }}
+          >
+            {CITY_LABELS[station.city]}
+          </Text>
+          {/* Mini title — appears once the big title has scrolled away.
+              Fades + slides in via miniTitleStyle. */}
+          <Animated.Text
+            numberOfLines={1}
+            style={[
+              {
+                position: 'absolute',
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 15,
+                color: palette.fg,
+                letterSpacing: 0.2,
+                textAlign: 'center',
+              },
+              miniTitleStyle,
+            ]}
+          >
+            {station.name.toUpperCase()}
+          </Animated.Text>
+        </View>
+
+        <Pressable
+          onPress={onDirections}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel={t('station.directions')}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: palette.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {station.name}
-        </Animated.Text>
+          <Feather name="info" size={20} color={palette.fg} />
+        </Pressable>
       </View>
 
       <Animated.ScrollView
@@ -258,15 +289,16 @@ export default function StationDetail() {
           paddingBottom: insets.bottom + 120,
         }}
       >
-        {/* Title block — name + status dot + hours + directions link */}
+        {/* Title block — big Anton headline (uppercase) + live status dot. */}
         <Animated.Text
           style={[
             {
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
-              fontSize: 40,
-              lineHeight: 44,
+              color: palette.fg,
+              fontSize: 38,
+              lineHeight: 42,
               letterSpacing: 0.2,
+              textTransform: 'uppercase',
             },
             bigTitleStyle,
           ]}
@@ -278,57 +310,28 @@ export default function StationDetail() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
             marginTop: 14,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                marginRight: 8,
-                backgroundColor: statusDot,
-              }}
-            />
-            <Text
-              style={{
-                color: palette.ink,
-                fontSize: 13,
-                fontFamily: 'Unbounded_700Bold',
-                letterSpacing: 0.5,
-              }}
-            >
-              {statusLabel}
-            </Text>
-          </View>
-          <Pressable
-            onPress={onDirections}
-            hitSlop={8}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: palette.surface + '0d',
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 999,
-              opacity: pressed ? 0.6 : 1,
-            })}
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              marginRight: 8,
+              backgroundColor: statusDot,
+            }}
+          />
+          <Text
+            style={{
+              color: palette.muted,
+              fontSize: 12,
+              fontFamily: 'JetBrainsMono_500Medium',
+              letterSpacing: 0.5,
+            }}
           >
-            <Feather name="navigation" size={14} color={palette.ink} />
-            <Text
-              style={{
-                fontSize: 13,
-                color: palette.ink,
-                fontFamily: 'Unbounded_700Bold',
-                letterSpacing: 0.3,
-              }}
-            >
-              {t('station.directions')}
-            </Text>
-          </Pressable>
+            {statusLabel}
+          </Text>
         </View>
 
         <View style={{ marginTop: 36 }}>

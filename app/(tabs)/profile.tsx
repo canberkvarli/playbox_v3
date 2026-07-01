@@ -1,15 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import Svg, { Circle } from 'react-native-svg';
-import Animated, {
-  Easing,
-  useAnimatedProps,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 let ViewShot: any = View;
 let captureRef: any = async () => '';
 try {
@@ -21,16 +14,19 @@ let Sharing: any = { isAvailableAsync: async () => false, shareAsync: async () =
 try { Sharing = require('expo-sharing'); } catch {}
 let FileSystem: any = null;
 try { FileSystem = require('expo-file-system'); } catch {}
+// Optional gradient — falls back to a solid coral (palette.danger) when the
+// package isn't installed. Visual-only; no logic depends on it.
+let LinearGradient: any = null;
+try { LinearGradient = require('expo-linear-gradient').LinearGradient; } catch {}
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
-import { SPORT_LABELS, type Sport } from '@/data/stations.seed';
+import { Surface } from '@/components/ui';
+import { type Sport } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // --- Fake data (v1) ---------------------------------------------------------
 
@@ -44,144 +40,40 @@ const ME = {
   favoriteSport: 'football' as Sport,
 };
 
-function nextMilestone(streak: number) {
-  if (streak < 7) return 7;
-  if (streak < 14) return 14;
-  if (streak < 30) return 30;
-  if (streak < 60) return 60;
-  if (streak < 100) return 100;
-  return streak + 50;
-}
-
-// --- Streak ring ------------------------------------------------------------
-
-function StreakRing({ streak, milestone }: { streak: number; milestone: number }) {
-  const size = 100;
-  const strokeWidth = 10;
-  const r = (size - strokeWidth) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const progress = Math.min(streak / milestone, 1);
-  const offset = useSharedValue(circumference);
-
-  useEffect(() => {
-    offset.value = withTiming(circumference * (1 - progress), {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [circumference, offset, progress]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: offset.value,
-  }));
-
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Svg width={size} height={size}>
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          stroke={palette.border}
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        <AnimatedCircle
-          cx={cx}
-          cy={cy}
-          r={r}
-          stroke={palette.volt}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          animatedProps={animatedProps}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-      </Svg>
-      <View style={{ position: 'absolute', alignItems: 'center' }}>
-        <Text
-          style={{
-            fontFamily: 'JetBrainsMono_700Bold',
-            color: palette.fg,
-            fontSize: 13,
-            letterSpacing: 0.4,
-          }}
-        >
-          {streak}/{milestone}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // --- Sub-components ---------------------------------------------------------
 
 function StatCard({
   label,
   value,
-  unit,
+  valueSize = 30,
 }: {
   label: string;
   value: string;
-  unit?: string;
+  valueSize?: number;
 }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: palette.surface,
-        borderWidth: 1,
-        borderColor: palette.border,
-        borderRadius: 18,
-        padding: 16,
-      }}
-    >
+    <Surface radius={20} padding={16} style={{ flex: 1 }}>
       <Text
         style={{
-          fontFamily: 'JetBrainsMono_500Medium',
+          fontFamily: 'Unbounded_800ExtraBold',
+          color: palette.volt,
+          fontSize: valueSize,
+          lineHeight: valueSize + 4,
+        }}
+      >
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontFamily: 'Inter_500Medium',
           color: palette.muted,
-          fontSize: 11,
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-          marginBottom: 8,
+          fontSize: 13,
+          marginTop: 6,
         }}
       >
         {label}
       </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.fg,
-            fontSize: 32,
-            lineHeight: 36,
-          }}
-        >
-          {value}
-        </Text>
-        {unit ? (
-          <Text
-            style={{
-              fontFamily: 'JetBrainsMono_500Medium',
-              color: palette.muted,
-              fontSize: 14,
-              marginLeft: 6,
-            }}
-          >
-            {unit}
-          </Text>
-        ) : null}
-      </View>
-    </View>
+    </Surface>
   );
 }
 
@@ -191,11 +83,9 @@ export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { displayName, username, initial } = useDisplayUser();
+  const { username, initial } = useDisplayUser();
   const [capturing, setCapturing] = useState(false);
   const flexCardRef = useRef<any>(null);
-
-  const milestone = nextMilestone(ME.streakDays);
 
   const onSettings = async () => {
     await hx.tap();
@@ -347,21 +237,21 @@ export default function Profile() {
           >
             <View
               style={{
-                width: 88,
-                height: 88,
-                borderRadius: 44,
-                backgroundColor: palette.surface,
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 16,
+                marginRight: 14,
               }}
             >
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.fg,
-                  fontSize: 36,
-                  lineHeight: 40,
+                  color: palette.voltInk,
+                  fontSize: 24,
+                  lineHeight: 28,
                 }}
               >
                 {initial}
@@ -375,34 +265,22 @@ export default function Profile() {
                     flexShrink: 1,
                     fontFamily: 'Unbounded_800ExtraBold',
                     color: palette.fg,
-                    fontSize: 28,
-                    lineHeight: 32,
-                    textTransform: 'uppercase',
+                    fontSize: 22,
+                    lineHeight: 26,
                     marginRight: 8,
                   }}
                 >
-                  {displayName}
+                  @{username}
                 </Text>
-                <Feather name="edit-2" size={16} color={palette.volt} />
+                <Feather name="edit-2" size={15} color={palette.volt} />
               </View>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.volt,
-                  fontSize: 14,
-                  marginTop: 4,
-                }}
-              >
-                @{username}
-              </Text>
               <Text
                 numberOfLines={1}
                 style={{
                   fontFamily: 'Inter_500Medium',
                   color: palette.muted,
-                  fontSize: 12,
-                  marginTop: 6,
+                  fontSize: 13,
+                  marginTop: 4,
                 }}
               >
                 {t('profile.joined_since', {
@@ -414,81 +292,92 @@ export default function Profile() {
           </Pressable>
         </RiseIn>
 
-        {/* Streak card */}
+        {/* Streak hero — full-width coral→orange gradient. The gradient stops
+            are the only hardcoded hex (per design comp); everything else keys
+            off the palette. Falls back to a solid coral when the gradient
+            package isn't installed. */}
         <RiseIn delay={80}>
-          <View
-            style={{
-              backgroundColor: palette.surface,
-              borderWidth: 1,
-              borderColor: palette.border,
-              borderRadius: 24,
-              padding: 22,
-              marginTop: 28,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text
+          {(() => {
+            const heroInner = (
+              <>
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    color: palette.voltInk,
+                    fontSize: 110,
+                    lineHeight: 116,
+                  }}
+                >
+                  {ME.streakDays}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: 'Inter_700Bold',
+                    color: palette.voltInk,
+                    fontSize: 18,
+                    marginTop: 4,
+                  }}
+                >
+                  {t('profile.streak.days_suffix')} 🔥
+                </Text>
+              </>
+            );
+            return LinearGradient ? (
+              <LinearGradient
+                colors={['#FF7A2F', '#FF5C39']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ borderRadius: 24, padding: 28, marginTop: 16 }}
+              >
+                {heroInner}
+              </LinearGradient>
+            ) : (
+              <View
                 style={{
-                  fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.muted,
-                  fontSize: 11,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
+                  backgroundColor: palette.danger,
+                  borderRadius: 24,
+                  padding: 28,
+                  marginTop: 16,
                 }}
               >
-                {t('profile.streak.label')}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.volt,
-                  fontSize: 64,
-                  lineHeight: 72,
-                }}
-              >
-                {ME.streakDays}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Inter_500Medium',
-                  color: palette.muted,
-                  fontSize: 14,
-                  marginTop: 2,
-                }}
-              >
-                {t('profile.streak.days_suffix')}
-              </Text>
-            </View>
-            <StreakRing streak={ME.streakDays} milestone={milestone} />
-          </View>
+                {heroInner}
+              </View>
+            );
+          })()}
         </RiseIn>
 
-        {/* Stats grid (2x1 + 1) */}
+        {/* Stat grid — 2×2 dark cards, volt values over muted labels. */}
         <RiseIn delay={160}>
           <View style={{ marginTop: 16 }}>
             <View style={{ flexDirection: 'row', marginBottom: 12 }}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <StatCard
-                  label={t('profile.stats.total_minutes_label')}
                   value={String(ME.totalMinutes)}
-                  unit="dk"
+                  label={t('profile.stats.total_minutes_label')}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <StatCard
-                  label={t('profile.stats.this_week_label')}
-                  value={String(ME.sessionsThisWeek)}
-                  unit={t('profile.stats.sessions_unit')}
+                  value="#12"
+                  label={t('profile.stats.city_rank_label')}
                 />
               </View>
             </View>
-            <StatCard
-              label={t('profile.stats.fav_label')}
-              value={`${SPORT_EMOJI[ME.favoriteSport]} ${SPORT_LABELS[ME.favoriteSport]}`}
-            />
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <StatCard
+                  value={String(ME.sessionsThisWeek)}
+                  label={`${t('profile.stats.this_week_label')} · ${t('profile.stats.sessions_unit')}`}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <StatCard
+                  value={SPORT_EMOJI[ME.favoriteSport]}
+                  valueSize={34}
+                  label={t('profile.stats.fav_label')}
+                />
+              </View>
+            </View>
           </View>
         </RiseIn>
 
