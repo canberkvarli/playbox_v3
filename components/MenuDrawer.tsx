@@ -173,26 +173,50 @@ export function MenuDrawer() {
             paddingBottom: 18,
           }}
         >
-          <Wordmark size={26} />
-          <Pressable
-            onPress={close}
-            hitSlop={14}
-            accessibilityRole="button"
-            accessibilityLabel="kapat"
-            style={({ pressed }) => ({
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.surface,
-              borderWidth: 1,
-              borderColor: palette.border,
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: pressed ? 0.6 : 1,
-            })}
-          >
-            <Feather name="x" size={20} color={palette.fg} />
-          </Pressable>
+          <Wordmark size={22} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable
+              onPress={async () => {
+                await hx.tap();
+                go('/settings');
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="ayarlar"
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: palette.surface,
+                borderWidth: 1,
+                borderColor: palette.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Feather name="settings" size={19} color={palette.fg} />
+            </Pressable>
+            <Pressable
+              onPress={close}
+              hitSlop={14}
+              accessibilityRole="button"
+              accessibilityLabel="kapat"
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
+                borderRadius: 20,
+                backgroundColor: palette.surface,
+                borderWidth: 1,
+                borderColor: palette.border,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <Feather name="x" size={20} color={palette.fg} />
+            </Pressable>
+          </View>
         </View>
 
         {/* User card — tap name/avatar → profile; gear → settings */}
@@ -214,9 +238,8 @@ export function MenuDrawer() {
                 go('/(tabs)/profile');
               }}
               accessibilityRole="button"
-              accessibilityLabel={displayName}
+              accessibilityLabel={displayName || 'profil'}
               style={({ pressed }) => ({
-                flex: 1,
                 flexDirection: 'row',
                 alignItems: 'center',
                 opacity: pressed ? 0.6 : 1,
@@ -253,7 +276,7 @@ export function MenuDrawer() {
                     letterSpacing: 0.2,
                   }}
                 >
-                  {displayName}
+                  {displayName || 'oyuncu'}
                 </Text>
                 <Text
                   numberOfLines={1}
@@ -265,32 +288,10 @@ export function MenuDrawer() {
                     letterSpacing: 0.2,
                   }}
                 >
-                  @{username}
+                  {username ? `@${username}` : 'profilini gör'}
                 </Text>
               </View>
-            </Pressable>
-            <Pressable
-              onPress={async () => {
-                await hx.tap();
-                go('/settings');
-              }}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="ayarlar"
-              style={({ pressed }) => ({
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: palette.surfaceAlt,
-                borderWidth: 1,
-                borderColor: palette.border,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginLeft: 10,
-                opacity: pressed ? 0.55 : 1,
-              })}
-            >
-              <Feather name="settings" size={20} color={palette.fg} />
+              <Feather name="chevron-right" size={22} color={palette.muted} />
             </Pressable>
           </View>
         </View>
@@ -324,8 +325,8 @@ export function MenuDrawer() {
               >
                 <View
                   style={{
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     borderRadius: 13,
                     backgroundColor: palette.surface,
                     borderWidth: 1,
@@ -335,24 +336,21 @@ export function MenuDrawer() {
                     marginRight: 16,
                   }}
                 >
-                  <Feather name={item.icon} size={19} color={palette.fg} />
+                  <Feather name={item.icon} size={20} color={palette.fg} />
                 </View>
                 <Text
                   numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
                   style={{
                     flex: 1,
                     color: palette.fg,
                     fontFamily: 'Unbounded_800ExtraBold',
-                    fontSize: 18,
+                    fontSize: 16,
                     letterSpacing: 0.2,
                     textTransform: 'uppercase',
                   }}
                 >
                   {item.label}
                 </Text>
-                <Feather name="arrow-up-right" size={18} color={palette.muted} />
               </Pressable>
             </Animated.View>
           ))}

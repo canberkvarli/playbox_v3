@@ -76,19 +76,19 @@ const StationMarkerView = memo(function StationMarkerView({
   // pins to 25%; online pins full.
   const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
 
-  // Clean teardrop pin: a SINGLE lead-sport "ball" emoji in a rounded head with
-  // a pointed tail. Stacking 3 balls read as crowded on a busy map — one ball
-  // per pin keeps the map legible; the full sport list lives in the tapped card.
-  // Open/live = volt fill; offline = coral fill (muted via opacity).
-  const ballSports = station.sports.slice(0, 1);
+  // Teardrop pin whose head GROWS with the sport count so every ball is visible:
+  // one sport = a compact circle; multiple = a wider pill showing all balls side
+  // by side. Open/live = volt fill; offline = coral fill (muted via opacity).
+  const ballSports = station.sports.slice(0, 3);
   const fill = nearby ? palette.volt : palette.danger;
-  const size = 38;
-  const ballSize = 18;
+  const ballSize = 17;
+  const headH = 40;
+  const headW = ballSports.length <= 1 ? 40 : 16 + ballSports.length * 22;
 
   return (
     <View
       pointerEvents="none"
-      style={{ width: size, height: size + 8, alignItems: 'center', opacity }}
+      style={{ width: headW, height: headH + 8, alignItems: 'center', opacity }}
     >
       {/* Pointed tail — a rotated square peeking below the head reads as the
           teardrop point. Same fill/shadow as the head so it looks like one pin. */}
@@ -103,12 +103,12 @@ const StationMarkerView = memo(function StationMarkerView({
           borderRadius: 3,
         }}
       />
-      {/* Round head with up to 3 tiny sport balls stacked side-by-side */}
+      {/* Head grows into a pill for multiple sports so all balls are visible */}
       <View
         style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
+          width: headW,
+          height: headH,
+          borderRadius: headH / 2,
           backgroundColor: fill,
           flexDirection: 'row',
           alignItems: 'center',
@@ -128,8 +128,7 @@ const StationMarkerView = memo(function StationMarkerView({
             key={sp}
             style={{
               fontSize: ballSize,
-              // Slight overlap so 3 balls read as a tight cluster, not a spread.
-              marginLeft: i === 0 ? 0 : -2,
+              marginLeft: i === 0 ? 0 : 3,
             }}
           >
             {SPORT_EMOJI[sp]}

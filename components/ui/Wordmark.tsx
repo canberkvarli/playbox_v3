@@ -1,32 +1,47 @@
-import { Text, type TextStyle } from 'react-native';
+import { View, Text, type ViewStyle } from 'react-native';
 
-import { palette } from '@/constants/theme';
+import { palette, darkPalette } from '@/constants/theme';
 
 type Props = {
   size?: number;
-  /** Uppercase the wordmark (e.g. for a mono-style header lockup). */
   upper?: boolean;
-  style?: TextStyle;
+  /** Render on a dark chip so the bright volt "box" reads on any background. */
+  chip?: boolean;
+  style?: ViewStyle;
 };
 
 /**
- * PLAYBOX wordmark lockup — "play" in the foreground color (dark on light /
- * white on dark) and "box" in volt. Archivo Expanded. Our brand mark; use on
- * the map header and brand surfaces.
+ * PLAYBOX wordmark — "play" in near-white + "box" in bright volt. The brand
+ * green stays vivid; on light surfaces we sit it on a dark asphalt chip so it
+ * pops (rather than dulling the green). Archivo Expanded.
  */
-export function Wordmark({ size = 22, upper = false, style }: Props) {
+export function Wordmark({ size = 22, upper = false, chip = true, style }: Props) {
   const play = upper ? 'PLAY' : 'play';
   const box = upper ? 'BOX' : 'box';
-  return (
+  const text = (
     <Text
-      style={[
-        { fontFamily: 'Unbounded_800ExtraBold', fontSize: size, letterSpacing: upper ? 1 : 0.3 },
-        style,
-      ]}
+      style={{ fontFamily: 'Unbounded_800ExtraBold', fontSize: size, letterSpacing: upper ? 1 : 0.3 }}
       accessibilityLabel="Playbox"
     >
-      <Text style={{ color: palette.fg }}>{play}</Text>
-      <Text style={{ color: palette.voltText }}>{box}</Text>
+      <Text style={{ color: darkPalette.fg }}>{play}</Text>
+      <Text style={{ color: palette.volt }}>{box}</Text>
     </Text>
+  );
+  if (!chip) return text;
+  return (
+    <View
+      style={[
+        {
+          alignSelf: 'flex-start',
+          backgroundColor: darkPalette.bg, // asphalt chip — always dark so volt reads
+          paddingHorizontal: size * 0.55,
+          paddingVertical: size * 0.34,
+          borderRadius: size * 0.7,
+        },
+        style,
+      ]}
+    >
+      {text}
+    </View>
   );
 }

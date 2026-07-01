@@ -27,7 +27,7 @@ module.exports = {
         border:     '#E2E0D8',
         volt:       '#D6FB3C',
         'volt-ink': '#17181C',
-        'volt-text': '#3F6212', // readable accent TEXT on light (volt fills stay bright)
+        'volt-text': '#D6FB3C', // brand green stays bright (use dark carriers for contrast)
         danger:     '#FF5C39',
       },
       fontFamily: {

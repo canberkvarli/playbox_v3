@@ -546,12 +546,13 @@ export default function Play() {
         >
           <View
             style={{
-              height: 58,
+              height: 68,
               borderRadius: 999,
               backgroundColor: palette.volt,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
+              paddingHorizontal: 24,
               shadowColor: palette.volt,
               shadowOffset: { width: 0, height: 10 },
               shadowOpacity: 0.35,
@@ -559,12 +560,14 @@ export default function Play() {
               elevation: 10,
             }}
           >
-            <Feather name="map" size={22} color={palette.voltInk} style={{ marginRight: 10 }} />
+            <Feather name="map" size={24} color={palette.voltInk} style={{ marginRight: 12 }} />
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.voltInk,
-                fontSize: 18,
+                fontSize: 21,
                 letterSpacing: 0.4,
                 textTransform: 'uppercase',
               }}

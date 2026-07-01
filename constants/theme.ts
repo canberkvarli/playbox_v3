@@ -37,7 +37,7 @@ const lightNeutral = {
   fg:         '#2A2C33',
   muted:      '#6B6B75',
   border:     '#E2E0D8',
-  voltText:   '#3F6212', // accent TEXT — deep lime; readable on light (volt fills stay bright)
+  voltText:   '#D6FB3C', // brand green stays bright — readability handled by DARK carriers, not by dulling the green
 } as const;
 
 type Neutral = { [K in keyof typeof darkNeutral]: string };

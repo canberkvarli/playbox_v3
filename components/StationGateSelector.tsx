@@ -180,17 +180,12 @@ function GateCard({
     sel.value = withSpring(selected ? 1 : 0, { damping: 14, stiffness: 220 });
   }, [selected, sel]);
 
+  // Only the animated transform lives in the worklet. Colors stay in the JS
+  // style below so they always read the LIVE palette — reanimated worklets
+  // snapshot captured values, which would otherwise lag a runtime theme toggle
+  // (light rows stuck on a dark screen → invisible fg-colored labels).
   const rowStyle = useAnimatedStyle(() => ({
-    // Gentle grow on press/select — subtle; the selection is carried by the
-    // volt border + the "seç" volt label on the right.
     transform: [{ scale: 1 + sel.value * 0.01 - press.value * 0.02 }],
-    borderColor: disabled
-      ? palette.danger + '88'
-      : selected
-      ? palette.volt
-      : palette.border,
-    borderWidth: selected ? 2 : 1,
-    backgroundColor: disabled ? palette.danger + '14' : palette.surface,
   }));
 
   return (
@@ -209,6 +204,13 @@ function GateCard({
             flexDirection: 'row',
             alignItems: 'center',
             overflow: 'hidden',
+            borderColor: disabled
+              ? palette.danger + '88'
+              : selected
+              ? palette.volt
+              : palette.border,
+            borderWidth: selected ? 2 : 1,
+            backgroundColor: disabled ? palette.danger + '14' : palette.surface,
           },
           rowStyle,
         ]}

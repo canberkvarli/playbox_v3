@@ -308,33 +308,38 @@ export default function StationDetail() {
         >
           {station.name}
         </Animated.Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginTop: 14,
-          }}
-        >
+        {/* Status chip — only render when there's a live status ("açık" /
+            "bağlanıyor…"). Closed stations carry no orphaned gray dot; "kapalı"
+            reads from the CTA/status below instead. */}
+        {statusLabel ? (
           <View
             style={{
-              width: 10,
-              height: 10,
-              borderRadius: 5,
-              marginRight: 8,
-              backgroundColor: statusDot,
-            }}
-          />
-          <Text
-            style={{
-              color: palette.muted,
-              fontSize: 12,
-              fontFamily: 'JetBrainsMono_500Medium',
-              letterSpacing: 0.5,
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginTop: 14,
             }}
           >
-            {statusLabel}
-          </Text>
-        </View>
+            <View
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 5,
+                marginRight: 8,
+                backgroundColor: statusDot,
+              }}
+            />
+            <Text
+              style={{
+                color: palette.muted,
+                fontSize: 12,
+                fontFamily: 'JetBrainsMono_500Medium',
+                letterSpacing: 0.5,
+              }}
+            >
+              {statusLabel}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={{ marginTop: 36 }}>
           {/* Always render the selector so the balls (sports) stay visible even
