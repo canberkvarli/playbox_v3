@@ -131,7 +131,7 @@ export default function Phone() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 48,
+              lineHeight: 57,
             }}
           >
             {t('onb.phone.title')}

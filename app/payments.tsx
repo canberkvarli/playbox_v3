@@ -98,7 +98,7 @@ export default function Payments() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 38,
-            lineHeight: 42,
+            lineHeight: 49,
             marginTop: 16,
             textTransform: 'uppercase',
           }}
@@ -418,7 +418,7 @@ export default function Payments() {
                     fontFamily: 'Unbounded_800ExtraBold',
                     color: palette.voltInk,
                     fontSize: 24,
-                    lineHeight: 28,
+                    lineHeight: 31,
                     letterSpacing: 0.3,
                     textTransform: 'uppercase',
                   }}

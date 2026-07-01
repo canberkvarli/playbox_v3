@@ -92,7 +92,7 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 38,
-            lineHeight: 42,
+            lineHeight: 49,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
           }}

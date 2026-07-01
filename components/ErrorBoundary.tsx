@@ -59,7 +59,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 28,
-            lineHeight: 32,
+            lineHeight: 36,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
             textAlign: 'center',

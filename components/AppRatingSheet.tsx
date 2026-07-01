@@ -103,7 +103,7 @@ export function AppRatingSheet({ visible, onClose }: Props) {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.fg,
                   fontSize: 22,
-                  lineHeight: 26,
+                  lineHeight: 29,
                   textTransform: 'uppercase',
                   letterSpacing: 0.5,
                   textAlign: 'center',

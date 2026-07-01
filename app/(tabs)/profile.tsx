@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Component, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -75,6 +75,37 @@ function StatCard({
       </Text>
     </Surface>
   );
+}
+
+// Renders the coral→orange gradient streak hero, but falls back to a SOLID
+// coral if expo-linear-gradient's native view isn't in the running binary (i.e.
+// an OTA delivered this JS to an older build that predates the module). Without
+// this guard, rendering <LinearGradient> on such a build would crash the screen.
+class StreakHeroBg extends Component<
+  { style: object; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {}
+  render() {
+    const { style, children } = this.props;
+    if (this.state.failed || !LinearGradient) {
+      return <View style={[style, { backgroundColor: palette.danger }]}>{children}</View>;
+    }
+    return (
+      <LinearGradient
+        colors={['#FF7A2F', '#FF5C39']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={style}
+      >
+        {children}
+      </LinearGradient>
+    );
+  }
 }
 
 // --- Screen -----------------------------------------------------------------
@@ -251,7 +282,7 @@ export default function Profile() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.voltInk,
                   fontSize: 24,
-                  lineHeight: 28,
+                  lineHeight: 31,
                 }}
               >
                 {initial}
@@ -266,7 +297,7 @@ export default function Profile() {
                     fontFamily: 'Unbounded_800ExtraBold',
                     color: palette.fg,
                     fontSize: 22,
-                    lineHeight: 26,
+                    lineHeight: 29,
                     marginRight: 8,
                   }}
                 >
@@ -297,53 +328,28 @@ export default function Profile() {
             off the palette. Falls back to a solid coral when the gradient
             package isn't installed. */}
         <RiseIn delay={80}>
-          {(() => {
-            const heroInner = (
-              <>
-                <Text
-                  style={{
-                    fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.voltInk,
-                    fontSize: 110,
-                    lineHeight: 116,
-                  }}
-                >
-                  {ME.streakDays}
-                </Text>
-                <Text
-                  style={{
-                    fontFamily: 'Inter_700Bold',
-                    color: palette.voltInk,
-                    fontSize: 18,
-                    marginTop: 4,
-                  }}
-                >
-                  {t('profile.streak.days_suffix')} 🔥
-                </Text>
-              </>
-            );
-            return LinearGradient ? (
-              <LinearGradient
-                colors={['#FF7A2F', '#FF5C39']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ borderRadius: 24, padding: 28, marginTop: 16 }}
-              >
-                {heroInner}
-              </LinearGradient>
-            ) : (
-              <View
-                style={{
-                  backgroundColor: palette.danger,
-                  borderRadius: 24,
-                  padding: 28,
-                  marginTop: 16,
-                }}
-              >
-                {heroInner}
-              </View>
-            );
-          })()}
+          <StreakHeroBg style={{ borderRadius: 24, padding: 28, marginTop: 16 }}>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.voltInk,
+                fontSize: 110,
+                lineHeight: 116,
+              }}
+            >
+              {ME.streakDays}
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Inter_700Bold',
+                color: palette.voltInk,
+                fontSize: 18,
+                marginTop: 4,
+              }}
+            >
+              {t('profile.streak.days_suffix')} 🔥
+            </Text>
+          </StreakHeroBg>
         </RiseIn>
 
         {/* Stat grid — 2×2 dark cards, volt values over muted labels. */}
@@ -442,7 +448,7 @@ export default function Profile() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.volt,
                   fontSize: 56,
-                  lineHeight: 63,
+                  lineHeight: 73,
                   marginTop: 6,
                 }}
               >

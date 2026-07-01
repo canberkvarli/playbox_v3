@@ -112,7 +112,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.fg,
                 fontSize: 24,
-                lineHeight: 30,
+                lineHeight: 31,
                 letterSpacing: 0.2,
                 textTransform: 'uppercase',
               }}

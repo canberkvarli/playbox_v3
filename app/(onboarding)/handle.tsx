@@ -107,7 +107,7 @@ export default function Handle() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 48,
+              lineHeight: 57,
             }}
           >
             {t('onb.handle.title')}

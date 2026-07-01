@@ -68,7 +68,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
               </View>
 
               <Text
-                className="font-display-x text-ink dark:text-fg text-3xl mt-5 leading-[34px]"
+                className="font-display-x text-ink dark:text-fg text-3xl mt-5 leading-[39px]"
                 style={{ lineHeight: 34 }}
                 numberOfLines={2}
               >

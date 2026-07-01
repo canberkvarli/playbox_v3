@@ -175,7 +175,7 @@ export default function ReserveFlow() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 32,
-              lineHeight: 36,
+              lineHeight: 42,
             }}
           >
             {station?.name ?? stationId}
@@ -441,7 +441,7 @@ function Slide({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.ink,
           fontSize: 30,
-          lineHeight: 34,
+          lineHeight: 39,
           marginBottom: 16,
         }}
       >

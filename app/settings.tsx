@@ -184,7 +184,7 @@ function EditModal({
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 22,
-              lineHeight: 26,
+              lineHeight: 29,
               textTransform: 'uppercase',
             }}
           >
@@ -884,7 +884,7 @@ function DeleteAccountModal({
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.fg,
                   fontSize: 32,
-                  lineHeight: 36,
+                  lineHeight: 42,
                   textAlign: 'center',
                   textTransform: 'uppercase',
                 }}
@@ -926,7 +926,7 @@ function DeleteAccountModal({
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
               fontSize: 26,
-              lineHeight: 30,
+              lineHeight: 34,
               textTransform: 'uppercase',
             }}
           >

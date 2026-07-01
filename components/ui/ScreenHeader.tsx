@@ -37,7 +37,7 @@ export function ScreenHeader({ kicker, title, subtitle, kickerTone = 'volt', sty
         style={{
           fontFamily: 'Unbounded_800ExtraBold', // -> Anton
           fontSize: 34,
-          lineHeight: 38,
+          lineHeight: 44,
           textTransform: 'uppercase',
           color: palette.fg,
           letterSpacing: 0.5,

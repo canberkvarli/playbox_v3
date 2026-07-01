@@ -142,7 +142,7 @@ function ActiveReservationCard({
               color: TEXT,
               fontSize: 20,
               letterSpacing: 0.2,
-              lineHeight: 24,
+              lineHeight: 26,
             }}
           >
             {stationLabel}
@@ -504,7 +504,7 @@ function CancelConfirmModal({
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: TEXT,
                 fontSize: 22,
-                lineHeight: 25,
+                lineHeight: 29,
                 textAlign: 'center',
               }}
             >
@@ -746,7 +746,7 @@ export default function Reservations() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: TEXT,
                 fontSize: 22,
-                lineHeight: 25,
+                lineHeight: 29,
                 textAlign: 'center',
                 marginBottom: 10,
               }}

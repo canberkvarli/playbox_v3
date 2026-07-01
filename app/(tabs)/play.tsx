@@ -404,7 +404,7 @@ export default function Play() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.fg,
             fontSize: 30,
-            lineHeight: 34,
+            lineHeight: 39,
             textAlign: 'center',
             textTransform: 'uppercase',
             marginTop: 18,
@@ -984,7 +984,7 @@ function ConfirmPhase({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 28,
-          lineHeight: 32,
+          lineHeight: 36,
           textTransform: 'uppercase',
         }}
       >
@@ -1194,7 +1194,7 @@ function OpeningPhase() {
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 24,
-          lineHeight: 27,
+          lineHeight: 31,
           textAlign: 'center',
           textTransform: 'uppercase',
         }}
@@ -1248,7 +1248,7 @@ function AwaitingClosePhase({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.fg,
           fontSize: 28,
-          lineHeight: 32,
+          lineHeight: 36,
           textTransform: 'uppercase',
         }}
       >

@@ -193,7 +193,7 @@ export default function SessionPrep() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 28,
-            lineHeight: 31,
+            lineHeight: 36,
             textAlign: 'center',
           }}
         >
@@ -527,7 +527,7 @@ export default function SessionPrep() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 42,
-              lineHeight: 46,
+              lineHeight: 55,
               marginTop: 8,
             }}
           >
