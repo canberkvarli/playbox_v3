@@ -483,7 +483,7 @@ export default function Play() {
         {/* Money moment: strong centered empty state whose one job is to send
             the user to the map. Big Archivo Expanded headline, a muted line,
             and a large volt CTA that dominates the screen. */}
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 32 }}>
           {/* Volt bolt badge — a warm, inviting anchor above the headline. */}
           <View
             style={{
@@ -728,7 +728,7 @@ export default function Play() {
           alignItems: 'center',
         }}
       >
-        <Feather name="map-pin" size={16} color={palette.volt} style={{ marginRight: 8 }} />
+        <Feather name="map-pin" size={16} color={palette.voltText} style={{ marginRight: 8 }} />
         <Text
           numberOfLines={1}
           style={{
@@ -1220,7 +1220,7 @@ function ConfirmPhase({
         <Text
           style={{
             fontFamily: 'JetBrainsMono_700Bold',
-            color: palette.volt,
+            color: palette.voltText,
             fontSize: 22,
             letterSpacing: 0.4,
           }}
@@ -1502,7 +1502,7 @@ function AwaitingClosePhase({
         <Text
           style={{
             fontFamily: 'JetBrainsMono_700Bold',
-            color: palette.volt,
+            color: palette.voltText,
             fontSize: 30,
             letterSpacing: 0.2,
           }}

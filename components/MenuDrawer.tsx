@@ -339,12 +339,14 @@ export function MenuDrawer() {
                 </View>
                 <Text
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                   style={{
                     flex: 1,
                     color: palette.fg,
                     fontFamily: 'Unbounded_800ExtraBold',
-                    fontSize: 20,
-                    letterSpacing: 0.5,
+                    fontSize: 18,
+                    letterSpacing: 0.2,
                     textTransform: 'uppercase',
                   }}
                 >
@@ -356,25 +358,25 @@ export function MenuDrawer() {
           ))}
         </ScrollView>
 
-        {/* Share tile — distinct volt-tinted card with press-scale */}
+        {/* Destek — the PROMINENT tile (volt, animated press). */}
         <View
           style={{
             position: 'absolute',
             left: PAD,
             right: PAD,
-            bottom: SAFE_BOTTOM + 64,
+            bottom: SAFE_BOTTOM + 60,
           }}
         >
           <Animated.View style={{ transform: [{ scale: shareScale }] }}>
             <Pressable
               onPress={async () => {
                 await hx.tap();
-                shareApp();
+                go('/support');
               }}
               onPressIn={() => springShare(0.96)}
               onPressOut={() => springShare(1)}
               accessibilityRole="button"
-              accessibilityLabel="playbox'ı paylaş"
+              accessibilityLabel="destek"
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -395,26 +397,40 @@ export function MenuDrawer() {
                   marginRight: 14,
                 }}
               >
-                <Feather name="share-2" size={20} color={palette.voltInk} />
+                <Feather name="help-circle" size={20} color={palette.voltInk} />
               </View>
-              <Text
-                numberOfLines={1}
-                style={{
-                  flex: 1,
-                  color: palette.voltInk,
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  fontSize: 15,
-                  letterSpacing: 0.3,
-                }}
-              >
-                playbox'ı paylaş
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: palette.voltInk,
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    fontSize: 16,
+                    letterSpacing: 0.3,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  destek
+                </Text>
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    color: palette.voltInk,
+                    opacity: 0.7,
+                    fontFamily: 'Inter_500Medium',
+                    fontSize: 12,
+                    marginTop: 2,
+                  }}
+                >
+                  yardıma mı ihtiyacın var?
+                </Text>
+              </View>
               <Feather name="arrow-right" size={20} color={palette.voltInk} />
             </Pressable>
           </Animated.View>
         </View>
 
-        {/* Destek — pinned bottom-left, ghost/subtle */}
+        {/* Share — subtle ghost row, pinned bottom-left. */}
         <View
           style={{
             position: 'absolute',
@@ -425,10 +441,10 @@ export function MenuDrawer() {
           <Pressable
             onPress={async () => {
               await hx.tap();
-              go('/support');
+              shareApp();
             }}
             accessibilityRole="button"
-            accessibilityLabel="destek"
+            accessibilityLabel="playbox'ı paylaş"
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
@@ -436,7 +452,7 @@ export function MenuDrawer() {
               opacity: pressed ? 0.5 : 1,
             })}
           >
-            <Feather name="phone" size={16} color={palette.muted} style={{ marginRight: 8 }} />
+            <Feather name="share-2" size={16} color={palette.muted} style={{ marginRight: 8 }} />
             <Text
               style={{
                 color: palette.muted,
@@ -445,7 +461,7 @@ export function MenuDrawer() {
                 letterSpacing: 0.2,
               }}
             >
-              destek
+              playbox'ı paylaş
             </Text>
           </Pressable>
         </View>

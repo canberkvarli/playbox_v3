@@ -49,7 +49,7 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
               justifyContent: 'center',
             }}
           >
-            <Feather name="credit-card" size={16} color={palette.volt} />
+            <Feather name="credit-card" size={16} color={palette.voltText} />
           </View>
           <Text
             style={{

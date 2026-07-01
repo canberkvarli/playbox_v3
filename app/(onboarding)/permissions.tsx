@@ -204,7 +204,7 @@ function PermissionCard({
           )}
         </View>
         {granted ? (
-          <Feather name="check" size={22} color={palette.volt} />
+          <Feather name="check" size={22} color={palette.voltText} />
         ) : denied ? (
           <Text style={{ color: palette.danger, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
             {/* iOS only allows the system Bluetooth prompt once. After deny,

@@ -90,7 +90,7 @@ export default function Handle() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.volt,
+              color: palette.voltText,
               fontSize: 16,
             }}
           >

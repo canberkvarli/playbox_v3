@@ -204,7 +204,7 @@ function ActiveReservationCard({
           <Text
             style={{
               fontFamily: 'JetBrainsMono_500Medium',
-              color: palette.volt,
+              color: palette.voltText,
               fontSize: 12,
               letterSpacing: 0.4,
             }}
@@ -739,7 +739,7 @@ export default function Reservations() {
                 marginBottom: 18,
               }}
             >
-              <Feather name="calendar" size={36} color={palette.volt} />
+              <Feather name="calendar" size={36} color={palette.voltText} />
             </View>
             <Text
               style={{

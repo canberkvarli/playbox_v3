@@ -169,7 +169,7 @@ export default function Phone() {
           >
             <Text
               style={{
-                color: palette.volt,
+                color: palette.voltText,
                 fontFamily: 'JetBrainsMono_500Medium',
                 fontSize: 22,
                 letterSpacing: 0.5,

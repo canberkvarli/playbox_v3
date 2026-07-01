@@ -76,15 +76,14 @@ const StationMarkerView = memo(function StationMarkerView({
   // pins to 25%; online pins full.
   const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
 
-  // Teardrop pin (Asphalt Volt comp): up to 3 tiny sport "ball" emojis stacked
-  // side-by-side inside a rounded head with a pointed tail below. Open/live =
-  // volt fill; offline = coral fill (muted via opacity). Stations with >3 sports
-  // just show the first 3 — no "+N" overflow number, the balls carry the signal.
-  const ballSports = station.sports.slice(0, 3);
+  // Clean teardrop pin: a SINGLE lead-sport "ball" emoji in a rounded head with
+  // a pointed tail. Stacking 3 balls read as crowded on a busy map — one ball
+  // per pin keeps the map legible; the full sport list lives in the tapped card.
+  // Open/live = volt fill; offline = coral fill (muted via opacity).
+  const ballSports = station.sports.slice(0, 1);
   const fill = nearby ? palette.volt : palette.danger;
-  const size = 42;
-  // Shrink the balls a touch when 3 are shown so they stay legible in the head.
-  const ballSize = ballSports.length >= 3 ? 12 : 15;
+  const size = 38;
+  const ballSize = 18;
 
   return (
     <View

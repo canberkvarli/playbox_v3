@@ -295,14 +295,16 @@ export default function StationDetail() {
             {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.fg,
-              fontSize: 38,
-              lineHeight: 45,
+              fontSize: 29,
+              lineHeight: 34,
               letterSpacing: 0.2,
               textTransform: 'uppercase',
             },
             bigTitleStyle,
           ]}
           numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
         >
           {station.name}
         </Animated.Text>

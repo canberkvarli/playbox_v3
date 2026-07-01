@@ -273,7 +273,7 @@ export default function Otp() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.volt,
+                  color: palette.voltText,
                   fontSize: 14,
                   textDecorationLine: 'underline',
                 }}

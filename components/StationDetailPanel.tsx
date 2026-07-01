@@ -213,7 +213,7 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                             <Text
                               style={{
                                 fontFamily: 'Unbounded_700Bold',
-                                color: palette.volt,
+                                color: palette.voltText,
                                 fontSize: 11,
                                 letterSpacing: 0.6,
                                 textTransform: 'uppercase',

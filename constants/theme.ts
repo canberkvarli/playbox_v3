@@ -26,6 +26,7 @@ const darkNeutral = {
   fg:         '#F4F3EE', // primary text
   muted:      '#9A9AA6', // secondary text
   border:     '#3A3C45', // hairline border
+  voltText:   '#D6FB3C', // accent TEXT — bright volt reads fine on dark
 } as const;
 
 const lightNeutral = {
@@ -36,6 +37,7 @@ const lightNeutral = {
   fg:         '#2A2C33',
   muted:      '#6B6B75',
   border:     '#E2E0D8',
+  voltText:   '#3F6212', // accent TEXT — deep lime; readable on light (volt fills stay bright)
 } as const;
 
 type Neutral = { [K in keyof typeof darkNeutral]: string };
@@ -57,8 +59,9 @@ function paletteFor(n: Neutral) {
     fg:         n.fg,
     muted:      n.muted,
     border:     n.border,
-    volt:       brand.volt,
+    volt:       brand.volt,     // FILL — always bright lime (use voltInk for text on it)
     voltInk:    brand.voltInk,
+    voltText:   n.voltText,     // accent TEXT color — readable per scheme
     danger:     brand.coral,
   } as const;
 }

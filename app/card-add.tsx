@@ -246,7 +246,7 @@ export default function CardAdd() {
               paddingHorizontal: 14,
             }}
           >
-            <Feather name="lock" size={16} color={palette.volt} style={{ marginRight: 10 }} />
+            <Feather name="lock" size={16} color={palette.voltText} style={{ marginRight: 10 }} />
             <Text
               style={{
                 flex: 1,

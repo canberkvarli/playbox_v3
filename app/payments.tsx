@@ -173,7 +173,7 @@ export default function Payments() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.volt,
+                    color: palette.voltText,
                     fontSize: 13,
                     letterSpacing: 2.4,
                     textTransform: 'uppercase',
@@ -202,7 +202,7 @@ export default function Payments() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.volt,
+                    color: palette.voltText,
                     fontSize: 14,
                     letterSpacing: 3.6,
                   }}
@@ -274,7 +274,7 @@ export default function Payments() {
                       marginBottom: 12,
                     }}
                   >
-                    <Feather name="plus" size={28} color={palette.volt} />
+                    <Feather name="plus" size={28} color={palette.voltText} />
                   </View>
                   <Text
                     style={{
@@ -456,7 +456,7 @@ export default function Payments() {
             marginTop: 18,
           }}
         >
-          <Feather name="lock" size={16} color={palette.volt} style={{ marginRight: 10 }} />
+          <Feather name="lock" size={16} color={palette.voltText} style={{ marginRight: 10 }} />
           <Text
             style={{
               flex: 1,

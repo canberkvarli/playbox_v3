@@ -64,7 +64,7 @@ function StatCard({
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.volt,
+          color: palette.voltText,
           fontSize: valueSize,
           lineHeight: valueSize + 4,
         }}
@@ -249,13 +249,13 @@ export default function Profile() {
           >
             <View
               style={{
-                width: 52,
-                height: 52,
-                borderRadius: 26,
+                width: 56,
+                height: 56,
+                borderRadius: 28,
                 backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 14,
+                marginRight: 20,
               }}
             >
               <Text
@@ -284,7 +284,7 @@ export default function Profile() {
                 >
                   @{username}
                 </Text>
-                <Feather name="edit-2" size={15} color={palette.volt} />
+                <Feather name="edit-2" size={15} color={palette.voltText} />
               </View>
               <Text
                 numberOfLines={1}
@@ -415,7 +415,7 @@ export default function Profile() {
                 numberOfLines={1}
                 style={{
                   fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.volt,
+                  color: palette.voltText,
                   fontSize: 11,
                   letterSpacing: 1.4,
                   textTransform: 'uppercase',
@@ -427,7 +427,7 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.volt,
+                  color: palette.voltText,
                   fontSize: 56,
                   lineHeight: 66,
                   marginTop: 6,
@@ -469,7 +469,7 @@ export default function Profile() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.volt,
+                    color: palette.voltText,
                     fontSize: 11,
                     letterSpacing: 4,
                   }}

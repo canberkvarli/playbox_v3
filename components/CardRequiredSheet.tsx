@@ -82,7 +82,7 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
             marginBottom: 24,
           }}
         >
-          <Feather name="credit-card" size={32} color={palette.volt} />
+          <Feather name="credit-card" size={32} color={palette.voltText} />
         </View>
       </RiseIn>
 
@@ -128,7 +128,7 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
             alignItems: 'flex-start',
           }}
         >
-          <Feather name="info" size={20} color={palette.volt} style={{ marginTop: 2, marginRight: 12 }} />
+          <Feather name="info" size={20} color={palette.voltText} style={{ marginTop: 2, marginRight: 12 }} />
           <Text
             style={{
               flex: 1,

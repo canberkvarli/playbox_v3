@@ -44,7 +44,7 @@ export function EmptyState({ icon, title, subtitle, cta }: Props) {
           marginBottom: 18,
         }}
       >
-        <Feather name={icon} size={36} color={palette.volt} />
+        <Feather name={icon} size={36} color={palette.voltText} />
       </View>
 
       <Text

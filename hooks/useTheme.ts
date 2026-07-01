@@ -12,8 +12,9 @@ export type ThemeColors = {
   bgSubtle: string;   // fg @ 14% — subtle fills/dividers
   fgSubtle: string;   // fg @ 60% — secondary text via alpha
   // Brand accents — constant across schemes
-  volt: string;       // primary action
+  volt: string;       // primary action (FILL)
   voltInk: string;    // text/icon on volt
+  voltText: string;   // accent TEXT color — readable per scheme
   danger: string;     // destructive (coral)
   // Legacy aliases kept for existing callers
   accent: string;     // -> volt
@@ -44,6 +45,7 @@ export function useTheme(): ThemeColors {
     fgSubtle:   p.fg + '99',
     volt:       p.volt,
     voltInk:    p.voltInk,
+    voltText:   p.voltText,
     danger:     p.danger,
     accent:     p.volt,
     warm:       p.danger,

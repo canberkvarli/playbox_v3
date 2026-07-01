@@ -128,7 +128,7 @@ function ActiveReservationCard({
         >
           <Text
             className="font-semibold"
-            style={{ color: palette.volt, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}
+            style={{ color: palette.voltText, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}
           >
             {t('reservations.go_to_station')}
           </Text>
@@ -208,7 +208,7 @@ export function ReservationsPanel() {
           marginBottom: 12,
         }}
       >
-        <Feather name="calendar" size={24} color={palette.volt} />
+        <Feather name="calendar" size={24} color={palette.voltText} />
       </View>
       <Text className="font-display text-ink dark:text-fg text-base">
         {t('map.empty.no_reservations_title')}

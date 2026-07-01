@@ -418,7 +418,7 @@ export function GearReportSheet({
               <Text
                 style={{
                   fontFamily: 'Inter_600SemiBold',
-                  color: palette.volt,
+                  color: palette.voltText,
                   fontSize: 12,
                   marginTop: 10,
                 }}

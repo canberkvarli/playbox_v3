@@ -266,7 +266,7 @@ function GateCard({
             style={{
               fontFamily: 'Inter_600SemiBold',
               fontSize: 14,
-              color: palette.volt,
+              color: palette.voltText,
               letterSpacing: 0.2,
             }}
           >

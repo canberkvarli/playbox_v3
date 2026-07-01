@@ -204,7 +204,7 @@ export default function Kvkk() {
                   marginRight: 14,
                 }}
               >
-                <Feather name={r.icon} size={20} color={palette.volt} />
+                <Feather name={r.icon} size={20} color={palette.voltText} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
@@ -246,11 +246,11 @@ export default function Kvkk() {
               paddingVertical: 12,
             }}
           >
-            <Feather name="external-link" size={14} color={palette.volt} style={{ marginRight: 6 }} />
+            <Feather name="external-link" size={14} color={palette.voltText} style={{ marginRight: 6 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.volt,
+                color: palette.voltText,
                 fontSize: 13,
                 textDecorationLine: 'underline',
               }}

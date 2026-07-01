@@ -26,7 +26,7 @@ export function Wordmark({ size = 22, upper = false, style }: Props) {
       accessibilityLabel="Playbox"
     >
       <Text style={{ color: palette.fg }}>{play}</Text>
-      <Text style={{ color: palette.volt }}>{box}</Text>
+      <Text style={{ color: palette.voltText }}>{box}</Text>
     </Text>
   );
 }
