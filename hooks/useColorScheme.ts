@@ -1,10 +1,8 @@
-import { useSettingsStore } from '@/stores/settingsStore';
-
 /**
- * Playbox is LIGHT by default; dark is a persisted opt-in (settings toggle).
- * The value comes from the settings store, not the OS — people shouldn't get
- * dark just because their phone is dark on a bright day.
+ * Playbox is DARK-ONLY. Light theme was removed — always resolve 'dark'.
+ * (The store still holds a `scheme` field for possible future use, but the app
+ * ignores it here.)
  */
 export function useColorScheme(): 'light' | 'dark' {
-  return useSettingsStore((s) => s.scheme);
+  return 'dark';
 }

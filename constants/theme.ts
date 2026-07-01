@@ -72,11 +72,10 @@ type Palette = Record<PaletteKey, string>;
 export const lightPalette: Palette = paletteFor(lightNeutral);
 export const darkPalette: Palette = paletteFor(darkNeutral);
 
-// MUTABLE singleton, seeded LIGHT (the default scheme). ~980 call sites read
-// `palette.X` directly and can't react to a hook, so `applyScheme` swaps the
-// values IN PLACE and the root remounts (`key={scheme}` in app/_layout.tsx) so
-// every static read refreshes. Light is default; dark is a settings toggle.
-export const palette: Palette = { ...lightPalette };
+// MUTABLE singleton, seeded DARK. The app is dark-only (light theme removed);
+// `applyScheme` + the root remount machinery stays in place in case light is
+// ever revisited, but useColorScheme always resolves 'dark'.
+export const palette: Palette = { ...darkPalette };
 
 export function applyScheme(scheme: 'light' | 'dark') {
   Object.assign(palette, scheme === 'dark' ? darkPalette : lightPalette);

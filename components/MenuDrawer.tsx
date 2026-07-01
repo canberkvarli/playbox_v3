@@ -183,7 +183,7 @@ export function MenuDrawer() {
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="ayarlar"
-              style={({ pressed }) => ({
+              style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
@@ -192,8 +192,7 @@ export function MenuDrawer() {
                 borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
+              }}
             >
               <Feather name="settings" size={19} color={palette.fg} />
             </Pressable>
@@ -202,7 +201,7 @@ export function MenuDrawer() {
               hitSlop={14}
               accessibilityRole="button"
               accessibilityLabel="kapat"
-              style={({ pressed }) => ({
+              style={{
                 width: 40,
                 height: 40,
                 borderRadius: 20,
@@ -211,8 +210,7 @@ export function MenuDrawer() {
                 borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
+              }}
             >
               <Feather name="x" size={20} color={palette.fg} />
             </Pressable>
@@ -239,11 +237,10 @@ export function MenuDrawer() {
               }}
               accessibilityRole="button"
               accessibilityLabel={displayName || 'profil'}
-              style={({ pressed }) => ({
+              style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                opacity: pressed ? 0.6 : 1,
-              })}
+              }}
             >
               <View
                 style={{
@@ -316,12 +313,11 @@ export function MenuDrawer() {
                   await hx.tap();
                   item.onPress();
                 }}
-                style={({ pressed }) => ({
+                style={{
                   flexDirection: 'row',
                   alignItems: 'center',
                   paddingVertical: 15,
-                  opacity: pressed ? 0.5 : 1,
-                })}
+                }}
               >
                 <View
                   style={{
@@ -443,12 +439,11 @@ export function MenuDrawer() {
             }}
             accessibilityRole="button"
             accessibilityLabel="playbox'ı paylaş"
-            style={({ pressed }) => ({
+            style={{
               flexDirection: 'row',
               alignItems: 'center',
               paddingVertical: 8,
-              opacity: pressed ? 0.5 : 1,
-            })}
+            }}
           >
             <Feather name="share-2" size={16} color={palette.muted} style={{ marginRight: 8 }} />
             <Text
