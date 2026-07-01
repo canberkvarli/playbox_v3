@@ -1,0 +1,9 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke="#D6FB3C" stroke-width="50" stroke-linecap="butt">
+    <circle cx="512" cy="512" r="235"/>
+    <line x1="512" y1="277" x2="512" y2="747"/>
+    <line x1="277" y1="512" x2="747" y2="512"/>
+    <path d="M 372 335 Q 503 512 372 689"/>
+    <path d="M 652 335 Q 521 512 652 689"/>
+  </g>
+</svg>

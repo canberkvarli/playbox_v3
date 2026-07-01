@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a1f3a"
+      "backgroundColor": "#17181C"
     },
     "ios": {
       "supportsTablet": true,
@@ -28,7 +28,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1a1f3a"
+        "backgroundColor": "#17181C"
       },
       "package": "com.playbox.turkiye",
       "config": {
@@ -72,7 +72,7 @@
         "expo-notifications",
         {
           "icon": "./assets/images/icon.png",
-          "color": "#1a1f3a",
+          "color": "#D6FB3C",
           "sounds": [
             "./assets/sounds/twomin.wav",
             "./assets/sounds/done.wav"
