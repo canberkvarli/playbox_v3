@@ -855,9 +855,8 @@ function TopBar({
       {/* Brand wordmark sits LEFT (not centered) — deliberately distinct from
           Equip's locate/center-wordmark/menu top bar. Action icons group right.
           Wordmark lockup: "play" (fg) + "box" (volt), flips with theme. */}
-      <TopBarPill>
-        <Wordmark size={22} />
-      </TopBarPill>
+      {/* The wordmark carries its OWN dark chip — a single pill, no double box. */}
+      <Wordmark size={22} />
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">
           <Feather name="navigation" size={18} color={palette.ink} />

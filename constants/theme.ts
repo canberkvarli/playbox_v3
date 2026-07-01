@@ -26,7 +26,10 @@ const darkNeutral = {
   fg:         '#F4F3EE', // primary text
   muted:      '#9A9AA6', // secondary text
   border:     '#3A3C45', // hairline border
-  voltText:   '#D6FB3C', // accent TEXT — bright volt reads fine on dark
+  // Per-scheme ACCENT. Dark = volt green; light = coral/orange (green is
+  // unreadable on white, so light swaps the whole accent to orange).
+  accent:     '#D6FB3C', // volt green
+  accentInk:  '#17181C', // dark text/icons on the accent
 } as const;
 
 const lightNeutral = {
@@ -37,7 +40,8 @@ const lightNeutral = {
   fg:         '#2A2C33',
   muted:      '#6B6B75',
   border:     '#E2E0D8',
-  voltText:   '#D6FB3C', // brand green stays bright — readability handled by DARK carriers, not by dulling the green
+  accent:     '#FF5C39', // coral/orange — light-mode accent (no green on white)
+  accentInk:  '#FFFFFF', // white text/icons on the orange
 } as const;
 
 type Neutral = { [K in keyof typeof darkNeutral]: string };
@@ -49,7 +53,7 @@ function paletteFor(n: Neutral) {
     paper:  n.bg,        // was cream bg   -> asphalt bg
     ink:    n.fg,        // was plum text  -> light fg
     mauve:  n.muted,     // was teal       -> muted
-    coral:  brand.volt,  // was coral      -> VOLT (primary action)
+    coral:  n.accent,    // legacy "primary action" key -> scheme accent
     butter: brand.coral, // was tangerine  -> CORAL (destructive)
     // additive semantic keys (no churn; new/reskinned code uses these)
     bg:         n.bg,
@@ -59,9 +63,9 @@ function paletteFor(n: Neutral) {
     fg:         n.fg,
     muted:      n.muted,
     border:     n.border,
-    volt:       brand.volt,     // FILL — always bright lime (use voltInk for text on it)
-    voltInk:    brand.voltInk,
-    voltText:   n.voltText,     // accent TEXT color — readable per scheme
+    volt:       n.accent,     // ACCENT FILL — green (dark) / orange (light)
+    voltInk:    n.accentInk,  // text/icons on the accent
+    voltText:   n.accent,     // accent TEXT — green on dark, orange on light
     danger:     brand.coral,
   } as const;
 }

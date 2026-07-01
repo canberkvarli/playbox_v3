@@ -1,8 +1,9 @@
+import { useSettingsStore } from '@/stores/settingsStore';
+
 /**
- * Playbox is DARK-ONLY. Light theme was removed — always resolve 'dark'.
- * (The store still holds a `scheme` field for possible future use, but the app
- * ignores it here.)
+ * DARK by default; light is an opt-in toggle (settings → görünüm). Light mode
+ * swaps the green accent for the coral/orange so nothing green sits on white.
  */
 export function useColorScheme(): 'light' | 'dark' {
-  return 'dark';
+  return useSettingsStore((s) => s.scheme);
 }

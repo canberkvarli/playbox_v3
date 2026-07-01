@@ -26,7 +26,7 @@ type SettingsStore = {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
-      scheme: 'light',
+      scheme: 'dark',
       setScheme: (v) => set({ scheme: v }),
 
       notifReturnReminder: true,

@@ -575,6 +575,57 @@ export default function Settings() {
           />
         </RiseIn>
 
+        {/* Görünüm — koyu (default) / açık. Light mode uses the orange accent. */}
+        <RiseIn delay={40}>
+          <SectionLabel>görünüm</SectionLabel>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 8 }}>
+            {(['dark', 'light'] as const).map((s) => {
+              const on = scheme === s;
+              return (
+                <Pressable
+                  key={s}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  onPress={async () => {
+                    if (on) return;
+                    await hx.tap();
+                    setScheme(s);
+                  }}
+                  style={{
+                    flex: 1,
+                    height: 50,
+                    borderRadius: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    backgroundColor: on ? palette.volt : palette.surface,
+                    borderWidth: 1,
+                    borderColor: on ? palette.volt : palette.border,
+                  }}
+                >
+                  <Feather
+                    name={s === 'light' ? 'sun' : 'moon'}
+                    size={16}
+                    color={on ? palette.voltInk : palette.muted}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: 'Inter_600SemiBold',
+                      fontSize: 14,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                      color: on ? palette.voltInk : palette.fg,
+                    }}
+                  >
+                    {s === 'light' ? 'açık' : 'koyu'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </RiseIn>
+
         {/* Hesap section */}
         <RiseIn delay={80}>
           <SectionLabel>{t('settings.account.section')}</SectionLabel>
