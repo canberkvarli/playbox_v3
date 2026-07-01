@@ -16,11 +16,8 @@ export default function TabLayout() {
           headerShown: false,
           tabBarActiveTintColor: palette.volt,
           tabBarInactiveTintColor: palette.muted,
-          // Bar is currently hidden (accessed via ActiveSessionBanner + drawer);
-          // dark surface + hairline top border are tokenized here so the bar
-          // matches the Asphalt Volt comp the moment it's shown.
+          // Asphalt Volt tab bar: dark surface + hairline top, volt active tint.
           tabBarStyle: {
-            display: 'none',
             backgroundColor: palette.surface,
             borderTopColor: palette.border,
             borderTopWidth: 1,
@@ -43,8 +40,8 @@ export default function TabLayout() {
         <Tabs.Screen
           name="play"
           options={{
-            // Hidden from tab bar — accessible via ActiveSessionBanner only.
-            href: null,
+            title: t('tabs.play'),
+            tabBarIcon: ({ color, size }) => <Feather name="play" size={size} color={color} />,
           }}
         />
         <Tabs.Screen
