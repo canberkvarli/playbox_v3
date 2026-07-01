@@ -1,9 +1,15 @@
+import { useColorScheme as useSystemColorScheme } from 'react-native';
+
 import { useSettingsStore } from '@/stores/settingsStore';
 
 /**
- * DARK by default; light is an opt-in toggle (settings → görünüm). Light mode
- * swaps the green accent for the coral/orange so nothing green sits on white.
+ * Resolves the effective scheme: the stored preference follows the OS by
+ * default ('system'), and the settings toggle can force 'light' or 'dark'.
+ * Light mode swaps the green accent for coral/orange (no green on white).
  */
 export function useColorScheme(): 'light' | 'dark' {
-  return useSettingsStore((s) => s.scheme);
+  const pref = useSettingsStore((s) => s.scheme);
+  const system = useSystemColorScheme();
+  if (pref === 'light' || pref === 'dark') return pref;
+  return system === 'light' ? 'light' : 'dark'; // 'system' → OS (fallback dark)
 }

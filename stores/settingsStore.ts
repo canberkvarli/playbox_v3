@@ -3,10 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type CityKey = 'istanbul' | 'ankara' | 'izmir';
-export type ColorScheme = 'light' | 'dark';
+// Theme PREFERENCE. 'system' follows the OS; 'light'/'dark' force a scheme.
+export type ColorScheme = 'system' | 'light' | 'dark';
 
 type SettingsStore = {
-  // Theme. Light is the default; dark is an opt-in toggle.
+  // Default follows the system; the toggle can force light or dark.
   scheme: ColorScheme;
   setScheme: (v: ColorScheme) => void;
 
@@ -26,7 +27,7 @@ type SettingsStore = {
 export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
-      scheme: 'dark',
+      scheme: 'system',
       setScheme: (v) => set({ scheme: v }),
 
       notifReturnReminder: true,

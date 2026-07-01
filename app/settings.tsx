@@ -579,46 +579,49 @@ export default function Settings() {
         <RiseIn delay={40}>
           <SectionLabel>görünüm</SectionLabel>
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 8 }}>
-            {(['dark', 'light'] as const).map((s) => {
-              const on = scheme === s;
+            {([
+              { key: 'system', label: 'sistem', icon: 'smartphone' },
+              { key: 'light', label: 'açık', icon: 'sun' },
+              { key: 'dark', label: 'koyu', icon: 'moon' },
+            ] as const).map((opt) => {
+              const on = scheme === opt.key;
               return (
                 <Pressable
-                  key={s}
+                  key={opt.key}
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   onPress={async () => {
                     if (on) return;
                     await hx.tap();
-                    setScheme(s);
+                    setScheme(opt.key);
                   }}
                   style={{
                     flex: 1,
-                    height: 50,
+                    height: 56,
                     borderRadius: 14,
-                    flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 8,
+                    gap: 5,
                     backgroundColor: on ? palette.volt : palette.surface,
                     borderWidth: 1,
                     borderColor: on ? palette.volt : palette.border,
                   }}
                 >
                   <Feather
-                    name={s === 'light' ? 'sun' : 'moon'}
-                    size={16}
+                    name={opt.icon}
+                    size={17}
                     color={on ? palette.voltInk : palette.muted}
                   />
                   <Text
                     style={{
                       fontFamily: 'Inter_600SemiBold',
-                      fontSize: 14,
+                      fontSize: 12,
                       textTransform: 'uppercase',
-                      letterSpacing: 0.5,
+                      letterSpacing: 0.4,
                       color: on ? palette.voltInk : palette.fg,
                     }}
                   >
-                    {s === 'light' ? 'açık' : 'koyu'}
+                    {opt.label}
                   </Text>
                 </Pressable>
               );
