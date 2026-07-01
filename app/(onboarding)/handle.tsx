@@ -8,6 +8,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -62,7 +63,7 @@ export default function Handle() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: palette.paper }}
+      style={{ flex: 1, backgroundColor: palette.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View
@@ -79,7 +80,9 @@ export default function Handle() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: palette.ink,
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -87,7 +90,7 @@ export default function Handle() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.volt,
               fontSize: 16,
             }}
           >
@@ -112,11 +115,10 @@ export default function Handle() {
           <Text
             style={{
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 16,
               lineHeight: 22,
               marginTop: 12,
-              opacity: 0.85,
             }}
           >
             {t('onb.handle.sub')}
@@ -145,20 +147,20 @@ export default function Handle() {
               setName(s.slice(0, 30));
             }}
             placeholder={t('onb.handle.name_placeholder')}
-            placeholderTextColor={palette.ink + '66'}
+            placeholderTextColor={palette.muted}
             autoFocus
             autoCapitalize="words"
             autoCorrect={false}
             textContentType="givenName"
             maxLength={30}
             style={{
-              backgroundColor: palette.paper,
-              borderWidth: 2,
-              borderColor: palette.ink + '22',
+              backgroundColor: palette.surfaceAlt,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 16,
               paddingHorizontal: 16,
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.fg,
               minHeight: 60,
               fontSize: 18,
             }}
@@ -167,7 +169,7 @@ export default function Handle() {
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.coral,
+                color: palette.danger,
                 fontSize: 12,
                 marginTop: 8,
                 marginLeft: 4,
@@ -182,41 +184,13 @@ export default function Handle() {
       <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.handle.cta')}
-          accessibilityState={{ disabled: !primaryEnabled }}
+        <Button
+          label={t('onb.handle.cta')}
           onPress={onSubmit}
           disabled={!primaryEnabled}
-          style={({ pressed }) => ({
-            opacity: !primaryEnabled ? 0.45 : pressed ? 0.92 : 1,
-          })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {busy ? '...' : t('onb.handle.cta')}
-            </Text>
-          </View>
-        </Pressable>
+          loading={busy}
+          full
+        />
         <Pressable
           accessibilityRole="button"
           onPress={onSkip}
@@ -227,11 +201,10 @@ export default function Handle() {
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 13,
               textAlign: 'center',
               textDecorationLine: 'underline',
-              opacity: 0.7,
             }}
           >
             {t('onb.handle.skip')}

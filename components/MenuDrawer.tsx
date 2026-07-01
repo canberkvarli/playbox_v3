@@ -150,13 +150,13 @@ export function MenuDrawer() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: `${palette.ink}12`,
+              backgroundColor: palette.surfaceAlt,
               alignItems: 'center',
               justifyContent: 'center',
               opacity: pressed ? 0.6 : 1,
             })}
           >
-            <Feather name="x" size={20} color={palette.ink} />
+            <Feather name="x" size={20} color={palette.fg} />
           </Pressable>
         </View>
 
@@ -185,7 +185,7 @@ export function MenuDrawer() {
                 width: 52,
                 height: 52,
                 borderRadius: 26,
-                backgroundColor: palette.ink,
+                backgroundColor: palette.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 14,
@@ -193,7 +193,7 @@ export function MenuDrawer() {
             >
               <Text
                 style={{
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 20,
                   fontWeight: '800',
                 }}
@@ -205,7 +205,7 @@ export function MenuDrawer() {
               <Text
                 numberOfLines={1}
                 style={{
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 18,
                   fontWeight: '700',
                   letterSpacing: 0.2,
@@ -216,11 +216,11 @@ export function MenuDrawer() {
               <Text
                 numberOfLines={1}
                 style={{
-                  color: palette.ink,
+                  color: palette.muted,
+                  fontFamily: 'JetBrainsMono_500Medium',
                   fontSize: 13,
                   marginTop: 3,
                   letterSpacing: 0.2,
-                  fontWeight: '700',
                 }}
               >
                 @{username}
@@ -234,7 +234,7 @@ export function MenuDrawer() {
             width: DRAWER_W - 40,
             marginLeft: 20,
             height: 1,
-            backgroundColor: `${palette.ink}14`,
+            backgroundColor: palette.border,
           }}
         />
 
@@ -307,7 +307,7 @@ export function MenuDrawer() {
               width: DRAWER_W - 40,
               marginLeft: 20,
               height: 1,
-              backgroundColor: `${palette.ink}14`,
+              backgroundColor: palette.border,
             }}
           />
           <Pressable

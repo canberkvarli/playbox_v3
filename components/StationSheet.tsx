@@ -119,7 +119,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.ink + '0d',
+          backgroundColor: palette.surface + '0d',
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -135,7 +135,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.ink + '0d',
+          backgroundColor: palette.surface + '0d',
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -155,7 +155,7 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         backdropComponent={renderBackdrop}
         onClose={() => setStationSheetOpen(false)}
         backgroundStyle={{ backgroundColor: palette.paper }}
-        handleIndicatorStyle={{ backgroundColor: palette.ink + '44', width: 40, height: 4 }}
+        handleIndicatorStyle={{ backgroundColor: palette.surface + '44', width: 40, height: 4 }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}

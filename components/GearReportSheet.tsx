@@ -197,15 +197,17 @@ export function GearReportSheet({
 
         <View
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
+            borderTopWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 22,
             paddingTop: 14,
             paddingBottom: 28,
-            shadowColor: palette.ink,
+            shadowColor: palette.deep,
             shadowOffset: { width: 0, height: -8 },
-            shadowOpacity: 0.18,
+            shadowOpacity: 0.4,
             shadowRadius: 24,
             elevation: 24,
           }}
@@ -217,7 +219,7 @@ export function GearReportSheet({
               width: 44,
               height: 4,
               borderRadius: 2,
-              backgroundColor: palette.ink + '22',
+              backgroundColor: palette.border,
               marginBottom: 14,
             }}
           />
@@ -230,17 +232,19 @@ export function GearReportSheet({
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 22,
                 lineHeight: 26,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}
             >
               {t('gear.report.title')}
             </Text>
             <Text
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + 'cc',
+                fontFamily: 'Inter_400Regular',
+                color: palette.muted,
                 fontSize: 14,
                 lineHeight: 20,
                 marginTop: 6,
@@ -273,9 +277,9 @@ export function GearReportSheet({
                       paddingHorizontal: 14,
                       paddingVertical: 10,
                       borderRadius: 12,
-                      backgroundColor: selected ? palette.ink : palette.ink + '0d',
+                      backgroundColor: selected ? palette.volt : palette.surfaceAlt,
                       borderWidth: 1,
-                      borderColor: selected ? palette.ink : palette.ink + '14',
+                      borderColor: selected ? palette.volt : palette.border,
                       opacity: pressed ? 0.7 : 1,
                       flexDirection: 'row',
                       alignItems: 'center',
@@ -283,12 +287,12 @@ export function GearReportSheet({
                     })}
                   >
                     {selected ? (
-                      <Feather name="check" size={13} color={palette.paper} />
+                      <Feather name="check" size={13} color={palette.voltInk} />
                     ) : null}
                     <Text
                       style={{
                         fontFamily: 'Unbounded_700Bold',
-                        color: selected ? palette.paper : palette.ink,
+                        color: selected ? palette.voltInk : palette.fg,
                         fontSize: 12,
                         letterSpacing: 0.2,
                       }}
@@ -303,8 +307,8 @@ export function GearReportSheet({
             {/* Free-text */}
             <Text
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + '99',
+                fontFamily: 'JetBrainsMono_500Medium',
+                color: palette.muted,
                 fontSize: 11,
                 letterSpacing: 1.2,
                 textTransform: 'uppercase',
@@ -318,28 +322,28 @@ export function GearReportSheet({
               value={message}
               onChangeText={(v) => setMessage(v.slice(0, MAX_MESSAGE))}
               placeholder={t('gear.report.message_placeholder')}
-              placeholderTextColor={palette.ink + '66'}
+              placeholderTextColor={palette.muted}
               multiline
               numberOfLines={3}
               style={{
                 fontFamily: 'Inter_400Regular',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 14,
                 lineHeight: 20,
                 minHeight: 80,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderRadius: 14,
-                backgroundColor: palette.ink + '08',
+                backgroundColor: palette.surfaceAlt,
                 borderWidth: 1,
-                borderColor: palette.ink + '14',
+                borderColor: palette.border,
                 textAlignVertical: 'top',
               }}
             />
             <Text
               style={{
                 fontFamily: 'JetBrainsMono_500Medium',
-                color: palette.ink + '66',
+                color: palette.muted,
                 fontSize: 10,
                 marginTop: 4,
                 textAlign: 'right',
@@ -362,21 +366,21 @@ export function GearReportSheet({
                   paddingHorizontal: 14,
                   paddingVertical: 12,
                   borderRadius: 14,
-                  backgroundColor: palette.ink + '08',
+                  backgroundColor: palette.surfaceAlt,
                   borderWidth: 1,
-                  borderColor: palette.ink + '14',
+                  borderColor: palette.border,
                   opacity: pressed ? 0.7 : 1,
                 })}
               >
                 <Feather
                   name={photoUri ? 'check-circle' : 'camera'}
                   size={16}
-                  color={palette.ink}
+                  color={photoUri ? palette.volt : palette.fg}
                 />
                 <Text
                   style={{
                     fontFamily: 'Unbounded_700Bold',
-                    color: palette.ink,
+                    color: palette.fg,
                     fontSize: 12,
                   }}
                 >
@@ -389,7 +393,7 @@ export function GearReportSheet({
               <Text
                 style={{
                   fontFamily: 'Inter_600SemiBold',
-                  color: palette.coral,
+                  color: palette.danger,
                   fontSize: 12,
                   marginTop: 10,
                 }}
@@ -402,7 +406,7 @@ export function GearReportSheet({
               <Text
                 style={{
                   fontFamily: 'Inter_600SemiBold',
-                  color: palette.coral,
+                  color: palette.danger,
                   fontSize: 12,
                   marginTop: 10,
                 }}
@@ -414,7 +418,7 @@ export function GearReportSheet({
               <Text
                 style={{
                   fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink,
+                  color: palette.volt,
                   fontSize: 12,
                   marginTop: 10,
                 }}
@@ -433,21 +437,22 @@ export function GearReportSheet({
               style={({ pressed }) => ({
                 flex: 1,
                 paddingVertical: 14,
-                borderRadius: 14,
+                borderRadius: 999,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: palette.ink + '0d',
-                borderWidth: 1,
-                borderColor: palette.ink + '14',
+                backgroundColor: 'transparent',
+                borderWidth: 1.5,
+                borderColor: palette.border,
                 opacity: pressed ? 0.7 : 1,
               })}
             >
               <Text
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  fontFamily: 'Inter_600SemiBold',
+                  color: palette.fg,
                   fontSize: 13,
-                  letterSpacing: 0.3,
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
                 }}
               >
                 {t('common.cancel')}
@@ -461,10 +466,10 @@ export function GearReportSheet({
               style={({ pressed }) => ({
                 flex: 1,
                 paddingVertical: 14,
-                borderRadius: 14,
+                borderRadius: 999,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: palette.ink,
+                backgroundColor: palette.volt,
                 opacity:
                   status === 'submitting' || status === 'ok'
                     ? 0.4
@@ -475,10 +480,11 @@ export function GearReportSheet({
             >
               <Text
                 style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  fontFamily: 'Inter_600SemiBold',
+                  color: palette.voltInk,
                   fontSize: 13,
-                  letterSpacing: 0.3,
+                  letterSpacing: 1.2,
+                  textTransform: 'uppercase',
                 }}
               >
                 {status === 'submitting'

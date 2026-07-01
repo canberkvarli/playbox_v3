@@ -82,14 +82,16 @@ export function AppRatingSheet({ visible, onClose }: Props) {
         />
         <View
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderRadius: 28,
+            borderWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 24,
             paddingTop: 28,
             paddingBottom: 22,
-            shadowColor: palette.ink,
+            shadowColor: palette.deep,
             shadowOffset: { width: 0, height: 12 },
-            shadowOpacity: 0.22,
+            shadowOpacity: 0.5,
             shadowRadius: 32,
             elevation: 24,
           }}
@@ -99,9 +101,11 @@ export function AppRatingSheet({ visible, onClose }: Props) {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 22,
                   lineHeight: 26,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
                   textAlign: 'center',
                 }}
               >
@@ -109,8 +113,8 @@ export function AppRatingSheet({ visible, onClose }: Props) {
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink + 'cc',
+                  fontFamily: 'Inter_400Regular',
+                  color: palette.muted,
                   fontSize: 14,
                   lineHeight: 20,
                   marginTop: 8,
@@ -148,9 +152,9 @@ export function AppRatingSheet({ visible, onClose }: Props) {
                           borderRadius: 28,
                           alignItems: 'center',
                           justifyContent: 'center',
-                          backgroundColor: active ? palette.coral + '22' : palette.ink + '0d',
+                          backgroundColor: active ? palette.volt + '22' : palette.surfaceAlt,
                           borderWidth: 1.5,
-                          borderColor: active ? palette.coral : palette.ink + '22',
+                          borderColor: active ? palette.volt : palette.border,
                         }}
                       >
                         <Text style={{ fontSize: 28 }}>{face}</Text>
@@ -175,10 +179,11 @@ export function AppRatingSheet({ visible, onClose }: Props) {
               >
                 <Text
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
-                    color: palette.ink + 'aa',
+                    fontFamily: 'Inter_600SemiBold',
+                    color: palette.muted,
                     fontSize: 12,
-                    letterSpacing: 0.3,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
                   }}
                 >
                   {t('feedback.app_prompt.dismiss')}
@@ -191,8 +196,10 @@ export function AppRatingSheet({ visible, onClose }: Props) {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 18,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
                   marginTop: 10,
                 }}
               >
@@ -200,8 +207,8 @@ export function AppRatingSheet({ visible, onClose }: Props) {
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink + 'cc',
+                  fontFamily: 'Inter_400Regular',
+                  color: palette.muted,
                   fontSize: 13,
                   marginTop: 4,
                   textAlign: 'center',

@@ -19,6 +19,7 @@ import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
+import { Button } from '@/components/ui';
 
 // Safe-import expo-image-picker the same way GearReportSheet does — keeps the
 // bundle from exploding if the native module isn't linked in some build, and
@@ -68,17 +69,19 @@ function LiveTimer({ session }: { session: ActiveSession }) {
     }
   }, [remainingMs, overtime]);
 
-  const accent = overtime ? palette.coral : palette.butter;
+  const accent = overtime ? palette.danger : palette.volt;
 
   return (
     <View
       style={{
-        backgroundColor: palette.ink,
+        backgroundColor: palette.surface,
         borderRadius: 32,
         paddingVertical: 32,
         paddingHorizontal: 28,
         alignItems: 'center',
-        shadowColor: palette.ink,
+        borderWidth: 1,
+        borderColor: palette.border,
+        shadowColor: palette.deep,
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.22,
         shadowRadius: 24,
@@ -100,7 +103,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
       <Text
         style={{
           fontFamily: 'JetBrainsMono_400Regular',
-          color: palette.paper,
+          color: palette.fg,
           fontSize: 80,
           lineHeight: 86,
           letterSpacing: 3,
@@ -116,7 +119,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
         style={{
           width: '100%',
           height: 8,
-          backgroundColor: palette.paper + '1f',
+          backgroundColor: palette.surfaceAlt,
           borderRadius: 4,
           marginTop: 22,
           overflow: 'hidden',
@@ -139,7 +142,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
           paddingHorizontal: 14,
           paddingVertical: 8,
           borderRadius: 999,
-          backgroundColor: overtime ? palette.coral : palette.paper + '14',
+          backgroundColor: overtime ? palette.danger : palette.surfaceAlt,
           flexDirection: 'row',
           alignItems: 'center',
         }}
@@ -147,13 +150,13 @@ function LiveTimer({ session }: { session: ActiveSession }) {
         <Feather
           name={overtime ? 'alert-triangle' : 'clock'}
           size={13}
-          color={overtime ? palette.paper : accent}
+          color={overtime ? palette.fg : accent}
           style={{ marginRight: 8 }}
         />
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: overtime ? palette.paper : accent,
+            color: overtime ? palette.fg : accent,
             fontSize: 13,
             letterSpacing: 0.4,
           }}
@@ -179,7 +182,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
         <Text
           style={{
             fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.paper + '99',
+            color: palette.fg + '99',
             fontSize: 11,
             letterSpacing: 0.6,
           }}
@@ -188,8 +191,8 @@ function LiveTimer({ session }: { session: ActiveSession }) {
         </Text>
         <Text
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: overtime ? palette.coral : palette.butter,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: overtime ? palette.danger : palette.volt,
             fontSize: 16,
             letterSpacing: 0.4,
           }}
@@ -203,7 +206,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
         <View
           style={{
             marginTop: 8,
-            backgroundColor: palette.coral + '33',
+            backgroundColor: palette.danger + '33',
             borderRadius: 10,
             paddingHorizontal: 10,
             paddingVertical: 6,
@@ -216,7 +219,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 11,
               letterSpacing: 0.4,
               textTransform: 'uppercase',
@@ -226,8 +229,8 @@ function LiveTimer({ session }: { session: ActiveSession }) {
           </Text>
           <Text
             style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              fontFamily: 'JetBrainsMono_700Bold',
+              color: palette.fg,
               fontSize: 13,
               letterSpacing: 0.4,
             }}
@@ -543,13 +546,15 @@ export default function Play() {
           justifyContent: 'center',
         }}
       >
-        <Feather name="zap" size={48} color={palette.ink + '44'} />
+        <Feather name="zap" size={48} color={palette.volt} />
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 30,
+            lineHeight: 34,
             textAlign: 'center',
+            textTransform: 'uppercase',
             marginTop: 18,
           }}
         >
@@ -557,8 +562,8 @@ export default function Play() {
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 16,
             textAlign: 'center',
             marginTop: 10,
@@ -566,34 +571,13 @@ export default function Play() {
         >
           haritadan bir istasyona git ve oyna
         </Text>
-        <Pressable
+        <Button
+          label="haritayı aç"
+          icon="map"
           onPress={onGoMap}
-          style={({ pressed }) => ({ marginTop: 24, opacity: pressed ? 0.85 : 1 })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 16,
-              paddingHorizontal: 32,
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 14,
-              elevation: 6,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
-                fontSize: 16,
-              }}
-            >
-              haritayı aç
-            </Text>
-          </View>
-        </Pressable>
+          full={false}
+          style={{ marginTop: 24 }}
+        />
       </View>
     );
   }
@@ -628,20 +612,20 @@ export default function Play() {
               width: 44,
               height: 44,
               borderRadius: 22,
-              borderWidth: 1.5,
-              borderColor: palette.ink + '33',
-              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.border,
+              backgroundColor: palette.surface,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="chevron-left" size={22} color={palette.ink} />
+            <Feather name="chevron-left" size={22} color={palette.fg} />
           </View>
         </Pressable>
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: isOvertime ? palette.coral : palette.ink,
+            color: isOvertime ? palette.danger : palette.muted,
             fontSize: 13,
             letterSpacing: 1.5,
             textTransform: 'uppercase',
@@ -699,8 +683,8 @@ export default function Play() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.coral + '1f',
-            borderColor: palette.coral + '55',
+            backgroundColor: palette.danger + '1f',
+            borderColor: palette.danger + '55',
             borderWidth: 1,
             borderRadius: 16,
             paddingHorizontal: 14,
@@ -708,12 +692,12 @@ export default function Play() {
             marginBottom: 16,
           }}
         >
-          <Feather name="alert-triangle" size={18} color={palette.coral} style={{ marginRight: 10 }} />
+          <Feather name="alert-triangle" size={18} color={palette.danger} style={{ marginRight: 10 }} />
           <Text
             style={{
               flex: 1,
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              fontFamily: 'Inter_500Medium',
+              color: palette.fg,
               fontSize: 14,
               lineHeight: 20,
             }}
@@ -735,13 +719,13 @@ export default function Play() {
           alignItems: 'center',
         }}
       >
-        <Feather name="map-pin" size={16} color={palette.ink} style={{ marginRight: 8 }} />
+        <Feather name="map-pin" size={16} color={palette.volt} style={{ marginRight: 8 }} />
         <Text
           numberOfLines={1}
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 15,
             letterSpacing: 0.2,
           }}
@@ -752,7 +736,9 @@ export default function Play() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.ink + '0d',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 10,
             paddingVertical: 5,
             borderRadius: 999,
@@ -762,7 +748,7 @@ export default function Play() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 11,
               letterSpacing: 0.5,
               textTransform: 'uppercase',
@@ -785,9 +771,9 @@ export default function Play() {
             icon="help-circle"
             label="nasıl bitirilir"
             sub="kapıyı kapat & bitir"
-            tint={palette.butter}
-            iconBg={palette.ink}
-            iconColor={palette.paper}
+            tint={palette.surface}
+            iconBg={palette.volt}
+            iconColor={palette.voltInk}
             onPress={onHowToFinish}
           />
         </View>
@@ -796,9 +782,9 @@ export default function Play() {
             icon="phone"
             label="destek"
             sub="hemen yardım al"
-            tint={palette.coral + '22'}
-            iconBg={palette.coral}
-            iconColor={palette.paper}
+            tint={palette.surface}
+            iconBg={palette.surfaceAlt}
+            iconColor={palette.fg}
             onPress={async () => {
               await hx.tap();
               router.push('/support');
@@ -818,25 +804,26 @@ export default function Play() {
       >
         <View
           style={{
-            backgroundColor: palette.coral,
-            borderRadius: 28,
+            backgroundColor: palette.danger,
+            borderRadius: 999,
             paddingVertical: 22,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: palette.coral,
+            shadowColor: palette.danger,
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.35,
             shadowRadius: 18,
             elevation: 12,
           }}
         >
-          <Feather name="check" size={22} color={palette.paper} style={{ marginRight: 12 }} />
+          <Feather name="check" size={22} color={palette.fg} style={{ marginRight: 12 }} />
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 22,
+              lineHeight: 25,
               letterSpacing: 1.2,
             }}
           >
@@ -860,8 +847,8 @@ export default function Play() {
       >
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '88',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 13,
             textDecorationLine: 'underline',
           }}
@@ -976,9 +963,9 @@ export default function Play() {
                   paddingVertical: 10,
                   paddingHorizontal: 16,
                   borderRadius: 12,
-                  backgroundColor: palette.ink + '0d',
+                  backgroundColor: palette.surface,
                   borderWidth: 1.5,
-                  borderColor: palette.ink + '44',
+                  borderColor: palette.border,
                   borderStyle: 'dashed',
                 }}
               >
@@ -1061,9 +1048,11 @@ function EndSessionModal({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
+            borderTopWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 24,
             paddingTop: 12,
             paddingBottom: 36,
@@ -1077,7 +1066,7 @@ function EndSessionModal({
               width: 44,
               height: 5,
               borderRadius: 3,
-              backgroundColor: palette.ink + '22',
+              backgroundColor: palette.border,
               marginBottom: 18,
               opacity: dismissable ? 1 : 0.3,
             }}
@@ -1127,33 +1116,33 @@ function ConfirmPhase({
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.butter,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
         }}
       >
-        <Feather name="rotate-ccw" size={30} color={palette.ink} />
+        <Feather name="rotate-ccw" size={30} color={palette.voltInk} />
       </View>
 
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 28,
           lineHeight: 32,
+          textTransform: 'uppercase',
         }}
       >
         iade edelim mi?
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 15,
           lineHeight: 21,
           marginTop: 8,
-          opacity: 0.85,
         }}
       >
         kapıyı şimdi açacağız. sırasıyla şu adımları yap:
@@ -1166,7 +1155,9 @@ function ConfirmPhase({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: palette.butter,
+              backgroundColor: palette.surfaceAlt,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 14,
               paddingVertical: 14,
               paddingHorizontal: 14,
@@ -1178,7 +1169,7 @@ function ConfirmPhase({
                 width: 26,
                 height: 26,
                 borderRadius: 13,
-                backgroundColor: palette.ink,
+                backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 12,
@@ -1186,8 +1177,8 @@ function ConfirmPhase({
             >
               <Text
                 style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  fontFamily: 'JetBrainsMono_700Bold',
+                  color: palette.voltInk,
                   fontSize: 13,
                 }}
               >
@@ -1197,14 +1188,14 @@ function ConfirmPhase({
             <Feather
               name={step.icon}
               size={18}
-              color={palette.ink}
+              color={palette.fg}
               style={{ marginRight: 10 }}
             />
             <Text
               style={{
                 flex: 1,
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 14,
                 letterSpacing: 0.2,
               }}
@@ -1223,13 +1214,13 @@ function ConfirmPhase({
           marginTop: 14,
           paddingTop: 14,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '14',
+          borderTopColor: palette.border,
         }}
       >
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
             fontSize: 13,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
@@ -1239,8 +1230,8 @@ function ConfirmPhase({
         </Text>
         <Text
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: palette.volt,
             fontSize: 22,
             letterSpacing: 0.4,
           }}
@@ -1260,13 +1251,13 @@ function ConfirmPhase({
       >
         <View
           style={{
-            backgroundColor: palette.coral,
-            borderRadius: 18,
+            backgroundColor: palette.volt,
+            borderRadius: 999,
             paddingVertical: 18,
             alignItems: 'center',
             flexDirection: 'row',
             justifyContent: 'center',
-            shadowColor: palette.coral,
+            shadowColor: palette.volt,
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.3,
             shadowRadius: 16,
@@ -1276,13 +1267,13 @@ function ConfirmPhase({
           <Feather
             name="unlock"
             size={20}
-            color={palette.paper}
+            color={palette.voltInk}
             style={{ marginRight: 10 }}
           />
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.voltInk,
               fontSize: 17,
               letterSpacing: 0.4,
             }}
@@ -1304,18 +1295,18 @@ function ConfirmPhase({
         <View
           style={{
             paddingVertical: 14,
-            borderRadius: 18,
+            borderRadius: 999,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: palette.ink + '0d',
-            borderWidth: 1.5,
-            borderColor: palette.ink + '22',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
           }}
         >
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 14,
               letterSpacing: 0.3,
             }}
@@ -1336,30 +1327,31 @@ function OpeningPhase() {
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.coral,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 18,
         }}
       >
-        <Feather name="unlock" size={30} color={palette.paper} />
+        <Feather name="unlock" size={30} color={palette.voltInk} />
       </View>
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 24,
+          lineHeight: 27,
           textAlign: 'center',
+          textTransform: 'uppercase',
         }}
       >
         kapı açılıyor...
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 14,
-          opacity: 0.7,
           marginTop: 8,
           textAlign: 'center',
         }}
@@ -1388,33 +1380,33 @@ function AwaitingClosePhase({
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.coral,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
         }}
       >
-        <Feather name="check" size={30} color={palette.paper} />
+        <Feather name="check" size={30} color={palette.voltInk} />
       </View>
 
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 28,
           lineHeight: 32,
+          textTransform: 'uppercase',
         }}
       >
         kapı açık
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 15,
           lineHeight: 21,
           marginTop: 8,
-          opacity: 0.8,
         }}
       >
         son üç adım — sırasıyla yap, sonra bitir.
@@ -1438,7 +1430,9 @@ function AwaitingClosePhase({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: palette.butter,
+                backgroundColor: palette.surfaceAlt,
+                borderWidth: 1,
+                borderColor: palette.border,
                 borderRadius: 14,
                 paddingVertical: 14,
                 paddingHorizontal: 14,
@@ -1450,19 +1444,19 @@ function AwaitingClosePhase({
                   width: 26,
                   height: 26,
                   borderRadius: 13,
-                  backgroundColor: palette.ink,
+                  backgroundColor: palette.volt,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
                 }}
               >
                 {done ? (
-                  <Feather name="check" size={14} color={palette.paper} />
+                  <Feather name="check" size={14} color={palette.voltInk} />
                 ) : (
                   <Text
                     style={{
-                      fontFamily: 'Unbounded_800ExtraBold',
-                      color: palette.paper,
+                      fontFamily: 'JetBrainsMono_700Bold',
+                      color: palette.voltInk,
                       fontSize: 13,
                     }}
                   >
@@ -1473,14 +1467,14 @@ function AwaitingClosePhase({
               <Feather
                 name={step.icon}
                 size={18}
-                color={palette.ink}
+                color={palette.fg}
                 style={{ marginRight: 10 }}
               />
               <Text
                 style={{
                   flex: 1,
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 14,
                   letterSpacing: 0.2,
                 }}
@@ -1502,13 +1496,13 @@ function AwaitingClosePhase({
           marginTop: 18,
           paddingTop: 16,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '14',
+          borderTopColor: palette.border,
         }}
       >
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink + '99',
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
             fontSize: 12,
             letterSpacing: 0.6,
             textTransform: 'uppercase',
@@ -1518,8 +1512,8 @@ function AwaitingClosePhase({
         </Text>
         <Text
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: palette.volt,
             fontSize: 30,
             letterSpacing: 0.2,
           }}
@@ -1547,7 +1541,7 @@ function AwaitingClosePhase({
           : photoSatisfied
           ? 'kapattım, bitir'
           : 'kapanış fotoğrafı çek';
-        const bg = photoSatisfied ? palette.ink : palette.coral;
+        const bg = palette.volt;
         return (
           <Pressable
             onPress={onPress}
@@ -1563,7 +1557,7 @@ function AwaitingClosePhase({
             <View
               style={{
                 backgroundColor: bg,
-                borderRadius: 18,
+                borderRadius: 999,
                 paddingVertical: 18,
                 alignItems: 'center',
                 flexDirection: 'row',
@@ -1578,13 +1572,13 @@ function AwaitingClosePhase({
               <Feather
                 name={photoSatisfied ? 'check' : 'camera'}
                 size={20}
-                color={palette.paper}
+                color={palette.voltInk}
                 style={{ marginRight: 10 }}
               />
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  color: palette.voltInk,
                   fontSize: 17,
                   letterSpacing: 0.4,
                 }}
@@ -1601,8 +1595,8 @@ function AwaitingClosePhase({
         <Text
           style={{
             marginTop: 10,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '99',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             textAlign: 'center',
             lineHeight: 17,
@@ -1615,8 +1609,8 @@ function AwaitingClosePhase({
         <Text
           style={{
             marginTop: 10,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '99',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             textAlign: 'center',
             lineHeight: 17,
@@ -1654,17 +1648,16 @@ function FirmwareBanner({
   body: string;
   onReport: () => void;
 }) {
-  const tint = tone === 'alert' ? palette.coral : palette.butter;
-  const borderTint = tone === 'alert' ? palette.coral + '55' : palette.ink + '33';
-  const accent = tone === 'alert' ? palette.coral : palette.ink;
-  const onBody = palette.ink;
+  const accent = palette.danger;
+  const borderTint = tone === 'alert' ? palette.danger + '66' : palette.border;
+  const onBody = palette.fg;
 
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: tone === 'alert' ? palette.coral + '1f' : tint,
+        backgroundColor: tone === 'alert' ? palette.danger + '1f' : palette.surfaceAlt,
         borderColor: borderTint,
         borderWidth: 1,
         borderRadius: 16,
@@ -1684,7 +1677,7 @@ function FirmwareBanner({
           marginRight: 12,
         }}
       >
-        <Feather name={icon} size={16} color={palette.paper} />
+        <Feather name={icon} size={16} color={palette.fg} />
       </View>
       <View style={{ flex: 1 }}>
         <Text
@@ -1700,12 +1693,11 @@ function FirmwareBanner({
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: onBody,
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 13,
             lineHeight: 18,
             marginTop: 4,
-            opacity: 0.85,
           }}
         >
           {body}
@@ -1728,7 +1720,7 @@ function FirmwareBanner({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: palette.ink,
+              backgroundColor: palette.volt,
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: 999,
@@ -1737,13 +1729,13 @@ function FirmwareBanner({
             <Feather
               name="message-circle"
               size={12}
-              color={palette.paper}
+              color={palette.voltInk}
               style={{ marginRight: 6 }}
             />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
+                color: palette.voltInk,
                 fontSize: 11,
                 letterSpacing: 0.6,
                 textTransform: 'uppercase',
@@ -1796,6 +1788,8 @@ function ActionCard({
         style={{
           backgroundColor: tint,
           borderRadius: 18,
+          borderWidth: 1,
+          borderColor: palette.border,
           paddingVertical: 14,
           paddingHorizontal: 14,
           width: '100%',
@@ -1817,22 +1811,22 @@ function ActionCard({
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 0.3,
             lineHeight: 18,
+            textTransform: 'uppercase',
           }}
         >
           {label}
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             lineHeight: 16,
             marginTop: 3,
-            opacity: 0.75,
           }}
         >
           {sub}

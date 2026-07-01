@@ -24,7 +24,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
-import { gatesForStation, SPORT_LABELS, type Gate, type Station, type Sport } from '@/data/stations.seed';
+import { gatesForStation, SPORT_LABELS, STATIONS, type Gate, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { RESERVATION_LOCK_MIN, useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -261,7 +261,7 @@ function GateCard({
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
+                color: palette.fg,
                 fontSize: 9,
                 letterSpacing: 0.4,
               }}
@@ -541,6 +541,7 @@ export function StationGateSelector({
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 21,
+              lineHeight: 24,
               color: palette.ink,
             }}
           >
@@ -679,7 +680,7 @@ export function StationGateSelector({
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 64,
-              lineHeight: 68,
+              lineHeight: 72,
               color: palette.ink,
               includeFontPadding: false,
               marginRight: 6,
@@ -706,7 +707,7 @@ export function StationGateSelector({
             marginTop: 10,
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.ink,
+            backgroundColor: palette.surface,
             paddingHorizontal: 14,
             paddingVertical: 8,
             borderRadius: 999,
@@ -727,7 +728,7 @@ export function StationGateSelector({
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 16,
               letterSpacing: 0.3,
               marginRight: 8,
@@ -738,7 +739,7 @@ export function StationGateSelector({
           <Text
             style={{
               fontFamily: 'JetBrainsMono_500Medium',
-              color: palette.paper + 'aa',
+              color: palette.fg + 'aa',
               fontSize: 10,
               letterSpacing: 0.5,
             }}
@@ -850,7 +851,7 @@ export function StationGateSelector({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: palette.ink,
+                backgroundColor: palette.surface,
                 borderRadius: 10,
                 paddingHorizontal: 14,
                 paddingVertical: 8,
@@ -860,7 +861,7 @@ export function StationGateSelector({
               <Text
                 style={{
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 12,
                   letterSpacing: 0.4,
                 }}
@@ -888,7 +889,7 @@ export function StationGateSelector({
           <Feather name="alert-circle" size={14} color={palette.coral} style={{ marginRight: 8 }} />
           <Text style={{ flex: 1, color: palette.ink, fontSize: 12, fontWeight: '500' }}>
             {t('station.blocked_by_reservation', {
-              name: activeReservation?.stationName ?? '',
+              name: STATIONS.find((s) => s.id === activeReservation?.station_id)?.name ?? '',
             })}
           </Text>
         </Animated.View>
@@ -1046,7 +1047,7 @@ function CTAButton({
             entering={FadeInDown.duration(180)}
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.fg,
               letterSpacing: 2,
               fontSize: 26,
               lineHeight: 30,

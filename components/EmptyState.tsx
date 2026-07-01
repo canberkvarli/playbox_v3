@@ -12,10 +12,10 @@ type Props = {
 };
 
 /**
- * Warm "nothing here yet" placeholder: an icon in a butter circle, an Unbounded
- * title, an optional muted subtitle, and an optional coral pill CTA. Matches the
- * pattern already used on the reservations screen; reuse it for any empty list
- * so empty states feel intentional and on-brand instead of a bare line of text.
+ * Asphalt Volt "nothing here yet" placeholder: an icon in a subtle surfaceAlt
+ * circle (volt glyph), an Anton title, an optional muted subtitle, and an
+ * optional volt pill CTA. Reuse it for any empty list so empty states feel
+ * intentional and on-brand instead of a bare line of text.
  *
  * NOTE: the CTA uses a STATIC style + inner View (not a function-form Pressable
  * style) — this RN build drops function-form styles in some cases, which would
@@ -36,20 +36,25 @@ export function EmptyState({ icon, title, subtitle, cta }: Props) {
           width: 88,
           height: 88,
           borderRadius: 44,
-          backgroundColor: palette.butter,
+          backgroundColor: palette.surfaceAlt,
+          borderWidth: 1,
+          borderColor: palette.border,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 18,
         }}
       >
-        <Feather name={icon} size={36} color={palette.ink} />
+        <Feather name={icon} size={36} color={palette.volt} />
       </View>
 
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 20,
+          lineHeight: 22,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
           textAlign: 'center',
           marginBottom: subtitle ? 10 : 0,
         }}
@@ -61,7 +66,7 @@ export function EmptyState({ icon, title, subtitle, cta }: Props) {
         <Text
           style={{
             fontFamily: 'Inter_400Regular',
-            color: palette.ink + '99',
+            color: palette.muted,
             fontSize: 13,
             textAlign: 'center',
             maxWidth: 280,
@@ -77,13 +82,21 @@ export function EmptyState({ icon, title, subtitle, cta }: Props) {
         <Pressable onPress={cta.onPress} hitSlop={8}>
           <View
             style={{
-              backgroundColor: palette.coral,
+              backgroundColor: palette.volt,
               borderRadius: 999,
               paddingHorizontal: 22,
               paddingVertical: 12,
             }}
           >
-            <Text style={{ fontFamily: 'Unbounded_700Bold', color: palette.paper, fontSize: 14 }}>
+            <Text
+              style={{
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.voltInk,
+                fontSize: 13,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
+              }}
+            >
               {cta.label}
             </Text>
           </View>

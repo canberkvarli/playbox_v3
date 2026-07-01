@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Image, Pressable, Text, View } from 'react-native';
+import { Image, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -17,6 +17,7 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 export default function Welcome() {
@@ -70,7 +71,7 @@ export default function Welcome() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 32,
         paddingBottom: insets.bottom + 16,
@@ -84,10 +85,12 @@ export default function Welcome() {
               height: 132,
               borderRadius: 28,
               overflow: 'hidden',
-              backgroundColor: palette.ink,
-              shadowColor: palette.ink,
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
+              shadowColor: palette.deep,
               shadowOffset: { width: 0, height: 14 },
-              shadowOpacity: 0.22,
+              shadowOpacity: 0.4,
               shadowRadius: 22,
               elevation: 14,
             },
@@ -111,7 +114,7 @@ export default function Welcome() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.ink,
                 fontSize: 56,
-                lineHeight: 60,
+                lineHeight: 63,
               }}
             >
               {line}
@@ -138,38 +141,7 @@ export default function Welcome() {
       <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.welcome.cta')}
-          onPress={onStart}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {t('onb.welcome.cta')}
-            </Text>
-          </View>
-        </Pressable>
+        <Button label={t('onb.welcome.cta')} onPress={onStart} full />
       </RiseIn>
     </View>
   );

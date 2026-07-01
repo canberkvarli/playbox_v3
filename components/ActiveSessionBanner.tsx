@@ -164,7 +164,7 @@ export function ActiveSessionBanner() {
     fontFamily: 'JetBrainsMono_700Bold' as const,
     fontSize: 14,
     lineHeight: 18,
-    color: palette.paper,
+    color: palette.fg,
     letterSpacing: 1.2,
     paddingHorizontal: 18,
   };

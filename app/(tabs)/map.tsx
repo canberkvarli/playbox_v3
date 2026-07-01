@@ -26,6 +26,7 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
 import { EmptyState } from '@/components/EmptyState';
 import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
@@ -86,7 +87,7 @@ const StationMarkerView = memo(function StationMarkerView({
     <View
       style={[
         {
-          backgroundColor: palette.butter,
+          backgroundColor: nearby ? palette.volt : palette.danger,
           borderRadius: 16,
           height: 40,
           width,
@@ -96,9 +97,9 @@ const StationMarkerView = memo(function StationMarkerView({
           justifyContent: 'center',
           gap: 2,
           borderWidth: nearby ? 3 : 2,
-          // Green = "açık": the station's ESP32 is powered and in BLE range.
-          borderColor: nearby ? '#22c55e' : palette.ink,
-          shadowColor: nearby ? '#22c55e' : palette.ink,
+          // Volt = "açık": the station's ESP32 is powered and in BLE range.
+          borderColor: nearby ? palette.voltInk : palette.deep,
+          shadowColor: nearby ? palette.volt : palette.deep,
           shadowOffset: { width: 0, height: 3 },
           shadowOpacity: nearby ? 0.45 : 0.22,
           shadowRadius: nearby ? 8 : 5,
@@ -116,7 +117,7 @@ const StationMarkerView = memo(function StationMarkerView({
         <Text
           style={{
             fontSize: 10,
-            color: palette.ink,
+            color: palette.voltInk,
             fontWeight: '700',
             marginLeft: 2,
           }}
@@ -139,10 +140,10 @@ const StationMarkerView = memo(function StationMarkerView({
             width: 12,
             height: 12,
             borderRadius: 6,
-            backgroundColor: '#22c55e',
+            backgroundColor: palette.volt,
             borderWidth: 2,
-            borderColor: palette.paper,
-            shadowColor: '#22c55e',
+            borderColor: palette.bg,
+            shadowColor: palette.volt,
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.6,
             shadowRadius: 4,
@@ -172,7 +173,7 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
     <Animated.View
       style={[
         {
-          backgroundColor: palette.butter,
+          backgroundColor: palette.surface,
           borderRadius: 22,
           minWidth: 44,
           height: 44,
@@ -180,8 +181,8 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 2,
-          borderColor: palette.ink,
-          shadowColor: palette.ink,
+          borderColor: palette.volt,
+          shadowColor: palette.deep,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.18,
           shadowRadius: 4,
@@ -190,7 +191,7 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
         style,
       ]}
     >
-      <Text className="font-display-x text-ink" style={{ fontSize: 18 }}>
+      <Text className="font-display-x" style={{ fontSize: 18, color: palette.fg }}>
         {count}
       </Text>
     </Animated.View>
@@ -221,19 +222,24 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
 
   const radiusMeters = phase * 200;
   const opacity = 0.45 * (1 - phase);
+  // Volt sweep ring — hex alpha byte derived from the fade so no literal color.
+  const fillAlpha = Math.round(opacity * 0.15 * 255)
+    .toString(16)
+    .padStart(2, '0');
 
   return (
     <Circle
       center={{ latitude: userLoc.lat, longitude: userLoc.lng }}
       radius={radiusMeters}
-      strokeColor={palette.coral}
+      strokeColor={palette.volt}
       strokeWidth={2}
-      fillColor={`rgba(226, 105, 114, ${opacity * 0.15})`}
+      fillColor={palette.volt + fillAlpha}
     />
   );
 }
 
 function CommandBar() {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const {
@@ -297,7 +303,7 @@ function CommandBar() {
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
-          className="flex-1 font-sans text-ink dark:text-paper text-base"
+          className="flex-1 font-sans text-ink dark:text-fg text-base"
           style={{ paddingVertical: 0 }}
         />
         {searchQuery.length > 0 ? (
@@ -305,7 +311,7 @@ function CommandBar() {
             <Feather name="x" size={16} color={palette.ink + '99'} />
           </Pressable>
         ) : null}
-        <View style={{ width: 1, height: 22, backgroundColor: palette.ink + '1a' }} />
+        <View style={{ width: 1, height: 22, backgroundColor: palette.surface + '1a' }} />
         <View style={{ flexDirection: 'row', gap: 2 }}>
           {(['map', 'list'] as const).map((m) => (
             <Pressable
@@ -342,6 +348,7 @@ function SearchSuggestions({
   userLoc: { lat: number; lng: number } | null;
   onPickStation: (s: Station) => void;
 }) {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const searchFocused = useMapStore((s) => s.searchFocused);
@@ -390,11 +397,11 @@ function SearchSuggestions({
         {recentSearches.length > 0 ? (
           <View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold">
+              <Text className="font-medium text-ink dark:text-fg uppercase tracking-wider text-[12px] font-bold">
                 {t('map.suggest.recent')}
               </Text>
               <Pressable onPress={clearRecentSearches} hitSlop={6}>
-                <Text className="font-sans text-ink dark:text-paper font-semibold text-[11px]">
+                <Text className="font-sans text-ink dark:text-fg font-semibold text-[11px]">
                   {t('map.suggest.clear')}
                 </Text>
               </Pressable>
@@ -405,7 +412,7 @@ function SearchSuggestions({
                   key={q}
                   onPress={() => setSearchQuery(q)}
                   style={{
-                    backgroundColor: palette.ink + '0d',
+                    backgroundColor: palette.surface + '0d',
                     paddingHorizontal: 12,
                     paddingVertical: 7,
                     borderRadius: 999,
@@ -415,7 +422,7 @@ function SearchSuggestions({
                   }}
                 >
                   <Feather name="clock" size={12} color={palette.ink + '88'} />
-                  <Text className="font-sans text-ink dark:text-paper text-sm">{q}</Text>
+                  <Text className="font-sans text-ink dark:text-fg text-sm">{q}</Text>
                 </Pressable>
               ))}
             </View>
@@ -424,7 +431,7 @@ function SearchSuggestions({
 
         {nearby.length > 0 ? (
           <View>
-            <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold mb-2">
+            <Text className="font-medium text-ink dark:text-fg uppercase tracking-wider text-[12px] font-bold mb-2">
               {t('map.suggest.nearby')}
             </Text>
             <View style={{ gap: 2 }}>
@@ -445,11 +452,11 @@ function SearchSuggestions({
                     })}
                   >
                     <Feather name="map-pin" size={15} color={palette.coral} />
-                    <Text className="flex-1 font-medium text-ink dark:text-paper text-[15px]">
+                    <Text className="flex-1 font-medium text-ink dark:text-fg text-[15px]">
                       {s.name}
                     </Text>
                     {km !== null ? (
-                      <Text className="font-mono text-ink dark:text-paper font-bold text-xs">
+                      <Text className="font-mono text-ink dark:text-fg font-bold text-xs">
                         {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
                       </Text>
                     ) : null}
@@ -473,7 +480,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
         position: 'absolute',
         top: insets.top + 76,
         left: 20,
-        backgroundColor: palette.ink,
+        backgroundColor: palette.surface,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 999,
@@ -482,7 +489,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
     >
       <Text
         style={{
-          color: palette.paper,
+          color: palette.fg,
           fontFamily: 'Inter_500Medium',
           fontSize: 11,
           letterSpacing: 0.3,
@@ -507,6 +514,7 @@ function SportChip({
   onPress: () => void;
   label: string;
 }) {
+  const theme = useTheme();
   const scale = useSharedValue(active ? 1.04 : 1);
 
   useEffect(() => {
@@ -526,7 +534,7 @@ function SportChip({
         paddingVertical: 8,
         gap: 6,
         borderRadius: 999,
-        backgroundColor: active ? theme.butter : palette.paper + 'cc',
+        backgroundColor: active ? theme.volt : palette.paper + 'cc',
         borderWidth: 1,
         borderColor: active ? palette.ink + '1a' : palette.ink + '14',
         opacity: disabled ? 0.3 : 1,
@@ -538,7 +546,7 @@ function SportChip({
         style={{
           fontFamily: 'Unbounded_700Bold',
           fontSize: 13,
-          color: palette.ink,
+          color: active ? theme.voltInk : palette.ink,
           textTransform: 'lowercase',
           letterSpacing: 0.3,
         }}
@@ -562,7 +570,7 @@ function SportChip({
             width: 6,
             height: 6,
             borderRadius: 3,
-            backgroundColor: theme.coral,
+            backgroundColor: theme.voltInk,
             marginLeft: 2,
           }}
         />
@@ -672,8 +680,8 @@ function StationListView({
             key={s.id}
             onPress={() => onStationPress(s)}
             style={({ pressed }) => ({
-              backgroundColor: palette.paper,
-              borderColor: palette.ink + '1a',
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
               borderWidth: 1,
               borderRadius: 20,
               padding: 16,
@@ -685,7 +693,7 @@ function StationListView({
                 {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
               </Text>
             )}
-            <Text className="font-display text-ink dark:text-paper text-xl mt-1">{s.name}</Text>
+            <Text className="font-display text-ink dark:text-fg text-xl mt-1 leading-[22px]">{s.name}</Text>
             <View className="flex-row flex-wrap gap-2 mt-3">
               {s.sports.map((sport) => {
                 const stock = s.stock[sport] ?? 0;
@@ -694,7 +702,7 @@ function StationListView({
                   <View
                     key={sport}
                     style={{
-                      backgroundColor: out ? palette.ink + '14' : palette.butter,
+                      backgroundColor: out ? palette.surfaceAlt : palette.volt,
                       borderRadius: 10,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
@@ -707,7 +715,7 @@ function StationListView({
                     <Text
                       className={
                         out
-                          ? 'font-sans text-ink dark:text-paper font-semibold text-xs'
+                          ? 'font-sans text-ink dark:text-fg font-semibold text-xs'
                           : 'font-medium text-ink text-xs'
                       }
                     >
@@ -749,7 +757,7 @@ function TopBarPill({
           by a Pressable behavior or background being overridden. */}
       <View
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: palette.surface,
           borderRadius: 999,
           height: 46,
           minWidth: 46,
@@ -757,10 +765,10 @@ function TopBarPill({
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1.5,
-          borderColor: palette.ink + '30',
-          shadowColor: '#000',
+          borderColor: palette.border,
+          shadowColor: palette.deep,
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
+          shadowOpacity: 0.35,
           shadowRadius: 8,
           elevation: 6,
         }}
@@ -905,7 +913,7 @@ function HomeBottomSheet({
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
       }}
-      handleIndicatorStyle={{ backgroundColor: palette.ink + '26', width: 44, height: 5 }}
+      handleIndicatorStyle={{ backgroundColor: palette.border, width: 44, height: 5 }}
     >
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
@@ -919,7 +927,7 @@ function HomeBottomSheet({
           <View
             style={{
               flex: 1,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surfaceAlt,
               borderRadius: 18,
               paddingHorizontal: 16,
               paddingVertical: 14,
@@ -928,7 +936,7 @@ function HomeBottomSheet({
               gap: 10,
             }}
           >
-            <Feather name="search" size={18} color={palette.ink} />
+            <Feather name="search" size={18} color={palette.muted} />
             <BottomSheetTextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -959,7 +967,7 @@ function HomeBottomSheet({
               height: 50,
               borderRadius: 18,
               backgroundColor:
-                showFilters || filter !== 'all' ? palette.ink : palette.ink + '08',
+                showFilters || filter !== 'all' ? palette.volt : palette.surfaceAlt,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -967,7 +975,7 @@ function HomeBottomSheet({
             <Feather
               name="sliders"
               size={18}
-              color={showFilters || filter !== 'all' ? palette.paper : palette.ink}
+              color={showFilters || filter !== 'all' ? palette.voltInk : palette.fg}
             />
             {filter !== 'all' ? (
               <View
@@ -978,9 +986,9 @@ function HomeBottomSheet({
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: palette.coral,
+                  backgroundColor: palette.danger,
                   borderWidth: 1.5,
-                  borderColor: palette.paper,
+                  borderColor: palette.bg,
                 }}
               />
             ) : null}
@@ -1005,7 +1013,7 @@ function HomeBottomSheet({
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 999,
-                    backgroundColor: active ? palette.coral : palette.ink + '08',
+                    backgroundColor: active ? palette.volt : palette.surfaceAlt,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 8,
@@ -1015,7 +1023,7 @@ function HomeBottomSheet({
                   <Text
                     style={{
                       fontSize: 13,
-                      color: active ? palette.paper : palette.ink,
+                      color: active ? palette.voltInk : palette.fg,
                       fontWeight: '600',
                       letterSpacing: 0.2,
                     }}
@@ -1032,7 +1040,7 @@ function HomeBottomSheet({
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surfaceAlt,
             borderRadius: 18,
             padding: 5,
             marginTop: 4,
@@ -1052,9 +1060,9 @@ function HomeBottomSheet({
                   flex: 1,
                   paddingVertical: 14,
                   borderRadius: 14,
-                  backgroundColor: active ? palette.paper : 'transparent',
+                  backgroundColor: active ? palette.bg : 'transparent',
                   alignItems: 'center',
-                  shadowColor: '#000',
+                  shadowColor: palette.deep,
                   shadowOffset: { width: 0, height: active ? 2 : 0 },
                   shadowOpacity: active ? 0.1 : 0,
                   shadowRadius: active ? 4 : 0,
@@ -1142,8 +1150,8 @@ function HomeBottomSheet({
                   key={s.id}
                   onPress={() => onPickStation(s)}
                   style={({ pressed }) => ({
-                    backgroundColor: palette.paper,
-                    borderColor: palette.ink + '12',
+                    backgroundColor: palette.surface,
+                    borderColor: palette.border,
                     borderWidth: 1,
                     borderRadius: 20,
                     paddingHorizontal: 14,
@@ -1188,7 +1196,7 @@ function HomeBottomSheet({
                       className="font-mono"
                       style={{
                         fontSize: 12,
-                        color: live ? '#2a8a52' : palette.ink + '66',
+                        color: live ? palette.volt : palette.muted,
                         fontWeight: '600',
                         marginTop: 3,
                       }}
@@ -1468,7 +1476,7 @@ export default function Map() {
   });
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
+    <View className="flex-1 bg-paper dark:bg-surface">
       <MapView
         ref={mapRef}
         provider={PROVIDER_DEFAULT}

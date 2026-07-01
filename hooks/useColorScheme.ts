@@ -1,11 +1,11 @@
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 
 /**
- * Playbox is light-mode locked for now. We still consume the system hook so
- * React's hook-call order stays stable across reloads, but we always return
- * 'light'. To re-enable system-driven dark mode later, return the system value.
+ * Asphalt Volt is dark-first. We default to 'dark' and only honour an explicit
+ * system 'light' preference (light is a supported fallback, dark is the brand).
+ * To hard-lock dark, return 'dark' unconditionally.
  */
-export function useColorScheme(): 'light' {
-  useSystemColorScheme();
-  return 'light';
+export function useColorScheme(): 'light' | 'dark' {
+  const system = useSystemColorScheme();
+  return system === 'light' ? 'light' : 'dark';
 }

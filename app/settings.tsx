@@ -54,9 +54,9 @@ function SettingRow({
     >
       <View
         style={{
-          backgroundColor: palette.paper,
-          borderWidth: 1.5,
-          borderColor: palette.ink + '22',
+          backgroundColor: palette.surface,
+          borderWidth: 1,
+          borderColor: palette.border,
           borderRadius: 14,
           paddingHorizontal: 16,
           paddingVertical: 16,
@@ -68,7 +68,7 @@ function SettingRow({
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: destructive ? palette.coral : palette.ink,
+            color: destructive ? palette.danger : palette.fg,
             fontSize: 15,
             letterSpacing: 0.2,
             marginRight: 12,
@@ -80,11 +80,10 @@ function SettingRow({
           <Text
             numberOfLines={1}
             style={{
-              fontFamily: 'Inter_700Bold',
-              color: palette.ink,
+              fontFamily: 'Inter_500Medium',
+              color: palette.muted,
               fontSize: 13,
               maxWidth: 160,
-              opacity: 0.7,
               marginRight: onPress ? 8 : 0,
             }}
           >
@@ -92,7 +91,7 @@ function SettingRow({
           </Text>
         ) : null}
         {onPress ? (
-          <Feather name="chevron-right" size={18} color={palette.ink} />
+          <Feather name="chevron-right" size={18} color={palette.muted} />
         ) : null}
       </View>
     </Pressable>
@@ -104,7 +103,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <Text
       style={{
         fontFamily: 'Unbounded_800ExtraBold',
-        color: palette.ink,
+        color: palette.muted,
         fontSize: 12,
         letterSpacing: 1.5,
         textTransform: 'uppercase',
@@ -173,7 +172,9 @@ function EditModal({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
+            borderWidth: 1,
+            borderColor: palette.border,
             borderRadius: 22,
             padding: 22,
           }}
@@ -181,9 +182,10 @@ function EditModal({
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 22,
               lineHeight: 26,
+              textTransform: 'uppercase',
             }}
           >
             {title}
@@ -192,21 +194,21 @@ function EditModal({
             value={value}
             onChangeText={setValue}
             placeholder={placeholder}
-            placeholderTextColor={palette.ink + 'aa'}
+            placeholderTextColor={palette.muted}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
             style={{
               marginTop: 16,
-              borderWidth: 2,
-              borderColor: palette.ink + '22',
+              borderWidth: 1.5,
+              borderColor: palette.border,
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 14,
-              color: palette.ink,
+              color: palette.fg,
               fontFamily: 'Inter_600SemiBold',
               fontSize: 17,
-              backgroundColor: palette.paper,
+              backgroundColor: palette.surfaceAlt,
             }}
           />
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
@@ -220,10 +222,10 @@ function EditModal({
               <View
                 style={{
                   paddingVertical: 15,
-                  borderRadius: 16,
+                  borderRadius: 999,
                   borderWidth: 1.5,
-                  borderColor: palette.ink + '22',
-                  backgroundColor: palette.paper,
+                  borderColor: palette.border,
+                  backgroundColor: palette.surfaceAlt,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -231,7 +233,7 @@ function EditModal({
                 <Text
                   style={{
                     fontFamily: 'Unbounded_700Bold',
-                    color: palette.ink + '99',
+                    color: palette.muted,
                     fontSize: 14,
                   }}
                 >
@@ -249,23 +251,19 @@ function EditModal({
             >
               <View
                 style={{
-                  backgroundColor: palette.coral,
-                  borderRadius: 16,
+                  backgroundColor: palette.volt,
+                  borderRadius: 999,
                   paddingVertical: 15,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: palette.coral,
-                  shadowOffset: { width: 0, height: 6 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 12,
-                  elevation: 6,
                 }}
               >
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.paper,
+                    color: palette.voltInk,
                     fontSize: 14,
+                    textTransform: 'uppercase',
                   }}
                 >
                   {t('common.done')}
@@ -304,7 +302,7 @@ function OtaStatusRow() {
   const channel = Updates.channel || 'dev';
   const runtime = (Updates.runtimeVersion ?? '—').slice(0, 8);
 
-  const dotColor = otaActive ? '#3aaf6a' : palette.ink + '44';
+  const dotColor = otaActive ? palette.volt : palette.muted;
   const title = devMode
     ? 'geliştirme modu · OTA kapalı'
     : otaActive
@@ -319,9 +317,9 @@ function OtaStatusRow() {
   return (
     <View
       style={{
-        backgroundColor: palette.paper,
-        borderWidth: 1.5,
-        borderColor: otaActive ? '#3aaf6a55' : palette.ink + '22',
+        backgroundColor: palette.surface,
+        borderWidth: 1,
+        borderColor: otaActive ? palette.volt + '55' : palette.border,
         borderRadius: 14,
         paddingHorizontal: 16,
         paddingVertical: 14,
@@ -342,7 +340,7 @@ function OtaStatusRow() {
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 13,
             letterSpacing: 0.2,
           }}
@@ -354,7 +352,7 @@ function OtaStatusRow() {
         <Text
           style={{
             fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.ink + '99',
+            color: palette.muted,
             fontSize: 11,
             marginTop: 8,
           }}
@@ -365,7 +363,7 @@ function OtaStatusRow() {
       <Text
         style={{
           fontFamily: 'JetBrainsMono_500Medium',
-          color: palette.ink + '99',
+          color: palette.muted,
           fontSize: 11,
           marginTop: 4,
         }}
@@ -511,7 +509,7 @@ export default function Settings() {
           paddingHorizontal: 20,
           paddingBottom: 12,
           borderBottomWidth: 1,
-          borderBottomColor: palette.ink + '14',
+          borderBottomColor: palette.border,
           backgroundColor: palette.paper,
           flexDirection: 'row',
           alignItems: 'center',
@@ -528,14 +526,14 @@ export default function Settings() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surfaceAlt,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <Text
@@ -543,7 +541,7 @@ export default function Settings() {
           style={{
             flex: 1,
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 1.5,
             textTransform: 'uppercase',
@@ -688,7 +686,7 @@ export default function Settings() {
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 12,
             letterSpacing: 4,
             marginBottom: 6,
@@ -699,9 +697,8 @@ export default function Settings() {
         <Text
           style={{
             fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.ink,
+            color: palette.muted,
             fontSize: 11,
-            opacity: 0.7,
           }}
         >
           {t('settings.about.version')} {version}
@@ -717,10 +714,9 @@ export default function Settings() {
           >
             <Text
               style={{
-                fontFamily: 'Inter_700Bold',
-                color: palette.ink,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.muted,
                 fontSize: 12,
-                opacity: 0.85,
               }}
             >
               {t('settings.about.privacy')}
@@ -728,11 +724,10 @@ export default function Settings() {
           </Pressable>
           <Text
             style={{
-              fontFamily: 'Inter_700Bold',
-              color: palette.ink,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.border,
               fontSize: 12,
               marginHorizontal: 8,
-              opacity: 0.4,
             }}
           >
             ·
@@ -747,10 +742,9 @@ export default function Settings() {
           >
             <Text
               style={{
-                fontFamily: 'Inter_700Bold',
-                color: palette.ink,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.muted,
                 fontSize: 12,
-                opacity: 0.85,
               }}
             >
               {t('settings.about.terms')}
@@ -849,7 +843,7 @@ function DeleteAccountModal({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
             paddingHorizontal: 24,
@@ -863,7 +857,7 @@ function DeleteAccountModal({
               width: 44,
               height: 5,
               borderRadius: 3,
-              backgroundColor: palette.ink + '22',
+              backgroundColor: palette.border,
               marginBottom: 18,
             }}
           />
@@ -875,7 +869,9 @@ function DeleteAccountModal({
                   width: 84,
                   height: 84,
                   borderRadius: 42,
-                  backgroundColor: palette.ink,
+                  backgroundColor: palette.surfaceAlt,
+                  borderWidth: 1,
+                  borderColor: palette.border,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: 22,
@@ -886,23 +882,23 @@ function DeleteAccountModal({
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 32,
                   lineHeight: 36,
                   textAlign: 'center',
+                  textTransform: 'uppercase',
                 }}
               >
                 hoşçakal
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink,
+                  fontFamily: 'Inter_400Regular',
+                  color: palette.muted,
                   fontSize: 15,
                   lineHeight: 22,
                   marginTop: 12,
                   textAlign: 'center',
-                  opacity: 0.7,
                   paddingHorizontal: 8,
                 }}
               >
@@ -916,33 +912,33 @@ function DeleteAccountModal({
               width: 64,
               height: 64,
               borderRadius: 32,
-              backgroundColor: palette.coral,
+              backgroundColor: palette.danger,
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 16,
             }}
           >
-            <Feather name="alert-triangle" size={28} color={palette.paper} />
+            <Feather name="alert-triangle" size={28} color={palette.fg} />
           </View>
 
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 26,
               lineHeight: 30,
+              textTransform: 'uppercase',
             }}
           >
             hesabını silmek istediğine emin misin?
           </Text>
           <Text
             style={{
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              fontFamily: 'Inter_400Regular',
+              color: palette.muted,
               fontSize: 14,
               lineHeight: 20,
               marginTop: 10,
-              opacity: 0.85,
             }}
           >
             tüm seans geçmişin, kart bilgilerin, sıralaman silinir. bu işlem geri alınamaz.
@@ -952,10 +948,10 @@ function DeleteAccountModal({
           <View
             style={{
               marginTop: 18,
-              backgroundColor: palette.coral + '14',
+              backgroundColor: palette.danger + '14',
               borderRadius: 14,
               borderWidth: 1.5,
-              borderColor: palette.coral + '55',
+              borderColor: palette.danger + '55',
               paddingVertical: 12,
               paddingHorizontal: 14,
             }}
@@ -976,14 +972,14 @@ function DeleteAccountModal({
                 <Feather
                   name="x-circle"
                   size={14}
-                  color={palette.coral}
+                  color={palette.danger}
                   style={{ marginRight: 10 }}
                 />
                 <Text
                   style={{
                     flex: 1,
-                    fontFamily: 'Inter_700Bold',
-                    color: palette.ink,
+                    fontFamily: 'Inter_600SemiBold',
+                    color: palette.fg,
                     fontSize: 13,
                   }}
                 >
@@ -997,7 +993,7 @@ function DeleteAccountModal({
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 12,
               letterSpacing: 1.2,
               textTransform: 'uppercase',
@@ -1011,20 +1007,20 @@ function DeleteAccountModal({
             value={confirmText}
             onChangeText={setConfirmText}
             placeholder="HOŞÇAKAL"
-            placeholderTextColor={palette.ink + '55'}
+            placeholderTextColor={palette.muted}
             autoCapitalize="characters"
             autoCorrect={false}
             style={{
-              borderWidth: 2,
-              borderColor: matches ? palette.coral : palette.ink + '22',
+              borderWidth: 1.5,
+              borderColor: matches ? palette.danger : palette.border,
               borderRadius: 14,
               paddingHorizontal: 14,
               paddingVertical: 14,
               fontFamily: 'Unbounded_800ExtraBold',
               fontSize: 18,
-              color: palette.ink,
+              color: palette.fg,
               letterSpacing: 1.2,
-              backgroundColor: palette.paper,
+              backgroundColor: palette.surfaceAlt,
             }}
           />
 
@@ -1041,26 +1037,24 @@ function DeleteAccountModal({
           >
             <View
               style={{
-                backgroundColor: matches ? palette.coral : palette.ink + '33',
-                borderRadius: 18,
+                backgroundColor: matches ? palette.danger : palette.surfaceAlt,
+                borderWidth: matches ? 0 : 1,
+                borderColor: palette.border,
+                borderRadius: 999,
                 paddingVertical: 18,
                 alignItems: 'center',
                 flexDirection: 'row',
                 justifyContent: 'center',
-                shadowColor: palette.coral,
-                shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: matches ? 0.28 : 0,
-                shadowRadius: 16,
-                elevation: matches ? 10 : 0,
               }}
             >
-              <Feather name="trash-2" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+              <Feather name="trash-2" size={20} color={matches ? palette.fg : palette.muted} style={{ marginRight: 10 }} />
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  color: matches ? palette.fg : palette.muted,
                   fontSize: 16,
                   letterSpacing: 0.4,
+                  textTransform: 'uppercase',
                 }}
               >
                 hesabımı sil
@@ -1080,18 +1074,18 @@ function DeleteAccountModal({
             <View
               style={{
                 paddingVertical: 14,
-                borderRadius: 18,
+                borderRadius: 999,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: palette.ink + '0d',
+                backgroundColor: palette.surfaceAlt,
                 borderWidth: 1.5,
-                borderColor: palette.ink + '22',
+                borderColor: palette.border,
               }}
             >
               <Text
                 style={{
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  color: palette.muted,
                   fontSize: 14,
                 }}
               >

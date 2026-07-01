@@ -16,6 +16,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type RowProps = {
@@ -48,14 +49,14 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
     <Animated.View
       style={[
         {
-          backgroundColor: palette.butter,
+          backgroundColor: isYou ? palette.volt + '14' : palette.surface,
           borderRadius: 18,
           paddingHorizontal: 14,
           paddingVertical: 12,
           flexDirection: 'row',
           alignItems: 'center',
           borderWidth: 1,
-          borderColor: palette.ink + '14',
+          borderColor: isYou ? palette.volt : palette.border,
           marginBottom: 10,
         },
         style,
@@ -64,8 +65,9 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: isYou ? palette.volt : palette.fg,
           fontSize: 22,
+          lineHeight: 25,
           width: 32,
           textAlign: 'center',
           marginRight: 10,
@@ -78,7 +80,7 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.ink,
+          backgroundColor: palette.surfaceAlt,
           alignItems: 'center',
           justifyContent: 'center',
           marginRight: 12,
@@ -87,7 +89,7 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.paper,
+            color: palette.fg,
             fontSize: 16,
           }}
         >
@@ -170,7 +172,7 @@ export default function IntroSocial() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -189,14 +191,14 @@ export default function IntroSocial() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={3} active={2} />
@@ -242,37 +244,7 @@ export default function IntroSocial() {
       </View>
 
       <RiseIn delay={280}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.intro_social.cta')}
-          onPress={onContinue}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {t('onb.intro_social.cta')}
-            </Text>
-          </View>
-        </Pressable>
+        <Button label={t('onb.intro_social.cta')} onPress={onContinue} full />
       </RiseIn>
     </View>
   );

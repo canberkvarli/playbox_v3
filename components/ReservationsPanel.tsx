@@ -54,7 +54,7 @@ function ActiveReservationCard({
   return (
     <View
       style={{
-        backgroundColor: palette.coral,
+        backgroundColor: palette.volt,
         borderRadius: 22,
         padding: 18,
         gap: 14,
@@ -66,18 +66,19 @@ function ActiveReservationCard({
             width: 36,
             height: 36,
             borderRadius: 18,
-            backgroundColor: palette.paper + '26',
+            backgroundColor: palette.voltInk + '22',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Feather name="lock" size={16} color={palette.paper} />
+          <Feather name="lock" size={16} color={palette.voltInk} />
         </View>
         <View style={{ flex: 1 }}>
           <Text
             className="font-mono"
             style={{
-              color: palette.paper + 'cc',
+              color: palette.voltInk + 'cc',
+              fontFamily: 'JetBrainsMono_500Medium',
               fontSize: 11,
               letterSpacing: 0.6,
               textTransform: 'uppercase',
@@ -87,7 +88,7 @@ function ActiveReservationCard({
           </Text>
           <Text
             className="font-display"
-            style={{ color: palette.paper, fontSize: 18 }}
+            style={{ color: palette.voltInk, fontFamily: 'Unbounded_800ExtraBold', fontSize: 18 }}
             numberOfLines={1}
           >
             {stationName(r.station_id)}
@@ -96,7 +97,8 @@ function ActiveReservationCard({
         <Text
           className="font-mono"
           style={{
-            color: palette.paper,
+            color: palette.voltInk,
+            fontFamily: 'JetBrainsMono_500Medium',
             fontSize: 22,
             letterSpacing: 0.5,
           }}
@@ -107,7 +109,7 @@ function ActiveReservationCard({
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Text style={{ fontSize: 16 }}>{SPORT_EMOJI[r.sport]}</Text>
-        <Text style={{ color: palette.paper + 'dd', fontSize: 13 }}>
+        <Text style={{ color: palette.voltInk + 'dd', fontSize: 13 }}>
           {SPORT_LABELS[r.sport]}
         </Text>
       </View>
@@ -117,7 +119,7 @@ function ActiveReservationCard({
           onPress={onOpen}
           style={({ pressed }) => ({
             flex: 1,
-            backgroundColor: palette.paper,
+            backgroundColor: palette.voltInk,
             borderRadius: 14,
             paddingVertical: 12,
             alignItems: 'center',
@@ -126,7 +128,7 @@ function ActiveReservationCard({
         >
           <Text
             className="font-semibold"
-            style={{ color: palette.coral, fontSize: 13 }}
+            style={{ color: palette.volt, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}
           >
             {t('reservations.go_to_station')}
           </Text>
@@ -138,7 +140,7 @@ function ActiveReservationCard({
             paddingVertical: 12,
             borderRadius: 14,
             borderWidth: 1,
-            borderColor: palette.paper + '55',
+            borderColor: palette.voltInk + '55',
             alignItems: 'center',
             justifyContent: 'center',
             transform: [{ scale: pressed ? 0.98 : 1 }],
@@ -146,7 +148,7 @@ function ActiveReservationCard({
         >
           <Text
             className="font-medium"
-            style={{ color: palette.paper, fontSize: 13 }}
+            style={{ color: palette.voltInk, fontFamily: 'Inter_500Medium', fontSize: 13 }}
           >
             {t('reservations.cancel_short')}
           </Text>
@@ -198,18 +200,20 @@ export function ReservationsPanel() {
           width: 56,
           height: 56,
           borderRadius: 28,
-          backgroundColor: palette.butter,
+          backgroundColor: palette.surfaceAlt,
+          borderWidth: 1,
+          borderColor: palette.border,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 12,
         }}
       >
-        <Feather name="calendar" size={24} color={palette.ink} />
+        <Feather name="calendar" size={24} color={palette.volt} />
       </View>
-      <Text className="font-display text-ink dark:text-paper text-base">
+      <Text className="font-display text-ink dark:text-fg text-base">
         {t('map.empty.no_reservations_title')}
       </Text>
-      <Text className="font-sans text-ink/55 dark:text-paper/55 text-xs text-center mt-2">
+      <Text className="font-sans text-ink/55 dark:text-fg/55 text-xs text-center mt-2">
         {t('map.empty.no_reservations_sub')}
       </Text>
     </View>

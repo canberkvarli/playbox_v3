@@ -90,7 +90,7 @@ function StreakRing({ streak, milestone }: { streak: number; milestone: number }
           cx={cx}
           cy={cy}
           r={r}
-          stroke={palette.ink + '22'}
+          stroke={palette.border}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -98,7 +98,7 @@ function StreakRing({ streak, milestone }: { streak: number; milestone: number }
           cx={cx}
           cy={cy}
           r={r}
-          stroke={palette.coral}
+          stroke={palette.volt}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={circumference}
@@ -110,8 +110,8 @@ function StreakRing({ streak, milestone }: { streak: number; milestone: number }
       <View style={{ position: 'absolute', alignItems: 'center' }}>
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: palette.fg,
             fontSize: 13,
             letterSpacing: 0.4,
           }}
@@ -138,17 +138,17 @@ function StatCard({
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
-        borderWidth: 1.5,
-        borderColor: palette.ink + '22',
+        backgroundColor: palette.surface,
+        borderWidth: 1,
+        borderColor: palette.border,
         borderRadius: 18,
         padding: 16,
       }}
     >
       <Text
         style={{
-          fontFamily: 'Unbounded_700Bold',
-          color: palette.ink,
+          fontFamily: 'JetBrainsMono_500Medium',
+          color: palette.muted,
           fontSize: 11,
           letterSpacing: 1.4,
           textTransform: 'uppercase',
@@ -161,7 +161,7 @@ function StatCard({
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 32,
             lineHeight: 36,
           }}
@@ -171,8 +171,8 @@ function StatCard({
         {unit ? (
           <Text
             style={{
-              fontFamily: 'Inter_700Bold',
-              color: palette.ink,
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.muted,
               fontSize: 14,
               marginLeft: 6,
             }}
@@ -193,7 +193,7 @@ export default function Profile() {
   const router = useRouter();
   const { displayName, username, initial } = useDisplayUser();
   const [capturing, setCapturing] = useState(false);
-  const flexCardRef = useRef<ViewShot>(null);
+  const flexCardRef = useRef<any>(null);
 
   const milestone = nextMilestone(ME.streakDays);
 
@@ -254,8 +254,8 @@ export default function Profile() {
           paddingHorizontal: 20,
           paddingBottom: 12,
           borderBottomWidth: 1,
-          borderBottomColor: palette.ink + '14',
-          backgroundColor: palette.paper,
+          borderBottomColor: palette.border,
+          backgroundColor: palette.bg,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -276,9 +276,9 @@ export default function Profile() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -309,9 +309,9 @@ export default function Profile() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -350,7 +350,7 @@ export default function Profile() {
                 width: 88,
                 height: 88,
                 borderRadius: 44,
-                backgroundColor: palette.ink,
+                backgroundColor: palette.surface,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 16,
@@ -359,8 +359,9 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 36,
+                  lineHeight: 40,
                 }}
               >
                 {initial}
@@ -373,21 +374,22 @@ export default function Profile() {
                   style={{
                     flexShrink: 1,
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.ink,
+                    color: palette.fg,
                     fontSize: 28,
                     lineHeight: 32,
+                    textTransform: 'uppercase',
                     marginRight: 8,
                   }}
                 >
                   {displayName}
                 </Text>
-                <Feather name="edit-2" size={16} color={palette.ink} />
+                <Feather name="edit-2" size={16} color={palette.volt} />
               </View>
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Inter_700Bold',
-                  color: palette.ink,
+                  fontFamily: 'JetBrainsMono_500Medium',
+                  color: palette.volt,
                   fontSize: 14,
                   marginTop: 4,
                 }}
@@ -397,11 +399,10 @@ export default function Profile() {
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink,
+                  fontFamily: 'Inter_500Medium',
+                  color: palette.muted,
                   fontSize: 12,
                   marginTop: 6,
-                  opacity: 0.7,
                 }}
               >
                 {t('profile.joined_since', {
@@ -417,7 +418,9 @@ export default function Profile() {
         <RiseIn delay={80}>
           <View
             style={{
-              backgroundColor: palette.butter,
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 24,
               padding: 22,
               marginTop: 28,
@@ -428,8 +431,8 @@ export default function Profile() {
             <View style={{ flex: 1 }}>
               <Text
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  fontFamily: 'JetBrainsMono_500Medium',
+                  color: palette.muted,
                   fontSize: 11,
                   letterSpacing: 1.5,
                   textTransform: 'uppercase',
@@ -441,17 +444,17 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
+                  color: palette.volt,
                   fontSize: 64,
-                  lineHeight: 68,
+                  lineHeight: 72,
                 }}
               >
                 {ME.streakDays}
               </Text>
               <Text
                 style={{
-                  fontFamily: 'Inter_700Bold',
-                  color: palette.ink,
+                  fontFamily: 'Inter_500Medium',
+                  color: palette.muted,
                   fontSize: 14,
                   marginTop: 2,
                 }}
@@ -499,7 +502,7 @@ export default function Profile() {
           >
             <View
               style={{
-                backgroundColor: palette.ink,
+                backgroundColor: palette.surface,
                 borderRadius: 24,
                 padding: 22,
                 marginTop: 24,
@@ -523,20 +526,20 @@ export default function Profile() {
                       width: 36,
                       height: 36,
                       borderRadius: 18,
-                      backgroundColor: palette.paper + '1f',
+                      backgroundColor: palette.surfaceAlt,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Feather name="share-2" size={18} color={palette.paper} />
+                    <Feather name="share-2" size={18} color={palette.fg} />
                   </View>
                 </Pressable>
               ) : null}
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.butter,
+                  fontFamily: 'JetBrainsMono_500Medium',
+                  color: palette.volt,
                   fontSize: 11,
                   letterSpacing: 1.4,
                   textTransform: 'uppercase',
@@ -548,9 +551,9 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.butter,
+                  color: palette.volt,
                   fontSize: 56,
-                  lineHeight: 60,
+                  lineHeight: 63,
                   marginTop: 6,
                 }}
               >
@@ -559,7 +562,7 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Inter_700Bold',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 16,
                   marginTop: 2,
                 }}
@@ -569,17 +572,16 @@ export default function Profile() {
               <View
                 style={{
                   height: 1,
-                  backgroundColor: palette.paper + '22',
+                  backgroundColor: palette.border,
                   marginVertical: 16,
                 }}
               />
               <Text
                 style={{
                   fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.paper,
+                  color: palette.muted,
                   fontSize: 13,
                   lineHeight: 18,
-                  opacity: 0.85,
                 }}
               >
                 {t('profile.flex.summary', {
@@ -591,7 +593,7 @@ export default function Profile() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.butter,
+                    color: palette.volt,
                     fontSize: 11,
                     letterSpacing: 4,
                   }}

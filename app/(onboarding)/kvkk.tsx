@@ -8,6 +8,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -93,7 +94,7 @@ export default function Kvkk() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -112,14 +113,14 @@ export default function Kvkk() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={6} active={5} />
@@ -129,7 +130,7 @@ export default function Kvkk() {
         <View style={{ marginTop: 32 }}>
           <View
             style={{
-              backgroundColor: palette.butter,
+              backgroundColor: palette.volt,
               alignSelf: 'flex-start',
               paddingHorizontal: 12,
               paddingVertical: 6,
@@ -140,7 +141,7 @@ export default function Kvkk() {
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.ink,
+                color: palette.voltInk,
                 fontSize: 11,
                 letterSpacing: 1.4,
                 textTransform: 'uppercase',
@@ -152,7 +153,7 @@ export default function Kvkk() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 36,
               lineHeight: 40,
             }}
@@ -162,11 +163,10 @@ export default function Kvkk() {
           <Text
             style={{
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 15,
               lineHeight: 22,
               marginTop: 12,
-              opacity: 0.85,
             }}
           >
             6698 sayılı kvkk kapsamında işlediğimiz verileri ve nedenlerini buradan görebilirsin.
@@ -185,9 +185,9 @@ export default function Kvkk() {
               style={{
                 flexDirection: 'row',
                 alignItems: 'flex-start',
-                backgroundColor: palette.paper,
-                borderWidth: 1.5,
-                borderColor: palette.ink + '22',
+                backgroundColor: palette.surface,
+                borderWidth: 1,
+                borderColor: palette.border,
                 borderRadius: 16,
                 padding: 14,
                 marginBottom: 12,
@@ -198,19 +198,19 @@ export default function Kvkk() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: palette.ink,
+                  backgroundColor: palette.volt + '1f',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 14,
                 }}
               >
-                <Feather name={r.icon} size={20} color={palette.paper} />
+                <Feather name={r.icon} size={20} color={palette.volt} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.ink,
+                    color: palette.fg,
                     fontSize: 15,
                     letterSpacing: 0.2,
                   }}
@@ -220,11 +220,10 @@ export default function Kvkk() {
                 <Text
                   style={{
                     fontFamily: 'Inter_600SemiBold',
-                    color: palette.ink,
+                    color: palette.muted,
                     fontSize: 13,
                     lineHeight: 18,
                     marginTop: 4,
-                    opacity: 0.85,
                   }}
                 >
                   {r.body}
@@ -247,11 +246,11 @@ export default function Kvkk() {
               paddingVertical: 12,
             }}
           >
-            <Feather name="external-link" size={14} color={palette.ink} style={{ marginRight: 6 }} />
+            <Feather name="external-link" size={14} color={palette.volt} style={{ marginRight: 6 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
+                color: palette.volt,
                 fontSize: 13,
                 textDecorationLine: 'underline',
               }}
@@ -266,7 +265,7 @@ export default function Kvkk() {
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: palette.coral,
+            color: palette.danger,
             fontSize: 12,
             textAlign: 'center',
             marginBottom: 8,
@@ -277,41 +276,14 @@ export default function Kvkk() {
       ) : null}
 
       <RiseIn delay={120}>
-        <Pressable
+        <Button
+          label="okudum, kabul ediyorum"
+          icon="check"
           onPress={onAccept}
           disabled={busy}
-          accessibilityRole="button"
-          accessibilityLabel="kabul ediyorum"
-          style={({ pressed }) => ({ opacity: busy ? 0.6 : pressed ? 0.92 : 1 })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 20,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
-            }}
-          >
-            <Feather name="check" size={20} color={palette.paper} style={{ marginRight: 10 }} />
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {busy ? '...' : 'okudum, kabul ediyorum'}
-            </Text>
-          </View>
-        </Pressable>
+          loading={busy}
+          full
+        />
       </RiseIn>
     </View>
   );

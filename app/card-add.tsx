@@ -125,11 +125,11 @@ export default function CardAdd() {
                 paddingHorizontal: 4,
               }}
             >
-              <Feather name="arrow-left" size={22} color={palette.ink} style={{ marginRight: 6 }} />
+              <Feather name="arrow-left" size={22} color={palette.fg} style={{ marginRight: 6 }} />
               <Text
                 style={{
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 14,
                 }}
               >
@@ -149,12 +149,14 @@ export default function CardAdd() {
                 width: 40,
                 height: 40,
                 borderRadius: 20,
-                backgroundColor: palette.ink + '12',
+                backgroundColor: palette.surfaceAlt,
+                borderWidth: 1,
+                borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <Feather name="x" size={20} color={palette.ink} />
+              <Feather name="x" size={20} color={palette.fg} />
             </View>
           </Pressable>
         </View>
@@ -163,18 +165,19 @@ export default function CardAdd() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 36,
               lineHeight: 40,
               marginTop: 8,
+              textTransform: 'uppercase',
             }}
           >
             {t('card.add.title')}
           </Text>
           <Text
             style={{
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              fontFamily: 'Inter_400Regular',
+              color: palette.muted,
               fontSize: 16,
               lineHeight: 22,
               marginTop: 12,
@@ -235,18 +238,20 @@ export default function CardAdd() {
               flexDirection: 'row',
               alignItems: 'center',
               marginTop: 24,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surfaceAlt,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 12,
               paddingVertical: 12,
               paddingHorizontal: 14,
             }}
           >
-            <Feather name="lock" size={16} color={palette.ink} style={{ marginRight: 10 }} />
+            <Feather name="lock" size={16} color={palette.volt} style={{ marginRight: 10 }} />
             <Text
               style={{
                 flex: 1,
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink,
+                fontFamily: 'Inter_400Regular',
+                color: palette.muted,
                 fontSize: 13,
                 lineHeight: 18,
               }}
@@ -270,7 +275,7 @@ export default function CardAdd() {
           paddingBottom: insets.bottom + 12,
           backgroundColor: palette.paper,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '14',
+          borderTopColor: palette.border,
         }}
       >
         <Pressable
@@ -284,26 +289,24 @@ export default function CardAdd() {
         >
           <View
             style={{
-              backgroundColor: valid ? palette.coral : palette.ink + '22',
-              borderRadius: 18,
+              backgroundColor: valid ? palette.volt : palette.surfaceAlt,
+              borderWidth: valid ? 0 : 1,
+              borderColor: palette.border,
+              borderRadius: 999,
               paddingVertical: 16,
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: valid ? 0.28 : 0,
-              shadowRadius: 14,
-              elevation: valid ? 8 : 0,
             }}
           >
-            <Feather name="check" size={18} color={palette.paper} style={{ marginRight: 8 }} />
+            <Feather name="check" size={18} color={valid ? palette.voltInk : palette.muted} style={{ marginRight: 8 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
+                color: valid ? palette.voltInk : palette.muted,
                 fontSize: 17,
                 letterSpacing: 0.4,
+                textTransform: 'uppercase',
               }}
             >
               {submitting ? t('card.add.cta_loading') : t('card.add.cta')}
@@ -323,7 +326,7 @@ function Field({ label, style, ...input }: FieldProps) {
       <Text
         style={{
           fontFamily: 'Unbounded_700Bold',
-          color: palette.ink,
+          color: palette.muted,
           fontSize: 12,
           letterSpacing: 0.8,
           textTransform: 'uppercase',
@@ -334,18 +337,18 @@ function Field({ label, style, ...input }: FieldProps) {
       </Text>
       <TextInput
         {...input}
-        placeholderTextColor={palette.ink + '55'}
+        placeholderTextColor={palette.muted}
         style={[
           {
-            borderWidth: 2,
-            borderColor: palette.ink + '22',
+            borderWidth: 1.5,
+            borderColor: palette.border,
             borderRadius: 14,
             paddingHorizontal: 14,
             paddingVertical: 14,
-            fontFamily: 'Inter_600SemiBold',
+            fontFamily: 'JetBrainsMono_500Medium',
             fontSize: 17,
-            color: palette.ink,
-            backgroundColor: palette.paper,
+            color: palette.fg,
+            backgroundColor: palette.surfaceAlt,
           },
           style,
         ]}

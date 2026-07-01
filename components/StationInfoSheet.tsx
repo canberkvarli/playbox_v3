@@ -46,7 +46,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
         }}
-        handleIndicatorStyle={{ backgroundColor: palette.ink + '33', width: 40 }}
+        handleIndicatorStyle={{ backgroundColor: palette.surface + '33', width: 40 }}
       >
         <BottomSheetView style={{ paddingHorizontal: 24, paddingBottom: 24 }}>
           {station ? (
@@ -55,18 +55,20 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
               <View
                 style={{
                   height: 160,
-                  backgroundColor: palette.butter,
+                  backgroundColor: palette.surfaceAlt,
                   borderRadius: 20,
                   alignItems: 'center',
                   justifyContent: 'center',
                   overflow: 'hidden',
+                  borderWidth: 1,
+                  borderColor: palette.border,
                 }}
               >
-                <Feather name="image" size={36} color={palette.ink + '55'} />
+                <Feather name="image" size={36} color={palette.muted} />
               </View>
 
               <Text
-                className="font-display-x text-ink dark:text-paper text-3xl mt-5"
+                className="font-display-x text-ink dark:text-fg text-3xl mt-5 leading-[34px]"
                 style={{ lineHeight: 34 }}
                 numberOfLines={2}
               >
@@ -84,7 +86,7 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
                       : palette.ink + '44',
                   }}
                 />
-                <Text className="font-mono text-ink/70 dark:text-paper/70 text-sm">
+                <Text className="font-mono text-ink/70 dark:text-fg/70 text-sm">
                   {t(
                     station.availableNow
                       ? 'station.status.open'
@@ -98,8 +100,8 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
                 onPress={onDirections}
                 style={({ pressed }) => ({
                   backgroundColor: palette.coral,
-                  borderRadius: 16,
-                  paddingVertical: 14,
+                  borderRadius: 999,
+                  paddingVertical: 16,
                   marginTop: 22,
                   flexDirection: 'row',
                   alignItems: 'center',
@@ -108,8 +110,16 @@ export const StationInfoSheet = forwardRef<StationInfoSheetHandle, object>(
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 })}
               >
-                <Feather name="navigation" size={18} color={palette.paper} />
-                <Text className="font-semibold text-paper text-base">
+                <Feather name="navigation" size={18} color={palette.voltInk} />
+                <Text
+                  style={{
+                    fontFamily: 'Inter_600SemiBold',
+                    fontSize: 15,
+                    letterSpacing: 1,
+                    textTransform: 'uppercase',
+                    color: palette.voltInk,
+                  }}
+                >
                   {t('station.directions')}
                 </Text>
               </Pressable>

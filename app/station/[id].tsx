@@ -115,7 +115,7 @@ export default function StationDetail() {
   // for the positive ("açık") and transient ("bağlanıyor…") states.
   const statusLabel = open ? 'açık' : settling ? 'bağlanıyor…' : '';
   const statusDot = open
-    ? '#3aaf6a'
+    ? palette.volt
     : closed
     ? palette.ink + '55'
     : palette.ink + '33';
@@ -310,7 +310,7 @@ export default function StationDetail() {
               flexDirection: 'row',
               alignItems: 'center',
               gap: 6,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface + '0d',
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderRadius: 999,
@@ -373,7 +373,7 @@ export default function StationDetail() {
               paddingVertical: 11,
               paddingHorizontal: 18,
               borderRadius: 999,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surface + '08',
               borderWidth: 1,
               borderColor: palette.ink + '12',
             }}
@@ -624,7 +624,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           style={{
             flex: 1,
             height: 1,
-            backgroundColor: palette.ink + '22',
+            backgroundColor: palette.surface + '22',
           }}
         />
         <Text
@@ -642,7 +642,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           style={{
             flex: 1,
             height: 1,
-            backgroundColor: palette.ink + '22',
+            backgroundColor: palette.surface + '22',
           }}
         />
       </View>
@@ -689,6 +689,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
                   fontSize: 26,
+                  lineHeight: 29,
                   color: selected ? palette.ink : palette.ink + '88',
                 }}
               >
@@ -770,7 +771,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             />
             <Text
               style={{
-                color: palette.paper,
+                color: palette.fg,
                 fontFamily: 'Unbounded_800ExtraBold',
                 fontSize: 17,
                 letterSpacing: 0.5,
@@ -814,7 +815,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             />
             <Text
               style={{
-                color: palette.paper,
+                color: palette.fg,
                 fontFamily: 'Unbounded_800ExtraBold',
                 fontSize: 17,
                 letterSpacing: 0.5,
@@ -842,7 +843,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             paddingVertical: 18,
             borderRadius: 20,
             borderWidth: 2,
-            borderColor: palette.ink,
+            borderColor: palette.border,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -890,7 +891,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             borderRadius: 18,
             borderWidth: 2,
             borderColor: palette.ink + '33',
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surface + '08',
           }}
         >
           <Feather

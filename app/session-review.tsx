@@ -134,7 +134,7 @@ export default function SessionReview() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 marginTop: 14,
-                backgroundColor: palette.ink + '0d',
+                backgroundColor: palette.surface + '0d',
                 borderWidth: 1,
                 borderColor: palette.ink + '22',
                 borderRadius: 999,
@@ -168,10 +168,10 @@ export default function SessionReview() {
       <RiseIn delay={120}>
         <View
           style={{
-            backgroundColor: palette.butter,
+            backgroundColor: palette.surface,
             borderRadius: 22,
             borderWidth: 1,
-            borderColor: palette.ink + '14',
+            borderColor: palette.border,
             padding: 22,
             marginTop: 28,
           }}
@@ -203,7 +203,7 @@ export default function SessionReview() {
             </View>
           </View>
 
-          <View style={{ height: 1, backgroundColor: palette.ink + '1f', marginVertical: 16 }} />
+          <View style={{ height: 1, backgroundColor: palette.border, marginVertical: 16 }} />
 
           <View style={{ flexDirection: 'row' }}>
             <View style={{ flex: 1, alignItems: 'center' }}>
@@ -212,6 +212,7 @@ export default function SessionReview() {
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.ink,
                   fontSize: 28,
+                  lineHeight: 31,
                 }}
               >
                 {elapsedMin}
@@ -227,13 +228,14 @@ export default function SessionReview() {
                 dakika
               </Text>
             </View>
-            <View style={{ width: 1, backgroundColor: palette.ink + '1f' }} />
+            <View style={{ width: 1, backgroundColor: palette.border }} />
             <View style={{ flex: 1, alignItems: 'center' }}>
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
                   color: palette.ink,
                   fontSize: 28,
+                  lineHeight: 31,
                 }}
               >
                 ₺{total}
@@ -360,26 +362,27 @@ export default function SessionReview() {
         >
           <View
             style={{
-              backgroundColor: palette.coral,
-              borderRadius: 22,
+              backgroundColor: palette.volt,
+              borderRadius: 999,
               paddingVertical: 20,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
-              shadowColor: palette.coral,
+              shadowColor: palette.volt,
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.2,
               shadowRadius: 12,
               elevation: 6,
             }}
           >
-            <Feather name="map" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+            <Feather name="map" size={20} color={palette.voltInk} style={{ marginRight: 10 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
+                color: palette.voltInk,
                 fontSize: 19,
                 letterSpacing: 0.5,
+                textTransform: 'uppercase',
               }}
             >
               haritaya dön

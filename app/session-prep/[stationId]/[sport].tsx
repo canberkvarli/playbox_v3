@@ -193,6 +193,7 @@ export default function SessionPrep() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 28,
+            lineHeight: 31,
             textAlign: 'center',
           }}
         >
@@ -463,7 +464,7 @@ export default function SessionPrep() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface + '0d',
               borderWidth: 1,
               borderColor: palette.ink + '14',
               alignItems: 'center',
@@ -484,7 +485,7 @@ export default function SessionPrep() {
       <View style={{ alignItems: 'flex-start', marginTop: 24 }}>
         <View
           style={{
-            backgroundColor: palette.ink,
+            backgroundColor: palette.surface,
             paddingHorizontal: 14,
             paddingVertical: 8,
             borderRadius: 999,
@@ -493,7 +494,7 @@ export default function SessionPrep() {
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 12,
               letterSpacing: 0.5,
             }}
