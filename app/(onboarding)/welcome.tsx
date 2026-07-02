@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Text, View, TextInput, Pressable } from 'react-native';
+import { Image, Text, View, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -96,7 +96,8 @@ export default function Welcome() {
   }));
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{
         flex: 1,
         backgroundColor: palette.bg,
@@ -225,6 +226,6 @@ export default function Welcome() {
           </Pressable>
         )}
       </RiseIn>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

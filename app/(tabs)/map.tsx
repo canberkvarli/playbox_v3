@@ -68,6 +68,11 @@ const StationMarkerView = memo(function StationMarkerView({
   // When true: stronger border + a glowing green dot so the user can spot the
   // station that's literally in front of them without tapping.
   const nearby = useIsNearby(station.id);
+  // Demo Mode (App Store review) has no BLE, so `nearby` never flips true and
+  // every pin would render offline/coral/dimmed. Treat demo pins as available so
+  // the reviewer sees a live, tappable map.
+  const demo = useDevStore((s) => s.demoMode);
+  const available = nearby || demo;
 
   // STATIC marker — NO entrance/scale animation. Animating a custom marker makes
   // react-native-maps re-capture the view every frame and flash the pin to the
@@ -75,13 +80,13 @@ const StationMarkerView = memo(function StationMarkerView({
   // the parent REMOUNTS this marker (via its key) the moment `nearby` flips —
   // see the Marker key at the render site. Offline pins gray to 55%; filtered-out
   // pins to 25%; online pins full.
-  const opacity = dimmed ? 0.25 : nearby ? 1 : 0.55;
+  const opacity = dimmed ? 0.25 : available ? 1 : 0.55;
 
   // Teardrop pin whose head GROWS with the sport count so every ball is visible:
   // one sport = a compact circle; multiple = a wider pill showing all balls side
   // by side. Open/live = volt fill; offline = coral fill (muted via opacity).
   const ballSports = station.sports.slice(0, 3);
-  const fill = nearby ? palette.volt : palette.danger;
+  const fill = available ? palette.volt : palette.danger;
   const ballSize = 17;
   const headH = 40;
   const headW = ballSports.length <= 1 ? 40 : 16 + ballSports.length * 22;
@@ -114,13 +119,13 @@ const StationMarkerView = memo(function StationMarkerView({
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          borderWidth: nearby ? 3 : 2,
+          borderWidth: available ? 3 : 2,
           // Volt = "açık": the station's ESP32 is powered and in BLE range.
-          borderColor: nearby ? palette.voltInk : palette.deep,
-          shadowColor: nearby ? palette.volt : palette.deep,
+          borderColor: available ? palette.voltInk : palette.deep,
+          shadowColor: available ? palette.volt : palette.deep,
           shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: nearby ? 0.45 : 0.22,
-          shadowRadius: nearby ? 8 : 5,
+          shadowOpacity: available ? 0.45 : 0.22,
+          shadowRadius: available ? 8 : 5,
           elevation: 5,
         }}
       >
@@ -1375,6 +1380,7 @@ export default function Map() {
           istanbul: { lat: 41.0082, lng: 28.9784 },
           ankara: { lat: 39.9334, lng: 32.8597 },
           izmir: { lat: 38.4237, lng: 27.1428 },
+          dalyan: { lat: 36.8319, lng: 28.6423 },
         };
         let best: keyof typeof CITY_LABELS = 'istanbul';
         let bestDist = Infinity;

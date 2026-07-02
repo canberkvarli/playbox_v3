@@ -296,6 +296,12 @@ export default function SessionPrep() {
       setHold(holdId);
     }
 
+    // Demo Mode (App Store review): never dead-end on a lingering session — clear
+    // any active one first so OYNA always unlocks fresh for the reviewer.
+    if (demoMode && useSessionStore.getState().active) {
+      useSessionStore.getState().endSession();
+    }
+
     // Pre-flight the session guard BEFORE the theatrics (haptics, timers).
     // If the user already has an active session we refuse, release any hold we
     // just placed, and point them at /play.
