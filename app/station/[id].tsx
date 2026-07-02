@@ -19,6 +19,7 @@ import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { stationClient } from '@/lib/ble/stationClient';
@@ -93,7 +94,11 @@ export default function StationDetail() {
   // simultaneously "kapalı" here. The 10s default caused that inconsistency —
   // a sighting 10–15s old read present on the map but absent on this screen.
   const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 25_000 });
-  const open = proximity.present;
+  // Demo Mode (App Store review): there's no hardware advertising, so treat the
+  // station as in-range/open — otherwise OYNA never lights up and a reviewer
+  // can't run the unlock. The mock driver simulates the rest.
+  const demoMode = useDevStore((s) => s.demoMode);
+  const open = demoMode || proximity.present;
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
   // neutral "bağlanıyor…" rather than flashing "kapalı" at someone standing in
@@ -308,38 +313,8 @@ export default function StationDetail() {
         >
           {station.name}
         </Animated.Text>
-        {/* Status chip — only render when there's a live status ("açık" /
-            "bağlanıyor…"). Closed stations carry no orphaned gray dot; "kapalı"
-            reads from the CTA/status below instead. */}
-        {statusLabel ? (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 14,
-            }}
-          >
-            <View
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                marginRight: 8,
-                backgroundColor: statusDot,
-              }}
-            />
-            <Text
-              style={{
-                color: palette.muted,
-                fontSize: 12,
-                fontFamily: 'JetBrainsMono_500Medium',
-                letterSpacing: 0.5,
-              }}
-            >
-              {statusLabel}
-            </Text>
-          </View>
-        ) : null}
+        {/* No small status dot here — the big "kapalı"/"bağlanıyor…" text in the
+            selector below carries the status. */}
 
         <View style={{ marginTop: 36 }}>
           {/* Always render the selector so the balls (sports) stay visible even
