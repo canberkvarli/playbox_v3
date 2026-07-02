@@ -21,8 +21,8 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSBluetoothAlwaysUsageDescription": "Playbox istasyonun kapısını açmak için Bluetooth kullanır.",
-        "NSBluetoothPeripheralUsageDescription": "Playbox istasyonun kapısını açmak için Bluetooth kullanır."
+        "NSBluetoothAlwaysUsageDescription": "Playbox, kiraladığınız spor ekipmanı dolabının kilidini yalnızca dolabın yanındayken Bluetooth ile açar. / Playbox uses Bluetooth to unlock the sports-equipment locker you rent, only when you are next to it.",
+        "NSBluetoothPeripheralUsageDescription": "Playbox, kiraladığınız spor ekipmanı dolabının kilidini yalnızca dolabın yanındayken Bluetooth ile açar. / Playbox uses Bluetooth to unlock the sports-equipment locker you rent, only when you are next to it."
       }
     },
     "android": {
@@ -65,7 +65,8 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Playbox yakındaki istasyonları göstermek için konumunu kullanır."
+          "locationWhenInUsePermission": "Playbox, yakınınızdaki ekipman dolaplarını haritada göstermek ve kiraladığınız dolaba yaklaştığınızı doğrulamak için konumunuzu kullanır. / Playbox uses your location to show nearby equipment lockers and confirm you're next to the one you're unlocking.",
+          "locationAlwaysAndWhenInUsePermission": "Playbox, yakınınızdaki ekipman dolaplarını haritada göstermek ve kiraladığınız dolaba yaklaştığınızı doğrulamak için konumunuzu kullanır. / Playbox uses your location to show nearby equipment lockers and confirm you're next to the one you're unlocking."
         }
       ],
       [

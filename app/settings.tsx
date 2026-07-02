@@ -26,6 +26,7 @@ import { AppRatingSheet } from '@/components/AppRatingSheet';
 import { BadFeedbackModal } from '@/components/BadFeedbackModal';
 import { isBadRating } from '@/lib/feedback';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useDevStore } from '@/stores/devStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { getDriver } from '@/lib/hardware';
@@ -448,6 +449,10 @@ export default function Settings() {
           } catch {
             /* ignore — teardown is best-effort */
           }
+          // Clear the demo/review session so a reviewer (or you) lands back on
+          // the real onboarding, not stuck in Demo Mode.
+          useDevStore.getState().setDemoSession(false);
+          useDevStore.getState().setDemoMode(false);
           await supabase.auth.signOut();
           router.replace('/(onboarding)/welcome');
         },

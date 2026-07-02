@@ -6,11 +6,18 @@ import { useSessionStore } from '@/stores/sessionStore';
 export default function Index() {
   const { session, loading } = useAuthSession();
   const devBypass = useDevStore((s) => s.bypass);
+  const demoSession = useDevStore((s) => s.demoSession);
   const activeSession = useSessionStore((s) => s.active);
 
   // Dev bypass — skip auth. Still respect the active-session priority so
   // dev sessions also resume to /play.
   if (__DEV__ && devBypass) {
+    return <Redirect href={activeSession ? '/(tabs)/play' : '/(tabs)/map'} />;
+  }
+
+  // App Store review "Demo Login" — a local demo session (no Supabase), so a
+  // reviewer reaches the app in release without phone/OTP.
+  if (demoSession) {
     return <Redirect href={activeSession ? '/(tabs)/play' : '/(tabs)/map'} />;
   }
 

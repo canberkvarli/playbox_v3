@@ -24,6 +24,7 @@ import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence } from '@/stores/nearbyStore';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
@@ -98,8 +99,11 @@ export default function SessionPrep() {
 
   // DEV-001 is the no-card bench station (server honors dev_bypass for it), so
   // never force a card there — lets the real rent flow be tested without one.
+  // Demo Mode (App Store review) also never requires a card — the whole rent
+  // flow runs on the mock driver with no iyzico hold.
+  const demoMode = useDevStore((s) => s.demoMode);
   const mustAddCardFirst =
-    cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
+    !demoMode && cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
 
   // --- Unlock pre-fetch ------------------------------------------------------
   // Stable correlationId for THIS prep session (== the firmware session_id).
@@ -269,7 +273,7 @@ export default function SessionPrep() {
     await hx.tap();
 
     let holdId: string | null = null;
-    if (cardStatus === 'on_file') {
+    if (cardStatus === 'on_file' && !demoMode) {
       const conversationId = `${station.id}:${sport}:${Date.now()}`;
       const res = await preauthorize(PREAUTH_HOLD_TRY, conversationId);
       if (!res.ok) {
