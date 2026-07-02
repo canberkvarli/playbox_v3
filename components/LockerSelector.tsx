@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Animated, {
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -14,8 +15,6 @@ import { hx } from '@/lib/haptics';
 import { SportBall } from '@/components/ui/SportBall';
 import { SPORT_LABELS, type Sport, type Station } from '@/data/stations.seed';
 
-type CellState = 'available' | 'out' | 'empty';
-
 type Props = {
   station: Station;
   open: boolean;
@@ -24,32 +23,25 @@ type Props = {
 };
 
 /**
- * The station's sports shown as an abstract Playbox locker: a grid of
- * compartments, each with a volt line-art ball behind a door. Tapping an
- * available compartment opens its door (ball pops in, haptic) and selects the
- * sport; out-of-stock compartments stay shut and shake + buzz on tap.
+ * The station's sports as an abstract Playbox locker TOWER — a tall body with
+ * one stacked compartment per sport (matches the physical 3-gate unit). Each
+ * compartment is a door with a volt line-art ball behind it; tapping an
+ * available door swings it open (ball pops, haptic) and selects the sport.
+ * Out-of-stock doors stay shut and shake + buzz.
  */
 export function LockerSelector({ station, open, selected, onSelect }: Props) {
-  const sports = station.sports;
-  const count = Math.max(2, sports.length % 2 === 0 ? sports.length : sports.length + 1);
-  const cells = Array.from({ length: count }, (_, i) => sports[i] ?? null);
-
   return (
-    <View
-      pointerEvents={open ? 'auto' : 'none'}
-      style={{ opacity: open ? 1 : 0.5 }}
-    >
-      {/* Locker body */}
+    <View pointerEvents={open ? 'auto' : 'none'} style={{ opacity: open ? 1 : 0.5 }}>
       <View
         style={{
           backgroundColor: palette.surface,
-          borderRadius: 22,
+          borderRadius: 20,
           borderWidth: 1.5,
           borderColor: palette.border,
-          padding: 12,
+          padding: 10,
         }}
       >
-        {/* hinge/etch strip */}
+        {/* top strip — hinge bolts + etch */}
         <View
           style={{
             flexDirection: 'row',
@@ -79,17 +71,16 @@ export function LockerSelector({ station, open, selected, onSelect }: Props) {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {cells.map((sport, i) => {
-            const state: CellState =
-              sport == null ? 'empty' : (station.stock[sport] ?? 0) === 0 ? 'out' : 'available';
+        <View style={{ gap: 8 }}>
+          {station.sports.map((sport) => {
+            const out = (station.stock[sport] ?? 0) === 0;
             return (
-              <LockerCell
-                key={sport ?? `empty-${i}`}
+              <Compartment
+                key={sport}
                 sport={sport}
-                state={state}
-                selected={sport != null && selected === sport}
-                onPress={() => sport && onSelect(sport)}
+                out={out}
+                selected={selected === sport}
+                onPress={() => onSelect(sport)}
               />
             );
           })}
@@ -99,37 +90,39 @@ export function LockerSelector({ station, open, selected, onSelect }: Props) {
   );
 }
 
-function LockerCell({
+function Compartment({
   sport,
-  state,
+  out,
   selected,
   onPress,
 }: {
-  sport: Sport | null;
-  state: CellState;
+  sport: Sport;
+  out: boolean;
   selected: boolean;
   onPress: () => void;
 }) {
-  const doorOpen = useSharedValue(selected ? 1 : 0);
+  const openV = useSharedValue(selected ? 1 : 0);
   const shake = useSharedValue(0);
 
   useEffect(() => {
-    doorOpen.value = withSpring(selected ? 1 : 0, { damping: 15, stiffness: 200 });
-  }, [selected, doorOpen]);
+    openV.value = withSpring(selected ? 1 : 0, { damping: 16, stiffness: 180 });
+  }, [selected, openV]);
 
   const doorStyle = useAnimatedStyle(() => ({
-    opacity: 0.82 * (1 - doorOpen.value),
-    transform: [{ translateY: -doorOpen.value * 96 }],
+    opacity: interpolate(openV.value, [0, 0.75, 1], [1, 1, 0]),
+    transform: [
+      { perspective: 700 },
+      { rotateY: `${-openV.value * 108}deg` },
+    ],
   }));
   const voltBallStyle = useAnimatedStyle(() => ({
-    opacity: doorOpen.value,
-    transform: [{ scale: 0.7 + doorOpen.value * 0.3 }],
+    opacity: openV.value,
+    transform: [{ scale: 0.7 + openV.value * 0.3 }],
   }));
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
   const onTap = () => {
-    if (state === 'empty') return;
-    if (state === 'out') {
+    if (out) {
       hx.no();
       shake.value = withSequence(
         withTiming(-7, { duration: 45 }),
@@ -144,114 +137,128 @@ function LockerCell({
     onPress();
   };
 
-  const ballColor = state === 'available' ? palette.muted : palette.border;
-
   return (
-    <Pressable onPress={onTap} disabled={state === 'empty'} style={{ width: '47%', flexGrow: 1 }}>
+    <Pressable onPress={onTap} style={{ borderRadius: 14 }}>
       <Animated.View
         style={[
           {
-            height: 118,
-            borderRadius: 16,
+            height: 78,
+            borderRadius: 14,
             borderWidth: selected ? 2 : 1,
             borderColor: selected ? palette.volt : palette.border,
             backgroundColor: palette.surfaceAlt,
             overflow: 'hidden',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: state === 'empty' ? 0.45 : 1,
           },
           shakeStyle,
         ]}
       >
-        {/* Ball area */}
-        {sport ? (
-          <View style={{ width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
-            {/* grey base ball (faintly visible through the door) */}
+        {/* Interior (revealed when the door swings open) */}
+        <View
+          style={{
+            ...StyleFill,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 14,
+            gap: 14,
+          }}
+        >
+          <View style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
             <View style={{ position: 'absolute' }}>
-              <SportBall sport={sport} color={ballColor} size={56} />
+              <SportBall sport={sport} color={out ? palette.border : palette.muted} size={50} />
             </View>
-            {/* bright volt ball — revealed as the door opens */}
             <Animated.View style={[{ position: 'absolute' }, voltBallStyle]}>
-              <SportBall sport={sport} color={palette.volt} size={56} />
+              <SportBall sport={sport} color={palette.volt} size={50} />
             </Animated.View>
           </View>
-        ) : (
-          <Feather name="lock" size={22} color={palette.border} />
-        )}
+          <Text
+            style={{
+              flex: 1,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 17,
+              textTransform: 'uppercase',
+              color: selected ? palette.volt : palette.fg,
+            }}
+          >
+            {SPORT_LABELS[sport]}
+          </Text>
+          {selected ? (
+            <Feather name="unlock" size={18} color={palette.volt} />
+          ) : null}
+        </View>
 
-        {/* Door — slides up + fades to reveal the ball */}
+        {/* Door face (hinged left, swings open on select) */}
         <Animated.View
-          pointerEvents="none"
           style={[
             {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
+              ...StyleFill,
+              transformOrigin: 'left center',
+              backfaceVisibility: 'hidden',
               backgroundColor: palette.surface,
+              borderRadius: 14,
+              flexDirection: 'row',
               alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
+              paddingHorizontal: 14,
+              gap: 12,
             },
             doorStyle,
           ]}
         >
-          {/* vent slats + handle for a locker-door look */}
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={{ width: 46, height: 3, borderRadius: 2, backgroundColor: palette.border }}
-            />
-          ))}
-          <View
+          {/* vent slats */}
+          <View style={{ gap: 5 }}>
+            {[0, 1, 2].map((i) => (
+              <View
+                key={i}
+                style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: palette.border }}
+              />
+            ))}
+          </View>
+          <Text
             style={{
-              position: 'absolute',
-              right: 10,
-              width: 8,
-              height: 18,
-              borderRadius: 4,
-              backgroundColor: palette.border,
-            }}
-          />
-        </Animated.View>
-
-        {/* out-of-stock tag */}
-        {state === 'out' ? (
-          <View
-            style={{
-              position: 'absolute',
-              top: 8,
-              right: 8,
-              backgroundColor: palette.danger,
-              borderRadius: 7,
-              paddingHorizontal: 7,
-              paddingVertical: 2,
+              flex: 1,
+              fontFamily: 'Unbounded_800ExtraBold',
+              fontSize: 17,
+              textTransform: 'uppercase',
+              color: out ? palette.muted : palette.fg,
             }}
           >
-            <Text
-              style={{ fontFamily: 'Inter_600SemiBold', fontSize: 9, letterSpacing: 0.4, color: palette.fg }}
+            {SPORT_LABELS[sport]}
+          </Text>
+          {out ? (
+            <View
+              style={{
+                backgroundColor: palette.danger,
+                borderRadius: 7,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+              }}
             >
-              DOLU
-            </Text>
-          </View>
-        ) : null}
+              <Text
+                style={{ fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 0.4, color: palette.fg }}
+              >
+                DOLU
+              </Text>
+            </View>
+          ) : (
+            // handle/latch
+            <View
+              style={{
+                width: 10,
+                height: 26,
+                borderRadius: 5,
+                backgroundColor: palette.border,
+              }}
+            />
+          )}
+        </Animated.View>
       </Animated.View>
-
-      {/* label */}
-      <Text
-        numberOfLines={1}
-        style={{
-          textAlign: 'center',
-          marginTop: 8,
-          fontFamily: 'Inter_600SemiBold',
-          fontSize: 13,
-          color: selected ? palette.volt : state === 'available' ? palette.fg : palette.muted,
-        }}
-      >
-        {sport ? SPORT_LABELS[sport] : ''}
-      </Text>
     </Pressable>
   );
 }
+
+const StyleFill = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+};
