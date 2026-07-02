@@ -20,6 +20,7 @@ import { RiseIn } from '@/components/RiseIn';
 import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { useDevStore } from '@/stores/devStore';
+import { useSessionStore } from '@/stores/sessionStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { isDemoUsername } from '@/constants/review';
 
@@ -53,6 +54,10 @@ export default function Welcome() {
     }
     await hx.press();
     const name = demoUser.trim().replace(/^@/, '');
+    // Wipe any stale persisted session from prior testing so the reviewer starts
+    // clean — otherwise canStart() sees a lingering `active` and OYNA dead-ends
+    // with the generic error before the mock unlock even runs.
+    useSessionStore.getState().endSession();
     setUsernameOverride(name);
     setNameOverride(name);
     setDemoMode(true);
