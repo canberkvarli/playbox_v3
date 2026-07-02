@@ -89,7 +89,6 @@ function PulseDot({ color }: { color: string }) {
 
 function LiveTimer({ session }: { session: ActiveSession }) {
   const [now, setNow] = useState(() => Date.now());
-  const firedTwoMinRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -102,16 +101,6 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   const overtime = elapsed > total;
   const remainingMs = Math.max(0, total - elapsed);
   const overMs = Math.max(0, elapsed - total);
-
-  // Distinctive foreground buzz the instant we cross the 2-minute mark (once).
-  // The scheduled local notification carries the chime and fires even when
-  // backgrounded; this adds the unique haptic while the user is on the screen.
-  useEffect(() => {
-    if (!overtime && remainingMs > 0 && remainingMs <= 120_000 && !firedTwoMinRef.current) {
-      firedTwoMinRef.current = true;
-      hx.alert2min();
-    }
-  }, [remainingMs, overtime]);
 
   const accent = overtime ? palette.danger : palette.volt;
 

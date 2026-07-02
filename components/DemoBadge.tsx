@@ -17,12 +17,14 @@ export function DemoBadge() {
     <View
       pointerEvents="none"
       style={{
-        // Sit BELOW a standard nav bar so it never covers a screen's header
-        // title (the station screen centers its name up top).
+        // Pinned top-CENTER at the nav-bar row: on the map this is the empty gap
+        // between the (absent) wordmark and the right-hand action pills, so it no
+        // longer crowds or covers the locate/menu buttons in the corner.
         position: 'absolute',
-        top: insets.top + 52,
-        right: 14,
-        alignItems: 'flex-end',
+        top: insets.top + 14,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
         zIndex: 9999,
       }}
     >
