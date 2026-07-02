@@ -17,6 +17,7 @@ import { useConnectionPresence } from '@/hooks/useConnectionPresence';
 import { useReviewerDemo } from '@/hooks/useReviewerDemo';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
+import { DemoBadge } from '@/components/DemoBadge';
 import { initTelemetry } from '@/lib/telemetry';
 import { useColdLaunchReattach } from '@/lib/hardware/useColdLaunchReattach';
 
@@ -139,6 +140,7 @@ export default function RootLayout() {
             />
           </Stack>
           <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <DemoBadge />
         </ThemeProvider>
       </AppErrorBoundary>
     </GestureHandlerRootView>
