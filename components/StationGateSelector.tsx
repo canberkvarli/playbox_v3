@@ -24,6 +24,7 @@ import { palette } from '@/constants/theme';
 import { Button } from '@/components/ui';
 import { costForMinutes, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { SPORT_EMOJI } from '@/data/sports';
+import { LockerSelector } from '@/components/LockerSelector';
 import { gatesForStation, SPORT_LABELS, STATIONS, type Gate, type Station, type Sport } from '@/data/stations.seed';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { RESERVATION_LOCK_MIN, useReservationState } from '@/lib/reservations';
@@ -490,29 +491,9 @@ export function StationGateSelector({
       >
         {t('station.gates_label')}
       </Text>
-      {/* Balls stay rendered even when the station is closed — just dimmed and
-          non-interactive — so the user always sees what's offered here. */}
-      <View
-        pointerEvents={open ? 'auto' : 'none'}
-        style={{
-          gap: 10,
-          opacity: open ? 1 : 0.45,
-        }}
-      >
-        {station.sports.map((sport, i) => {
-          const out = (station.stock[sport] ?? 0) === 0;
-          return (
-            <GateCard
-              key={sport}
-              sport={sport}
-              index={i}
-              selected={selected === sport}
-              disabled={out}
-              onPress={() => onSelect(sport)}
-            />
-          );
-        })}
-      </View>
+      {/* Abstract Playbox locker — compartments with volt line-art balls behind
+          doors. Tap to open + select; out-of-stock shakes. */}
+      <LockerSelector station={station} open={open} selected={selected} onSelect={onSelect} />
 
       {/* Closed (or still settling): a calm status in the middle, in place of
           the slider + CTA — no Bluetooth-icon block, the balls above carry the

@@ -17,11 +17,12 @@ export function DemoBadge() {
     <View
       pointerEvents="none"
       style={{
+        // Sit BELOW a standard nav bar so it never covers a screen's header
+        // title (the station screen centers its name up top).
         position: 'absolute',
-        top: insets.top + 6,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
+        top: insets.top + 52,
+        right: 14,
+        alignItems: 'flex-end',
         zIndex: 9999,
       }}
     >
