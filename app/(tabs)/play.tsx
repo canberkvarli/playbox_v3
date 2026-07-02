@@ -122,7 +122,11 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   // runs out), so we pass `1 - progress`.
   const remainingFraction = Math.max(0, 1 - progress);
   const centerTime = overtime ? `+${fmt(overMs)}` : fmt(remainingMs);
-  const caption = overtime
+  // Demo Mode (App Store review) sessions are free — never show a ₺ charge.
+  const demoMode = useDevStore((s) => s.demoMode);
+  const caption = demoMode
+    ? `${session.durationMinutes} dk planlandı · ücretsiz`
+    : overtime
     ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
     : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
 
@@ -182,6 +186,8 @@ export default function Play() {
   const active = useSessionStore((s) => s.active);
   const startSession = useSessionStore((s) => s.startSession);
   const endSession = useSessionStore((s) => s.endSession);
+  // Demo/review sessions are free — no accrued charge anywhere.
+  const demoMode = useDevStore((s) => s.demoMode);
 
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
@@ -865,7 +871,7 @@ export default function Play() {
         onManualConfirmClosed={onManualConfirmClosed}
         onAddClosingPhoto={addClosingPhoto}
         photoState={photoState}
-        accruedTry={costForMs(Date.now() - active.startedAt)}
+        accruedTry={demoMode ? 0 : costForMs(Date.now() - active.startedAt)}
       />
 
       <GearReportSheet
