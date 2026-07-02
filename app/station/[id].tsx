@@ -355,11 +355,11 @@ export default function StationDetail() {
           />
         </View>
 
-        {/* Phase 0: always render DevServoButtons on every station so we
-            don't get bitten by an id-case mismatch or stale cache hiding
-            them. The buttons themselves are scoped server-side via
-            dev_bypass which only honors station_id="DEV-001". */}
-        <DevServoButtons stationId={station.id} />
+        {/* Bench servo controls — DEV BUILDS ONLY. Never shipped to a release
+            build, so App Store reviewers / prod users get the clean flow
+            (locker → OYNA → unlock → session → return). You still get them on a
+            dev build (real BLE) for hardware bring-up. */}
+        {__DEV__ ? <DevServoButtons stationId={station.id} /> : null}
 
         {/* Support — always reachable from the station screen so a user stuck
             at a station (no connection, jammed door, etc.) can get help fast. */}

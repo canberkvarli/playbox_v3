@@ -29,7 +29,8 @@ import { palette } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { EmptyState } from '@/components/EmptyState';
 import { Wordmark } from '@/components/ui';
-import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
+import { STATIONS, REAL_STATION_IDS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
+import { useDevStore } from '@/stores/devStore';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
 import { haversineKm } from '@/lib/geo';
@@ -1268,9 +1269,17 @@ export default function Map() {
   // into it (continuous, not just on snap). TopBar reads it to fade smoothly.
   const homeSheetAnimatedIndex = useSharedValue(0);
 
+  // Demo Mode (App Store review) + dev builds see the full dummy set generated
+  // around the user. Real prod shows ONLY stations with live hardware
+  // (REAL_STATION_IDS) — no generated fixtures — so the map is honest (empty
+  // until a real locker exists).
+  const demoStations = useDevStore((s) => s.demoMode) || __DEV__;
   const allStations = useMemo(
-    () => stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 }),
-    [userLoc]
+    () =>
+      demoStations
+        ? stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 })
+        : STATIONS.filter((s) => REAL_STATION_IDS.has(s.id)),
+    [userLoc, demoStations]
   );
 
   // Persist every station the user can see so /reservations can resolve a

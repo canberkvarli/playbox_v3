@@ -11,6 +11,16 @@ export type Station = {
   availableNow: boolean;
 };
 
+/**
+ * REAL (production) stations — the ones with a physical locker in the field.
+ * The rest of STATIONS are demo/dummy fixtures shown only in Demo Mode (App
+ * Store review) and dev builds. In real prod the map shows ONLY these. Add a
+ * station's id here the day its hardware goes live; empty this set for a fully
+ * empty prod map. DEV-001 is the workshop unit.
+ */
+export const REAL_STATION_IDS = new Set<string>(['DEV-001']);
+export const isRealStation = (id: string) => REAL_STATION_IDS.has(id);
+
 export type Gate = {
   /** Stable, globally unique identifier — used as reservations.gate_id. */
   id: string;
