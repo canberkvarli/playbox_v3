@@ -25,6 +25,15 @@ type DevStore = {
    */
   ignoreFirmwareTimeouts: boolean;
   setIgnoreFirmwareTimeouts: (v: boolean) => void;
+  /**
+   * REVIEW/DEMO MODE. When ON, `getDriver()` returns the MOCK hardware driver
+   * even in a release build, so the full unlock → session → return flow works
+   * with NO physical locker. Auto-enabled when the App Store review account
+   * (REVIEW_PHONE) is logged in — see hooks/useReviewerDemo. Lets Apple review
+   * the app without hardware (avoids a Guideline 2.1 rejection).
+   */
+  demoMode: boolean;
+  setDemoMode: (v: boolean) => void;
 };
 
 export const useDevStore = create<DevStore>()(
@@ -39,6 +48,8 @@ export const useDevStore = create<DevStore>()(
       ignoreFirmwareTimeouts: true,
       setIgnoreFirmwareTimeouts: (ignoreFirmwareTimeouts) =>
         set({ ignoreFirmwareTimeouts }),
+      demoMode: false,
+      setDemoMode: (demoMode) => set({ demoMode }),
     }),
     {
       name: 'playbox.dev',

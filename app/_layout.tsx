@@ -14,6 +14,7 @@ import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
 import { useConnectionPresence } from '@/hooks/useConnectionPresence';
+import { useReviewerDemo } from '@/hooks/useReviewerDemo';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
@@ -55,6 +56,10 @@ export default function RootLayout() {
   // while we hold a GATT connection, so the passive scan can't see it). Read +
   // store-write only, no radio work — safe to run app-wide.
   useConnectionPresence();
+
+  // App Store review account → auto-enable Demo Mode (mock hardware) so Apple
+  // can test the full flow without a physical locker.
+  useReviewerDemo();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming
