@@ -24,7 +24,7 @@ import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
-import { openDirections } from '@/lib/directions';
+import { DirectionsSheet } from '@/components/DirectionsSheet';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -174,11 +174,11 @@ export default function StationDetail() {
     router.back();
   };
 
+  const [dirOpen, setDirOpen] = useState(false);
   const onDirections = async () => {
     await hx.tap();
-    // Let the user pick their maps app (Apple / Google / Yandex) instead of
-    // hard-opening Apple Maps. See lib/directions.
-    openDirections({ name: station.name, lat: station.lat, lng: station.lng });
+    // Open the on-brand chooser (Apple / Google / Yandex). See DirectionsSheet.
+    setDirOpen(true);
   };
 
   const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number, gateId?: string) => {
@@ -280,7 +280,7 @@ export default function StationDetail() {
             justifyContent: 'center',
           }}
         >
-          <Feather name="info" size={20} color={palette.fg} />
+          <Feather name="navigation" size={19} color={palette.fg} />
         </Pressable>
       </View>
 
@@ -378,6 +378,12 @@ export default function StationDetail() {
           </View>
         </Pressable>
       </Animated.ScrollView>
+
+      <DirectionsSheet
+        dest={station ? { name: station.name, lat: station.lat, lng: station.lng } : null}
+        visible={dirOpen}
+        onClose={() => setDirOpen(false)}
+      />
     </View>
   );
 }

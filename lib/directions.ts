@@ -14,6 +14,22 @@ function open(url: string) {
  * so this stays fully OTA-safe. Apple Maps is offered on iOS only. Yandex is
  * included because it is widely used in Türkiye.
  */
+export type DirectionsOption = { key: string; label: string; onPress: () => void };
+
+/** The maps-app options for a destination (for a custom chooser UI). */
+export function directionsOptions(dest: Destination): DirectionsOption[] {
+  const { name, lat, lng } = dest;
+  const q = encodeURIComponent(name);
+  const apple = `https://maps.apple.com/?daddr=${lat},${lng}&q=${q}`;
+  const google = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  const yandex = `https://yandex.com/maps/?rtext=~${lat},${lng}&rtt=auto`;
+  const opts: DirectionsOption[] = [];
+  if (Platform.OS === 'ios') opts.push({ key: 'apple', label: 'Apple Haritalar', onPress: () => open(apple) });
+  opts.push({ key: 'google', label: 'Google Haritalar', onPress: () => open(google) });
+  opts.push({ key: 'yandex', label: 'Yandex', onPress: () => open(yandex) });
+  return opts;
+}
+
 export function openDirections(dest: Destination) {
   const { name, lat, lng } = dest;
   const q = encodeURIComponent(name);

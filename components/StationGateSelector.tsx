@@ -29,6 +29,7 @@ import { gatesForStation, SPORT_LABELS, STATIONS, type Gate, type Station, type 
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { RESERVATION_LOCK_MIN, useReservationState } from '@/lib/reservations';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
 import { supabase } from '@/lib/supabase';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
@@ -315,11 +316,17 @@ export function StationGateSelector({
   const { t } = useT();
   const router = useRouter();
   const {
-    inRange,
+    inRange: inRangeRaw,
     state: proximityState,
-    unreachable,
+    unreachable: unreachableRaw,
     retry: retryProximity,
   } = useStationInRange(station.id);
+  // Demo Mode (App Store review): no hardware advertises, so force "in range"
+  // — otherwise OYNA stays disabled behind "istasyona yaklaş" and a reviewer
+  // can never unlock. The mock driver simulates the actual unlock.
+  const demoMode = useDevStore((s) => s.demoMode);
+  const inRange = demoMode || inRangeRaw;
+  const unreachable = !demoMode && unreachableRaw;
   // Until we either connect (in_range) or give up (unreachable), present ONE
   // stable "kontrol ediliyor" state. scanning and the transient out_of_range
   // blips in between are the same thing to the user, so the CTA never toggles
