@@ -331,7 +331,10 @@ export default function Play() {
     setReturnPhase('opening');
     await hx.yes();
 
-    const isFake = fakeActiveSession || !active?.bleSessionId || !active?.gate;
+    // Demo Mode has no hardware — never call the BLE driver on return or it fails
+    // with connection_failed and traps the reviewer. Treat it like a fake session
+    // (local-only close), same as the unlock path in session-prep.
+    const isFake = demoMode || fakeActiveSession || !active?.bleSessionId || !active?.gate;
     if (!isFake && active) {
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const sessionToken = authSession?.access_token ?? '';

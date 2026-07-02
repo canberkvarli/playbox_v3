@@ -120,7 +120,7 @@ export default function SessionPrep() {
   // sooner. Best-effort + additive: onOyna falls back to a fresh sign on a miss
   // (e.g. a real station whose payment hold isn't placed until onOyna runs).
   useEffect(() => {
-    if (!station) return;
+    if (!station || demoMode) return; // demo: no hardware, nothing to pre-sign
     const gateIdx = station.sports.indexOf(sport);
     getDriver().prefetchUnlock?.({
       stationId,
@@ -331,8 +331,13 @@ export default function SessionPrep() {
     // /gate-unlock Edge Function which verifies session + dispatches MQTT.
     // Failure here MUST release the iyzico hold; we charged for an unlock
     // we never delivered.
-    const { data: { session: authSession } } = await supabase.auth.getSession();
-    const sessionToken = authSession?.access_token ?? '';
+    // Demo Mode (App Store review): there is NO hardware and NO Supabase session,
+    // so never talk to the driver — a stale/BLE driver instance would return
+    // connection_failed ("kapı yanıt vermedi") and dead-end the reviewer. Treat
+    // the unlock as an instant success and fall through to startSession.
+    const sessionToken = demoMode
+      ? ''
+      : (await supabase.auth.getSession()).data.session?.access_token ?? '';
     const driver = getDriver();
     // Reservation-linkage slug. This MUST equal the EXACT slug the reservation
     // holds (`reservations.gate_id`), which is the selected gate's id
@@ -355,14 +360,16 @@ export default function SessionPrep() {
     const gate = Math.max(1, gateIndex + 1);
     // correlationId is the stable one generated at mount (also used by the
     // background pre-sign), so the pre-fetched payload matches this unlock.
-    const unlockRes = await driver.unlockGate({
-      stationId: station.id,
-      gate,
-      gateId,
-      sessionToken,
-      correlationId,
-      durationMin: durationMinutes,
-    });
+    const unlockRes = demoMode
+      ? ({ ok: true, openedAt: Date.now() } as const)
+      : await driver.unlockGate({
+          stationId: station.id,
+          gate,
+          gateId,
+          sessionToken,
+          correlationId,
+          durationMin: durationMinutes,
+        });
     if (!unlockRes.ok) {
       if (holdId) {
         releaseHold(holdId).catch(() => {});
