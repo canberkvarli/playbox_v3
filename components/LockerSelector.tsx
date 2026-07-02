@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import Animated, {
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
@@ -23,55 +22,55 @@ type Props = {
 };
 
 /**
- * The station's sports as an abstract Playbox locker TOWER — a tall body with
- * one stacked compartment per sport (matches the physical 3-gate unit). Each
- * compartment is a door with a volt line-art ball behind it; tapping an
- * available door swings it open (ball pops, haptic) and selects the sport.
- * Out-of-stock doors stay shut and shake + buzz.
+ * The station's sports shown as a Playbox locker: a framed box (PLAYBOX ·
+ * <station> header + hinge dashes) holding one compartment row per sport. Each
+ * row has a volt line-art ball, the sport name, and a müsait/tükendi status.
+ * Selected = volt border + left bar + check; out-of-stock dims and shakes.
  */
 export function LockerSelector({ station, open, selected, onSelect }: Props) {
+  const shortName = station.name.split(' ')[0].toUpperCase();
   return (
     <View pointerEvents={open ? 'auto' : 'none'} style={{ opacity: open ? 1 : 0.5 }}>
       <View
         style={{
           backgroundColor: palette.surface,
-          borderRadius: 20,
-          borderWidth: 1.5,
+          borderRadius: 22,
+          borderWidth: 1,
           borderColor: palette.border,
-          padding: 10,
+          padding: 12,
         }}
       >
-        {/* top strip — hinge bolts + etch */}
+        {/* header: PLAYBOX · <station>  +  hinge dashes */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             paddingHorizontal: 4,
-            marginBottom: 10,
+            marginBottom: 12,
           }}
         >
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              fontSize: 11,
+              letterSpacing: 2,
+              color: palette.volt,
+            }}
+          >
+            {`PLAYBOX · ${shortName}`}
+          </Text>
           <View style={{ flexDirection: 'row', gap: 5 }}>
             {[0, 1, 2].map((i) => (
               <View
                 key={i}
-                style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: palette.border }}
+                style={{ width: 15, height: 3, borderRadius: 2, backgroundColor: palette.border }}
               />
             ))}
           </View>
-          <Text
-            style={{
-              fontFamily: 'JetBrainsMono_500Medium',
-              fontSize: 9,
-              letterSpacing: 3,
-              color: palette.muted,
-            }}
-          >
-            PLAYBOX
-          </Text>
         </View>
 
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: 10 }}>
           {station.sports.map((sport) => {
             const out = (station.stock[sport] ?? 0) === 0;
             return (
@@ -101,24 +100,18 @@ function Compartment({
   selected: boolean;
   onPress: () => void;
 }) {
-  const openV = useSharedValue(selected ? 1 : 0);
+  const sel = useSharedValue(selected ? 1 : 0);
   const shake = useSharedValue(0);
 
   useEffect(() => {
-    openV.value = withSpring(selected ? 1 : 0, { damping: 16, stiffness: 180 });
-  }, [selected, openV]);
+    sel.value = withSpring(selected ? 1 : 0, { damping: 15, stiffness: 200 });
+  }, [selected, sel]);
 
-  const doorStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(openV.value, [0, 0.75, 1], [1, 1, 0]),
-    transform: [
-      { perspective: 700 },
-      { rotateY: `${-openV.value * 108}deg` },
-    ],
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: sel.value,
+    transform: [{ scale: 0.4 + sel.value * 0.6 }],
   }));
-  const voltBallStyle = useAnimatedStyle(() => ({
-    opacity: openV.value,
-    transform: [{ scale: 0.7 + openV.value * 0.3 }],
-  }));
+  const barStyle = useAnimatedStyle(() => ({ opacity: sel.value, transform: [{ scaleY: sel.value }] }));
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
   const onTap = () => {
@@ -138,127 +131,100 @@ function Compartment({
   };
 
   return (
-    <Pressable onPress={onTap} style={{ borderRadius: 14 }}>
+    <Pressable onPress={onTap} style={{ borderRadius: 16 }}>
       <Animated.View
         style={[
           {
-            height: 78,
-            borderRadius: 14,
+            height: 80,
+            borderRadius: 16,
             borderWidth: selected ? 2 : 1,
             borderColor: selected ? palette.volt : palette.border,
-            backgroundColor: palette.surfaceAlt,
+            backgroundColor: selected ? palette.volt + '12' : palette.bg,
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: 16,
+            gap: 14,
             overflow: 'hidden',
+            opacity: out ? 0.5 : 1,
           },
           shakeStyle,
         ]}
       >
-        {/* Interior (revealed when the door swings open) */}
-        <View
-          style={{
-            ...StyleFill,
-            flexDirection: 'row',
-            alignItems: 'center',
-            paddingHorizontal: 14,
-            gap: 14,
-          }}
-        >
-          <View style={{ width: 52, height: 52, alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ position: 'absolute' }}>
-              <SportBall sport={sport} color={out ? palette.border : palette.muted} size={50} />
-            </View>
-            <Animated.View style={[{ position: 'absolute' }, voltBallStyle]}>
-              <SportBall sport={sport} color={palette.volt} size={50} />
-            </Animated.View>
-          </View>
-          <Text
-            style={{
-              flex: 1,
-              fontFamily: 'Unbounded_800ExtraBold',
-              fontSize: 17,
-              textTransform: 'uppercase',
-              color: selected ? palette.volt : palette.fg,
-            }}
-          >
-            {SPORT_LABELS[sport]}
-          </Text>
-          {selected ? (
-            <Feather name="unlock" size={18} color={palette.volt} />
-          ) : null}
-        </View>
-
-        {/* Door face (hinged left, swings open on select) */}
+        {/* volt left accent bar (selected) */}
         <Animated.View
           style={[
             {
-              ...StyleFill,
-              transformOrigin: 'left center',
-              backfaceVisibility: 'hidden',
-              backgroundColor: palette.surface,
-              borderRadius: 14,
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingHorizontal: 14,
-              gap: 12,
+              position: 'absolute',
+              left: 0,
+              top: 16,
+              bottom: 16,
+              width: 4,
+              borderTopRightRadius: 3,
+              borderBottomRightRadius: 3,
+              backgroundColor: palette.volt,
             },
-            doorStyle,
+            barStyle,
           ]}
-        >
-          {/* vent slats */}
-          <View style={{ gap: 5 }}>
-            {[0, 1, 2].map((i) => (
-              <View
-                key={i}
-                style={{ width: 34, height: 3, borderRadius: 2, backgroundColor: palette.border }}
-              />
-            ))}
-          </View>
+        />
+
+        <SportBall sport={sport} color={out ? palette.muted : palette.volt} size={46} />
+
+        <View style={{ flex: 1 }}>
           <Text
+            numberOfLines={1}
             style={{
-              flex: 1,
               fontFamily: 'Unbounded_800ExtraBold',
-              fontSize: 17,
+              fontSize: 21,
+              lineHeight: 24,
               textTransform: 'uppercase',
               color: out ? palette.muted : palette.fg,
             }}
           >
             {SPORT_LABELS[sport]}
           </Text>
-          {out ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
             <View
               style={{
-                backgroundColor: palette.danger,
-                borderRadius: 7,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-              }}
-            >
-              <Text
-                style={{ fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 0.4, color: palette.fg }}
-              >
-                DOLU
-              </Text>
-            </View>
-          ) : (
-            // handle/latch
-            <View
-              style={{
-                width: 10,
-                height: 26,
-                borderRadius: 5,
-                backgroundColor: palette.border,
+                width: 6,
+                height: 6,
+                borderRadius: 3,
+                backgroundColor: out ? palette.muted : palette.volt,
               }}
             />
-          )}
-        </Animated.View>
+            <Text
+              style={{
+                fontFamily: 'JetBrainsMono_500Medium',
+                fontSize: 12,
+                letterSpacing: 0.5,
+                color: out ? palette.muted : palette.volt,
+              }}
+            >
+              {out ? 'tükendi' : 'müsait'}
+            </Text>
+          </View>
+        </View>
+
+        {/* right: volt check when selected, thin accent line when available */}
+        {selected ? (
+          <Animated.View
+            style={[
+              {
+                width: 30,
+                height: 30,
+                borderRadius: 15,
+                backgroundColor: palette.volt,
+                alignItems: 'center',
+                justifyContent: 'center',
+              },
+              checkStyle,
+            ]}
+          >
+            <Feather name="check" size={18} color={palette.voltInk} />
+          </Animated.View>
+        ) : !out ? (
+          <View style={{ width: 3, height: 34, borderRadius: 2, backgroundColor: palette.border }} />
+        ) : null}
       </Animated.View>
     </Pressable>
   );
 }
-
-const StyleFill = {
-  position: 'absolute' as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-};
