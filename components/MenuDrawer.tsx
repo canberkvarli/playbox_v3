@@ -162,18 +162,17 @@ export function MenuDrawer() {
           transform: [{ translateX }],
         }}
       >
-        {/* Top bar: wordmark lockup + close-X */}
+        {/* Top bar: settings + close (no wordmark). */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent: 'flex-end',
             paddingTop: SAFE_TOP,
             paddingHorizontal: PAD,
             paddingBottom: 18,
           }}
         >
-          <Wordmark size={22} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Pressable
               onPress={async () => {

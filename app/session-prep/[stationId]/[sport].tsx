@@ -169,7 +169,10 @@ export default function SessionPrep() {
   // Either signal counts as genuinely present, so the "yaklaş" nudge only
   // shows when the station truly isn't reachable.
   const { inRange: activelyPresent } = useStationInRange(stationId);
-  const freshlyPresent = passivelyPresent || activelyPresent;
+  // Demo Mode (App Store review): no hardware advertises, so count as present —
+  // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
+  // mock unlock succeeds.
+  const freshlyPresent = passivelyPresent || activelyPresent || demoMode;
 
   if (!station) {
     return (
