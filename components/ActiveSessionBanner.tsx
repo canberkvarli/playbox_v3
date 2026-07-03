@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useSegments, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   cancelAnimation,
-  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -13,10 +11,10 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { hx } from '@/lib/haptics';
-import { palette } from '@/constants/theme';
+import { palette, darkPalette } from '@/constants/theme';
 import { SPORT_LABELS } from '@/data/stations.seed';
-import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useReduceMotion } from '@/hooks/useReduceMotion';
 
 function fmt(sec: number) {
   const abs = Math.abs(sec);
@@ -31,30 +29,135 @@ function fmt(sec: number) {
   return `${sign}${h}sa ${m}dk`;
 }
 
-// Reading speed for the ticker: ~50 pixels per second.
-const TICKER_PPS = 50;
+const STRIP_H = 46;
+const SCROLL_PPS = 55; // marquee reading speed (px/sec)
 
 /**
- * Active-session banner. Scrolling marquee at the bottom of the screen,
- * tappable to jump to /play. Coloured ink while on-time, pulsing coral when
- * overrun. Hidden on /play and on the modal-style routes that already have
- * their own primary CTAs.
+ * One diagonal "crime-scene tape" strip with infinitely scrolling text. The
+ * text row is duplicated; we measure ONE copy and loop translateX by exactly
+ * that width, so the repeat is seamless (never trims). Colours live in JS (the
+ * worklet only animates transform) to dodge the reanimated palette-snapshot bug.
+ */
+function TapeStrip({
+  text,
+  rotateDeg,
+  dir,
+  bg,
+  fg,
+  top,
+  left,
+  width,
+  onPress,
+  reduceMotion,
+}: {
+  text: string;
+  rotateDeg: number;
+  dir: 1 | -1; // -1 scrolls left, 1 scrolls right
+  bg: string;
+  fg: string;
+  top: number;
+  left: number;
+  width: number;
+  onPress: () => void;
+  reduceMotion: boolean;
+}) {
+  const x = useSharedValue(0);
+  const [unit, setUnit] = useState(0);
+
+  useEffect(() => {
+    if (!unit) return;
+    if (reduceMotion) {
+      cancelAnimation(x);
+      x.value = 0;
+      return;
+    }
+    const from = dir < 0 ? 0 : -unit;
+    const to = dir < 0 ? -unit : 0;
+    x.value = from;
+    x.value = withRepeat(
+      withTiming(to, { duration: (unit / SCROLL_PPS) * 1000, easing: Easing.linear }),
+      -1,
+      false,
+    );
+    return () => cancelAnimation(x);
+  }, [unit, reduceMotion, dir, x]);
+
+  const rowStyle = useAnimatedStyle(() => ({
+    flexDirection: 'row',
+    transform: [{ translateX: x.value }],
+  }));
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={{
+        position: 'absolute',
+        top,
+        left,
+        width,
+        height: STRIP_H,
+        transform: [{ rotate: `${rotateDeg}deg` }],
+      }}
+    >
+      <View
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          backgroundColor: bg,
+          borderTopWidth: 3,
+          borderBottomWidth: 3,
+          borderColor: fg,
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 12,
+        }}
+      >
+        <Animated.View style={rowStyle}>
+          {Array.from({ length: 14 }).map((_, i) => (
+            <Text
+              key={i}
+              onLayout={
+                i === 0
+                  ? (e) => {
+                      const w = e.nativeEvent.layout.width;
+                      if (w > 0) setUnit((u) => u || w);
+                    }
+                  : undefined
+              }
+              numberOfLines={1}
+              style={{
+                fontFamily: 'JetBrainsMono_700Bold',
+                fontSize: 14,
+                letterSpacing: 2,
+                color: fg,
+              }}
+            >
+              {text}
+            </Text>
+          ))}
+        </Animated.View>
+      </View>
+    </Pressable>
+  );
+}
+
+/**
+ * Active-session indicator: two crime-scene tape strips crossed in an X over the
+ * MAP, text scrolling in opposite directions. Volt while on-time, coral when
+ * overrun. Tapping either strip jumps to /play. Map-only — the glowing play tab
+ * covers the other screens. Rendered after <Tabs>, so it paints over the map.
  */
 export function ActiveSessionBanner() {
   const active = useSessionStore((s) => s.active);
   const segments = useSegments();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const reduceMotion = useReduceMotion();
+  const { width: screenW, height: screenH } = useWindowDimensions();
   const [, setTick] = useState(0);
-
-  // Marquee scroll
-  const x = useSharedValue(0);
-  const [textWidth, setTextWidth] = useState(0);
-  const measuredRef = useRef(false);
-  const runningRef = useRef(false);
-
-  // Overrun colour pulse
-  const pulse = useSharedValue(0);
 
   useEffect(() => {
     if (!active) return;
@@ -62,175 +165,64 @@ export function ActiveSessionBanner() {
     return () => clearInterval(id);
   }, [active]);
 
-  const elapsedSec = active ? Math.floor((Date.now() - active.startedAt) / 1000) : 0;
-  const totalSec = active ? active.durationMinutes * 60 : 0;
-  const remaining = totalSec - elapsedSec;
-  const overrun = remaining < 0;
-
-  useEffect(() => {
-    if (!active || !overrun) {
-      cancelAnimation(pulse);
-      pulse.value = 0;
-      return;
-    }
-    pulse.value = 0;
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-    return () => {
-      cancelAnimation(pulse);
-    };
-  }, [active, overrun, pulse]);
-
-  useEffect(() => {
-    if (textWidth <= 0 || runningRef.current) return;
-    runningRef.current = true;
-    x.value = 0;
-    x.value = withRepeat(
-      withTiming(-textWidth, {
-        duration: (textWidth / TICKER_PPS) * 1000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false,
-    );
-    return () => {
-      cancelAnimation(x);
-      runningRef.current = false;
-    };
-  }, [textWidth, x]);
-
-  const cardStyle = useAnimatedStyle(() => {
-    const bg = overrun
-      ? interpolateColor(pulse.value, [0, 1], [palette.coral, '#ff3a3a'])
-      : palette.ink;
-    return { backgroundColor: bg };
-  });
-
-  const marqueeStyle = useAnimatedStyle(() => ({
-    flexDirection: 'row',
-    transform: [{ translateX: x.value }],
-  }));
-
   if (!active) return null;
   const path = segments.join('/');
-  if (path.endsWith('(tabs)/play')) return null;
-  if (path.includes('session-prep') || path.includes('session-review')) return null;
-  if (path.includes('card-add') || path.includes('scan')) return null;
+  const onMap = path.endsWith('(tabs)/map') || path.endsWith('(tabs)');
+  if (!onMap) return null;
+
+  const elapsedSec = Math.floor((Date.now() - active.startedAt) / 1000);
+  const remaining = active.durationMinutes * 60 - elapsedSec;
+  const overrun = remaining < 0;
 
   const sportLabel = (SPORT_LABELS[active.sport] ?? active.sport).toUpperCase();
-  const sportEmoji = SPORT_EMOJI[active.sport] ?? '';
+  const stationShort = active.stationName.split(' ')[0].toUpperCase();
+  const text = `SEANS AKTİF · ${sportLabel} · ${stationShort} · ${
+    overrun ? 'GEÇ ' : 'KALDI '
+  }${fmt(remaining)}   ·   `;
 
-  // Repeated label with separators. Two trailing spaces give the loop seam
-  // some air so the restart doesn't feel jarring.
-  const label =
-    [
-      `${sportEmoji}  ${sportLabel}`,
-      active.stationName.toUpperCase(),
-      `${overrun ? 'GEÇ' : 'KALDI'} ${fmt(remaining)}`,
-      'OYNA SEKMESİNE GİT',
-    ].join('   ·   ') + '         ';
-
-  const onTextLayout = (e: { nativeEvent: { layout: { width: number } } }) => {
-    if (measuredRef.current) return;
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) {
-      measuredRef.current = true;
-      setTextWidth(w);
-    }
-  };
+  const bg = overrun ? palette.coral : darkPalette.volt; // hazard: coral overrun / volt live
+  const fg = darkPalette.bg; // asphalt ink on the tape
 
   const onPress = async () => {
     await hx.tap();
     router.push('/(tabs)/play');
   };
 
-  const textStyle = {
-    fontFamily: 'JetBrainsMono_700Bold' as const,
-    fontSize: 14,
-    lineHeight: 18,
-    color: palette.paper,
-    letterSpacing: 1.2,
-    paddingHorizontal: 18,
-  };
+  // Strip spans the screen diagonal so its ends reach past the corners once
+  // rotated. Both cross at the same centre point → an X.
+  const stripW = Math.hypot(screenW, screenH) + 80;
+  const centerTop = screenH * 0.44 - STRIP_H / 2;
+  const left = (screenW - stripW) / 2;
 
   return (
     <View
       pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        top: insets.top + 10,
-        left: 12,
-        right: 12,
-        zIndex: 50,
-        elevation: 50,
-      }}
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 60, elevation: 60 }}
     >
-      <Pressable
+      <TapeStrip
+        text={text}
+        rotateDeg={20}
+        dir={-1}
+        bg={bg}
+        fg={fg}
+        top={centerTop}
+        left={left}
+        width={stripW}
         onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`aktif seans: ${active.stationName}, ${fmt(remaining)} ${overrun ? 'gecikme' : 'kaldı'}`}
-        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-      >
-        <Animated.View
-          style={[
-            {
-              borderRadius: 18,
-              borderWidth: 1.5,
-              borderColor: palette.paper + '22',
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.22,
-              shadowRadius: 14,
-              elevation: 10,
-              overflow: 'hidden',
-              height: 44,
-              flexDirection: 'row',
-              alignItems: 'center',
-            },
-            cardStyle,
-          ]}
-        >
-          {/* Status dot — pulses with the colour, sits flush left so users
-              know exactly where the ticker starts. */}
-          <View
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 4,
-              backgroundColor: overrun ? palette.paper : palette.butter,
-              marginLeft: 14,
-              marginRight: 6,
-            }}
-          />
-
-          {/* Marquee viewport — overflow:hidden clips the row of duplicated
-              Texts. Two copies share the same animated translateX so the seam
-              is invisible. */}
-          <View style={{ flex: 1, height: 44, overflow: 'hidden', justifyContent: 'center' }}>
-            <Animated.View
-              style={[
-                {
-                  position: 'absolute',
-                  left: 0,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                },
-                marqueeStyle,
-              ]}
-            >
-              <Text onLayout={onTextLayout} numberOfLines={1} style={textStyle}>
-                {label}
-              </Text>
-              <Text numberOfLines={1} style={textStyle}>
-                {label}
-              </Text>
-            </Animated.View>
-          </View>
-        </Animated.View>
-      </Pressable>
+        reduceMotion={reduceMotion}
+      />
+      <TapeStrip
+        text={text}
+        rotateDeg={-20}
+        dir={1}
+        bg={bg}
+        fg={fg}
+        top={centerTop}
+        left={left}
+        width={stripW}
+        onPress={onPress}
+        reduceMotion={reduceMotion}
+      />
     </View>
   );
 }
