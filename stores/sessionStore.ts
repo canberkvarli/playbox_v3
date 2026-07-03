@@ -2,6 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { safeStorage } from '@/lib/safeStorage';
 import type { Sport } from '@/data/stations.seed';
+import {
+  startSessionActivity,
+  updateSessionActivity,
+  endSessionActivity,
+} from '@/lib/liveActivity';
 
 export type ActiveSession = {
   stationId: string;
@@ -150,19 +155,25 @@ export const useSessionStore = create<SessionStore>()(
         // flow (app/scan.tsx). The legacy in-memory markUsed() path was
         // removed when the reservation system became server-authoritative.
 
-        set({
-          active: {
-            stationId: s.stationId,
-            stationName: s.stationName,
-            sport: s.sport,
-            durationMinutes: s.durationMinutes,
-            startedAt: s.startedAt ?? Date.now(),
-            holdId: s.holdId ?? null,
-            gate: s.gate,
-            bleSessionId: s.bleSessionId,
-            returnConfirmed: false,
-          },
-        });
+        const active: ActiveSession = {
+          stationId: s.stationId,
+          stationName: s.stationName,
+          sport: s.sport,
+          durationMinutes: s.durationMinutes,
+          startedAt: s.startedAt ?? Date.now(),
+          holdId: s.holdId ?? null,
+          gate: s.gate,
+          bleSessionId: s.bleSessionId,
+          returnConfirmed: false,
+        };
+        set({ active });
+        // Surface the session on the Lock Screen / Dynamic Island + home widget.
+        // Best-effort and iOS-only; must never break the session flow.
+        try {
+          startSessionActivity(active);
+        } catch {
+          // no-op
+        }
         return { ok: true };
       },
       endSession: () => {
@@ -172,6 +183,12 @@ export const useSessionStore = create<SessionStore>()(
           active: null,
           lastEnded: { ...cur, endedAt: Date.now() },
         });
+        // Tear down the Live Activity + flip the home widget to its idle prompt.
+        try {
+          endSessionActivity();
+        } catch {
+          // no-op
+        }
       },
       acknowledgeEnded: () => set({ lastEnded: null }),
       markReturnConfirmed: () => {
@@ -202,6 +219,16 @@ export const useSessionStore = create<SessionStore>()(
           next.stationRebooted = true;
         }
         set({ active: next });
+        // The overrun flag flipping to true is the one firmware event that
+        // changes the Live Activity's appearance (coral "GEÇ" styling). Push a
+        // fresh snapshot so the Lock Screen / widget swap from KALDI -> GEÇ.
+        if (kind === 'ball_overdue') {
+          try {
+            updateSessionActivity(next);
+          } catch {
+            // no-op
+          }
+        }
       },
     }),
     {
