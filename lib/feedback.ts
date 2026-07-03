@@ -19,7 +19,9 @@ export type FeedbackResult =
 
 const APP_VERSION = (() => {
   try {
-    const v = Constants.expoConfig?.version ?? Constants.manifest?.version;
+    // SDK57: Constants.manifest is removed from the public types; expoConfig.version
+    // is the supported source for the app version at runtime.
+    const v = Constants.expoConfig?.version;
     return v ? `${v}+${Platform.OS}` : Platform.OS;
   } catch {
     return Platform.OS;

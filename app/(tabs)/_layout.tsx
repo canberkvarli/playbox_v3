@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { Platform, View } from 'react-native';
+import { Platform, View, type ColorValue } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -23,7 +23,7 @@ import { MenuDrawer } from '@/components/MenuDrawer';
  * active, so the user always sees there's a live session to return to. Colours
  * stay in JS (theme accent); the worklet only animates opacity + scale.
  */
-function PlayTabIcon({ color, size }: { color: string; size: number }) {
+function PlayTabIcon({ color, size }: { color: ColorValue; size: number }) {
   const active = useSessionStore((s) => s.active);
   const reduceMotion = useReduceMotion();
   const glow = useSharedValue(0);
