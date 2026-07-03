@@ -13,7 +13,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { hx } from '@/lib/haptics';
-import { palette } from '@/constants/theme';
+import { palette, darkPalette } from '@/constants/theme';
 import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore } from '@/stores/sessionStore';
@@ -116,9 +116,11 @@ export function ActiveSessionBanner() {
   }, [textWidth, x, reduceMotion]);
 
   const cardStyle = useAnimatedStyle(() => {
+    // Theme-STABLE colours: the banner is a dark asphalt chip in BOTH themes.
+    // Using palette.ink here made bg == text colour (ink === fg) → invisible text.
     const bg = overrun
       ? interpolateColor(pulse.value, [0, 1], [palette.coral, '#ff3a3a'])
-      : palette.ink;
+      : darkPalette.bg;
     return { backgroundColor: bg };
   });
 
@@ -164,7 +166,7 @@ export function ActiveSessionBanner() {
     fontFamily: 'JetBrainsMono_700Bold' as const,
     fontSize: 14,
     lineHeight: 18,
-    color: palette.fg,
+    color: darkPalette.fg, // always light cream — banner bg is always dark asphalt
     letterSpacing: 1.2,
     paddingHorizontal: 18,
   };
@@ -195,7 +197,7 @@ export function ActiveSessionBanner() {
             {
               borderRadius: 18,
               borderWidth: 1.5,
-              borderColor: palette.paper + '22',
+              borderColor: darkPalette.fg + '22',
               shadowColor: '#000',
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: 0.22,
@@ -216,7 +218,7 @@ export function ActiveSessionBanner() {
               width: 8,
               height: 8,
               borderRadius: 4,
-              backgroundColor: overrun ? palette.paper : palette.butter,
+              backgroundColor: overrun ? '#FFFFFF' : palette.butter,
               marginLeft: 14,
               marginRight: 6,
             }}
