@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useSegments, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -32,14 +33,12 @@ function fmt(sec: number) {
   return `${sign}${h}sa ${m}dk`;
 }
 
-// Reading speed for the ticker: ~50 pixels per second.
-const TICKER_PPS = 50;
-
 /**
- * Active-session banner. Scrolling marquee at the bottom of the screen,
- * tappable to jump to /play. Coloured ink while on-time, pulsing coral when
- * overrun. Hidden on /play and on the modal-style routes that already have
- * their own primary CTAs.
+ * Active-session banner. A STATIC card pinned just above the tab bar, tappable
+ * to jump to /play. Dark asphalt while on-time, pulsing coral when overrun.
+ * (Was a scrolling marquee — it mis-measured its width and truncated the last
+ * "OYNA SEKMESİNE GİT" segment; a static row is legible and never trims.)
+ * Hidden on /play and on the modal-style routes that already carry their own CTA.
  */
 export function ActiveSessionBanner() {
   const active = useSessionStore((s) => s.active);
@@ -48,12 +47,6 @@ export function ActiveSessionBanner() {
   const router = useRouter();
   const reduceMotion = useReduceMotion();
   const [, setTick] = useState(0);
-
-  // Marquee scroll
-  const x = useSharedValue(0);
-  const [textWidth, setTextWidth] = useState(0);
-  const measuredRef = useRef(false);
-  const runningRef = useRef(false);
 
   // Overrun colour pulse
   const pulse = useSharedValue(0);
@@ -76,7 +69,6 @@ export function ActiveSessionBanner() {
       return;
     }
     if (reduceMotion) {
-      // Steady alert colour instead of a pulsing one.
       cancelAnimation(pulse);
       pulse.value = 1;
       return;
@@ -92,42 +84,13 @@ export function ActiveSessionBanner() {
     };
   }, [active, overrun, pulse, reduceMotion]);
 
-  useEffect(() => {
-    if (textWidth <= 0 || runningRef.current) return;
-    if (reduceMotion) {
-      // No scrolling marquee — show the (truncated) label statically.
-      x.value = 0;
-      return;
-    }
-    runningRef.current = true;
-    x.value = 0;
-    x.value = withRepeat(
-      withTiming(-textWidth, {
-        duration: (textWidth / TICKER_PPS) * 1000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false,
-    );
-    return () => {
-      cancelAnimation(x);
-      runningRef.current = false;
-    };
-  }, [textWidth, x, reduceMotion]);
-
   const cardStyle = useAnimatedStyle(() => {
     // Theme-STABLE colours: the banner is a dark asphalt chip in BOTH themes.
-    // Using palette.ink here made bg == text colour (ink === fg) → invisible text.
     const bg = overrun
       ? interpolateColor(pulse.value, [0, 1], [palette.coral, '#ff3a3a'])
       : darkPalette.bg;
     return { backgroundColor: bg };
   });
-
-  const marqueeStyle = useAnimatedStyle(() => ({
-    flexDirection: 'row',
-    transform: [{ translateX: x.value }],
-  }));
 
   if (!active) return null;
   const path = segments.join('/');
@@ -137,47 +100,19 @@ export function ActiveSessionBanner() {
 
   const sportLabel = (SPORT_LABELS[active.sport] ?? active.sport).toUpperCase();
   const sportEmoji = SPORT_EMOJI[active.sport] ?? '';
-
-  // Repeated label with separators. Two trailing spaces give the loop seam
-  // some air so the restart doesn't feel jarring.
-  const label =
-    [
-      `${sportEmoji}  ${sportLabel}`,
-      active.stationName.toUpperCase(),
-      `${overrun ? 'GEÇ' : 'KALDI'} ${fmt(remaining)}`,
-      'OYNA SEKMESİNE GİT',
-    ].join('   ·   ') + '         ';
-
-  const onTextLayout = (e: { nativeEvent: { layout: { width: number } } }) => {
-    if (measuredRef.current) return;
-    const w = e.nativeEvent.layout.width;
-    if (w > 0) {
-      measuredRef.current = true;
-      setTextWidth(w);
-    }
-  };
+  const stationShort = active.stationName.split(' ')[0].toUpperCase();
 
   const onPress = async () => {
     await hx.tap();
     router.push('/(tabs)/play');
   };
 
-  const textStyle = {
-    fontFamily: 'JetBrainsMono_700Bold' as const,
-    fontSize: 14,
-    lineHeight: 18,
-    color: darkPalette.fg, // always light cream — banner bg is always dark asphalt
-    letterSpacing: 1.2,
-    paddingHorizontal: 18,
-  };
-
   return (
     <View
       pointerEvents="box-none"
       style={{
-        // Sit just ABOVE the tab bar (its designed home) — a top placement ran
-        // the marquee under the map's locate/menu pills and made both unreadable.
-        // Rendered after <Tabs>, so it paints over the map's bottom sheet too.
+        // Sit just ABOVE the tab bar (its designed home). Rendered after <Tabs>,
+        // so it paints over the map's bottom sheet too.
         position: 'absolute',
         bottom: insets.bottom + 64,
         left: 12,
@@ -204,48 +139,77 @@ export function ActiveSessionBanner() {
               shadowRadius: 14,
               elevation: 10,
               overflow: 'hidden',
-              height: 44,
+              minHeight: 48,
               flexDirection: 'row',
               alignItems: 'center',
+              paddingLeft: 14,
+              paddingRight: 6,
+              paddingVertical: 6,
+              gap: 10,
             },
             cardStyle,
           ]}
         >
-          {/* Status dot — pulses with the colour, sits flush left so users
-              know exactly where the ticker starts. */}
+          {/* Status dot — coral while on-time, white while overrun. */}
           <View
             style={{
               width: 8,
               height: 8,
               borderRadius: 4,
               backgroundColor: overrun ? '#FFFFFF' : palette.butter,
-              marginLeft: 14,
-              marginRight: 6,
             }}
           />
 
-          {/* Marquee viewport — overflow:hidden clips the row of duplicated
-              Texts. Two copies share the same animated translateX so the seam
-              is invisible. */}
-          <View style={{ flex: 1, height: 44, overflow: 'hidden', justifyContent: 'center' }}>
-            <Animated.View
-              style={[
-                {
-                  position: 'absolute',
-                  left: 0,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                },
-                marqueeStyle,
-              ]}
+          {/* Sport · station — truncates with ellipsis, never trims mid-word. */}
+          <Text
+            numberOfLines={1}
+            style={{
+              flex: 1,
+              fontFamily: 'JetBrainsMono_700Bold',
+              fontSize: 13,
+              letterSpacing: 1,
+              color: darkPalette.fg,
+            }}
+          >
+            {`${sportEmoji}  ${sportLabel} · ${stationShort}`}
+          </Text>
+
+          {/* Countdown — mono, cream. */}
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              fontSize: 13,
+              letterSpacing: 0.5,
+              color: overrun ? '#FFFFFF' : darkPalette.fg,
+            }}
+          >
+            {`${overrun ? 'GEÇ ' : ''}${fmt(remaining)}`}
+          </Text>
+
+          {/* Explicit "OYNA ›" affordance so it clearly reads as tappable. */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 1,
+              backgroundColor: darkPalette.volt,
+              borderRadius: 999,
+              paddingLeft: 12,
+              paddingRight: 8,
+              paddingVertical: 7,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'JetBrainsMono_700Bold',
+                fontSize: 12,
+                letterSpacing: 1,
+                color: darkPalette.bg,
+              }}
             >
-              <Text onLayout={onTextLayout} numberOfLines={1} style={textStyle}>
-                {label}
-              </Text>
-              <Text numberOfLines={1} style={textStyle}>
-                {label}
-              </Text>
-            </Animated.View>
+              OYNA
+            </Text>
+            <Feather name="chevron-right" size={15} color={darkPalette.bg} />
           </View>
         </Animated.View>
       </Pressable>
