@@ -37,6 +37,7 @@ import {
 } from './returnRecovery';
 import { extractGate } from './infoGate';
 import { shouldReattach } from './coldLaunch';
+import { awaitGateOpened, GATE_OPEN_CONFIRM_MS } from './gateConfirm';
 
 /**
  * Dispatcher for firmware-emitted BLE notifications. Called whenever an
@@ -301,6 +302,15 @@ function dispatchStationEvent(event: StationEvent): void {
 
 const BLE_STATION_NAME_OVERRIDE = process.env.EXPO_PUBLIC_BLE_STATION_NAME;
 const SCAN_TIMEOUT_MS = 8_000;
+
+// Pre-signed unlock cache. session-prep can pre-fetch the signed payload while
+// the user reads the prep slides, so the final OYNA tap skips the sign-unlock
+// network round-trip and the door opens sooner. Keyed by correlationId (==
+// session_id). Best-effort + ADDITIVE: unlockGate falls back to a fresh fetch on
+// any miss/expiry, so this can only make unlock faster, never break it.
+type SignedUnlock = Awaited<ReturnType<typeof fetchSignedUnlock>>;
+const prefetchedUnlocks = new Map<string, { payload: SignedUnlock; expiresAt: number }>();
+const UNLOCK_PREFETCH_TTL_MS = 120_000;
 
 function nameFromStationId(stationId: string): string {
   // Only honor the override for the DEV-001 dev workshop. Otherwise the
@@ -726,6 +736,37 @@ export function createBleDriver(): HardwareDriver {
       };
     },
 
+    async prefetchUnlock({ stationId, gate: gateArg, gateId, correlationId, durationMin }): Promise<void> {
+      // Sign the unlock NOW (in the background) so the eventual unlockGate call
+      // for this same correlationId can skip the round-trip. Best-effort: a
+      // failure (e.g. a real station with no payment hold yet) just leaves the
+      // cache empty and unlockGate signs fresh. Mirrors unlockGate's gate +
+      // devBypass derivation so the cached payload is byte-identical to what a
+      // fresh sign would produce.
+      const gate =
+        typeof gateArg === 'number' && gateArg >= 1
+          ? Math.floor(gateArg)
+          : gateId
+          ? parseGateIndex(gateId)
+          : 1;
+      try {
+        const signed = await fetchSignedUnlock({
+          stationId,
+          gate,
+          sessionId: correlationId,
+          durationMin,
+          devBypass: stationId === 'DEV-001',
+          gateId,
+        });
+        prefetchedUnlocks.set(correlationId, {
+          payload: signed,
+          expiresAt: Date.now() + UNLOCK_PREFETCH_TTL_MS,
+        });
+      } catch {
+        // best-effort — unlockGate will sign fresh on a miss
+      }
+    },
+
     async unlockGate({ stationId, gate: gateArg, gateId, correlationId, durationMin }): Promise<UnlockResult> {
       const targetName = nameFromStationId(stationId);
       // Numeric gate for the BLE HMAC. Prefer the explicit 1-indexed compartment
@@ -764,24 +805,60 @@ export function createBleDriver(): HardwareDriver {
         // station_id === 'DEV-001', so passing it for any other station is
         // a no-op. This lets the Oyna flow work on the dev unit without a
         // card on file (Phase 0 bench testing).
-        const signed = await fetchSignedUnlock({
-          stationId,
-          gate,
-          sessionId: correlationId,
-          durationMin,
-          devBypass: stationId === 'DEV-001',
-          // The reservation-linkage slug (e.g. DEV-001-football-1). The server
-          // only links the unlock to a reservation when this is present; the
-          // numeric `gate` above stays as-is for the BLE HMAC.
-          gateId,
-        });
+        // Use a pre-signed payload if session-prep pre-fetched one for this
+        // correlationId and it hasn't expired — saves the sign-unlock round trip
+        // so the door opens sooner. Consume the cache entry either way; on a
+        // miss/expiry, sign fresh (unchanged behavior). The pre-fetch used the
+        // SAME stationId/gate/correlationId/durationMin/gateId, so the cached
+        // payload is identical to a fresh sign.
+        const cached = prefetchedUnlocks.get(correlationId);
+        prefetchedUnlocks.delete(correlationId);
+        const signed =
+          cached && cached.expiresAt > Date.now()
+            ? cached.payload
+            : await fetchSignedUnlock({
+                stationId,
+                gate,
+                sessionId: correlationId,
+                durationMin,
+                devBypass: stationId === 'DEV-001',
+                // The reservation-linkage slug (e.g. DEV-001-football-1). The
+                // server only links the unlock to a reservation when this is
+                // present; the numeric `gate` above stays as-is for the BLE HMAC.
+                gateId,
+              });
 
         if (!stationClient.isConnected()) {
           await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         }
+        // Arm the gate_opened confirmation BEFORE the write so a fast event is
+        // never missed. A BLE write only ACKs that the ESP32 RECEIVED the bytes
+        // — the firmware still silently no-ops (emitting nothing) on a bad
+        // signature, a replayed ts, battery_critical, or a wrong gate state.
+        // gate_opened is the only positive proof the solenoid actually fired;
+        // without it we'd report success and start billing / hold the deposit on
+        // a gate that never opened. The firmware echoes our correlationId as the
+        // event's session_id (see emitGateOpened in the firmware).
+        const confirmed = awaitGateOpened(
+          correlationId,
+          (onEvent) => stationClient.subscribeToEvents(onEvent, () => {}),
+          GATE_OPEN_CONFIRM_MS,
+        );
         // Thread the station's BLE name so a mid-write reconnect can re-target
         // it by name (otherwise the retry falls back to lastSeenDevice?.name).
         await stationClient.unlock(signed, targetName);
+        if (!(await confirmed)) {
+          // Write landed but no gate_opened arrived — firmware rejected the
+          // command or the solenoid never fired. Report as a timeout so the
+          // caller releases the payment hold and the user can retry, instead of
+          // silently billing for a gate that stayed shut.
+          reportError(new Error('unlock: gate_opened not received'), {
+            source: 'ble.unlock.unconfirmed',
+            stationId,
+            gateId,
+          });
+          return { ok: false, error: 'timeout', message: 'gate_opened not received' };
+        }
         return { ok: true, openedAt: Date.now() };
       } catch (e) {
         const kind = classifyError(e);

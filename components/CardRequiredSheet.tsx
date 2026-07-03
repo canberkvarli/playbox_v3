@@ -35,7 +35,7 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 12,
         paddingBottom: insets.bottom + 20,
@@ -57,14 +57,14 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: palette.ink + '0d',
+            backgroundColor: palette.surfaceAlt,
             borderWidth: 1,
-            borderColor: palette.ink + '14',
+            borderColor: palette.border,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <Feather name="arrow-left" size={20} color={palette.ink} />
+          <Feather name="arrow-left" size={20} color={palette.fg} />
         </View>
       </Pressable>
 
@@ -74,13 +74,15 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
             width: 72,
             height: 72,
             borderRadius: 36,
-            backgroundColor: palette.butter,
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 24,
           }}
         >
-          <Feather name="credit-card" size={32} color={palette.ink} />
+          <Feather name="credit-card" size={32} color={palette.voltText} />
         </View>
       </RiseIn>
 
@@ -88,9 +90,11 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 38,
-            lineHeight: 42,
+            lineHeight: 45,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
           }}
         >
           {t('card.blocking.title')}
@@ -100,8 +104,8 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
       <RiseIn delay={140}>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_400Regular',
+            color: palette.muted,
             fontSize: 17,
             lineHeight: 24,
             marginTop: 18,
@@ -114,20 +118,22 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
       <RiseIn delay={220}>
         <View
           style={{
-            backgroundColor: palette.ink + '10',
+            backgroundColor: palette.surfaceAlt,
             borderRadius: 16,
+            borderWidth: 1,
+            borderColor: palette.border,
             padding: 16,
             marginTop: 22,
             flexDirection: 'row',
             alignItems: 'flex-start',
           }}
         >
-          <Feather name="info" size={20} color={palette.ink} style={{ marginTop: 2, marginRight: 12 }} />
+          <Feather name="info" size={20} color={palette.voltText} style={{ marginTop: 2, marginRight: 12 }} />
           <Text
             style={{
               flex: 1,
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 15,
               lineHeight: 21,
             }}
@@ -147,25 +153,27 @@ export function CardRequiredSheet({ holdAmountTry }: Props) {
       >
         <View
           style={{
-            backgroundColor: palette.coral,
-            borderRadius: 20,
+            backgroundColor: palette.volt,
+            borderRadius: 999,
             paddingVertical: 20,
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: palette.coral,
+            shadowColor: palette.volt,
             shadowOffset: { width: 0, height: 10 },
             shadowOpacity: 0.3,
             shadowRadius: 18,
             elevation: 10,
           }}
         >
-          <Feather name="plus" size={20} color={palette.paper} style={{ marginRight: 10 }} />
+          <Feather name="plus" size={20} color={palette.voltInk} style={{ marginRight: 10 }} />
           <Text
             style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
-              fontSize: 18,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.voltInk,
+              fontSize: 16,
+              letterSpacing: 1.2,
+              textTransform: 'uppercase',
             }}
           >
             {t('card.blocking.cta')}

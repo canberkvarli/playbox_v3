@@ -7,6 +7,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useReduceMotion } from '@/hooks/useReduceMotion';
+
 type Props = {
   delay?: number;
   duration?: number;
@@ -22,13 +24,19 @@ type Props = {
  */
 export function RiseIn({ delay = 0, duration = 380, distance = 12, children, style }: Props) {
   const v = useSharedValue(0);
+  const reduceMotion = useReduceMotion();
 
   useEffect(() => {
+    if (reduceMotion) {
+      // No slide/fade — land directly on the final state (opacity 1, no offset).
+      v.value = 1;
+      return;
+    }
     v.value = withDelay(
       delay,
       withTiming(1, { duration, easing: Easing.out(Easing.cubic) })
     );
-  }, [delay, duration, v]);
+  }, [delay, duration, v, reduceMotion]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: v.value,

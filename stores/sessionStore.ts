@@ -7,6 +7,10 @@ import {
   updateSessionActivity,
   endSessionActivity,
 } from '@/lib/liveActivity';
+import {
+  SESSION_PERSIST_VERSION,
+  migratePersistedSession,
+} from '@/lib/session/persistedSession';
 
 export type ActiveSession = {
   stationId: string;
@@ -234,6 +238,15 @@ export const useSessionStore = create<SessionStore>()(
     {
       name: 'playbox.session',
       storage: safeStorage,
+      version: SESSION_PERSIST_VERSION,
+      // Sanitize on EVERY rehydrate (not just version bumps): drop any
+      // shape-corrupt active/lastEnded so a drifted or partially-written blob
+      // can never rehydrate into a wedged "phantom session" state. Keeps the
+      // live store methods from `current`, overrides only the persisted data.
+      merge: (persisted, current) => ({
+        ...current,
+        ...migratePersistedSession(persisted),
+      }),
     }
   )
 );

@@ -1,11 +1,15 @@
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 
+import { useSettingsStore } from '@/stores/settingsStore';
+
 /**
- * Playbox is light-mode locked for now. We still consume the system hook so
- * React's hook-call order stays stable across reloads, but we always return
- * 'light'. To re-enable system-driven dark mode later, return the system value.
+ * Resolves the effective scheme: the stored preference follows the OS by
+ * default ('system'), and the settings toggle can force 'light' or 'dark'.
+ * Light mode swaps the green accent for coral/orange (no green on white).
  */
-export function useColorScheme(): 'light' {
-  useSystemColorScheme();
-  return 'light';
+export function useColorScheme(): 'light' | 'dark' {
+  const pref = useSettingsStore((s) => s.scheme);
+  const system = useSystemColorScheme();
+  if (pref === 'light' || pref === 'dark') return pref;
+  return system === 'light' ? 'light' : 'dark'; // 'system' → OS (fallback dark)
 }

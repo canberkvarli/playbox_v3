@@ -1,15 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { Component, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import Svg, { Circle } from 'react-native-svg';
-import Animated, {
-  Easing,
-  useAnimatedProps,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
 let ViewShot: any = View;
 let captureRef: any = async () => '';
 try {
@@ -22,16 +15,27 @@ try { Sharing = require('expo-sharing'); } catch {}
 let FileSystem: any = null;
 // SDK 56+: the legacy copyAsync/cacheDirectory API moved to expo-file-system/legacy.
 try { FileSystem = require('expo-file-system/legacy'); } catch { try { FileSystem = require('expo-file-system'); } catch {} }
+// Optional gradient — falls back to solid coral (palette.danger). We check the
+// NATIVE module is actually in the running binary (not just the JS package),
+// because an OTA can deliver this JS to an older build that predates the native
+// view — rendering <LinearGradient> there shows a raw "Unimplemented component"
+// box (it doesn't throw, so an error boundary alone wouldn't catch it).
+let LinearGradient: any = null;
+try {
+  const { requireOptionalNativeModule } = require('expo');
+  if (requireOptionalNativeModule?.('ExpoLinearGradient')) {
+    LinearGradient = require('expo-linear-gradient').LinearGradient;
+  }
+} catch {}
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
-import { SPORT_LABELS, type Sport } from '@/data/stations.seed';
+import { Surface } from '@/components/ui';
+import { type Sport } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
-
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // --- Fake data (v1) ---------------------------------------------------------
 
@@ -45,145 +49,72 @@ const ME = {
   favoriteSport: 'football' as Sport,
 };
 
-function nextMilestone(streak: number) {
-  if (streak < 7) return 7;
-  if (streak < 14) return 14;
-  if (streak < 30) return 30;
-  if (streak < 60) return 60;
-  if (streak < 100) return 100;
-  return streak + 50;
-}
-
-// --- Streak ring ------------------------------------------------------------
-
-function StreakRing({ streak, milestone }: { streak: number; milestone: number }) {
-  const size = 100;
-  const strokeWidth = 10;
-  const r = (size - strokeWidth) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-  const progress = Math.min(streak / milestone, 1);
-  const offset = useSharedValue(circumference);
-
-  useEffect(() => {
-    offset.value = withTiming(circumference * (1 - progress), {
-      duration: 900,
-      easing: Easing.out(Easing.cubic),
-    });
-  }, [circumference, offset, progress]);
-
-  const animatedProps = useAnimatedProps(() => ({
-    strokeDashoffset: offset.value,
-  }));
-
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Svg width={size} height={size}>
-        <Circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          stroke={palette.ink + '22'}
-          strokeWidth={strokeWidth}
-          fill="none"
-        />
-        <AnimatedCircle
-          cx={cx}
-          cy={cy}
-          r={r}
-          stroke={palette.coral}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circumference}
-          animatedProps={animatedProps}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${cx} ${cy})`}
-        />
-      </Svg>
-      <View style={{ position: 'absolute', alignItems: 'center' }}>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
-            fontSize: 13,
-            letterSpacing: 0.4,
-          }}
-        >
-          {streak}/{milestone}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
 // --- Sub-components ---------------------------------------------------------
 
 function StatCard({
   label,
   value,
-  unit,
+  valueSize = 30,
 }: {
   label: string;
   value: string;
-  unit?: string;
+  valueSize?: number;
 }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: palette.paper,
-        borderWidth: 1.5,
-        borderColor: palette.ink + '22',
-        borderRadius: 18,
-        padding: 16,
-      }}
-    >
+    <Surface radius={20} padding={16} style={{ flex: 1 }}>
       <Text
         style={{
-          fontFamily: 'Unbounded_700Bold',
-          color: palette.ink,
-          fontSize: 11,
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-          marginBottom: 8,
+          fontFamily: 'Unbounded_800ExtraBold',
+          color: palette.voltText,
+          fontSize: valueSize,
+          lineHeight: valueSize + 4,
+        }}
+      >
+        {value}
+      </Text>
+      <Text
+        style={{
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
+          fontSize: 13,
+          marginTop: 6,
         }}
       >
         {label}
       </Text>
-      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 32,
-            lineHeight: 36,
-          }}
-        >
-          {value}
-        </Text>
-        {unit ? (
-          <Text
-            style={{
-              fontFamily: 'Inter_700Bold',
-              color: palette.ink,
-              fontSize: 14,
-              marginLeft: 6,
-            }}
-          >
-            {unit}
-          </Text>
-        ) : null}
-      </View>
-    </View>
+    </Surface>
   );
+}
+
+// Renders the coral→orange gradient streak hero, but falls back to a SOLID
+// coral if expo-linear-gradient's native view isn't in the running binary (i.e.
+// an OTA delivered this JS to an older build that predates the module). Without
+// this guard, rendering <LinearGradient> on such a build would crash the screen.
+class StreakHeroBg extends Component<
+  { style: object; children: React.ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {}
+  render() {
+    const { style, children } = this.props;
+    if (this.state.failed || !LinearGradient) {
+      return <View style={[style, { backgroundColor: palette.danger }]}>{children}</View>;
+    }
+    return (
+      <LinearGradient
+        colors={['#FF7A2F', '#FF5C39']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={style}
+      >
+        {children}
+      </LinearGradient>
+    );
+  }
 }
 
 // --- Screen -----------------------------------------------------------------
@@ -192,11 +123,9 @@ export default function Profile() {
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { displayName, username, initial } = useDisplayUser();
+  const { username, initial } = useDisplayUser();
   const [capturing, setCapturing] = useState(false);
-  const flexCardRef = useRef<ViewShot>(null);
-
-  const milestone = nextMilestone(ME.streakDays);
+  const flexCardRef = useRef<any>(null);
 
   const onSettings = async () => {
     await hx.tap();
@@ -248,90 +177,63 @@ export default function Profile() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
-      {/* Sticky header */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 20,
-          paddingBottom: 12,
-          borderBottomWidth: 1,
-          borderBottomColor: palette.ink + '14',
-          backgroundColor: palette.paper,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-          onPress={async () => {
-            await hx.tap();
-            router.replace('/(tabs)/map');
-          }}
-          hitSlop={14}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
-              borderWidth: 1,
-              borderColor: palette.ink + '14',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
-          </View>
-        </Pressable>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 14,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
-          }}
-        >
-          {t('profile.title')}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="settings"
-          onPress={onSettings}
-          hitSlop={12}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <View
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
-              borderWidth: 1,
-              borderColor: palette.ink + '14',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Feather name="settings" size={20} color={palette.ink} />
-          </View>
-        </Pressable>
-      </View>
-
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
+          paddingTop: insets.top + 20,
           paddingBottom: insets.bottom + 40,
           paddingHorizontal: 24,
         }}
       >
+        {/* Top row: PROFİL kicker + settings gear. No sticky bar — the avatar
+            gets room to breathe instead of butting against a header. */}
+        <RiseIn delay={0}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: 'JetBrainsMono_500Medium',
+                color: palette.muted,
+                fontSize: 12,
+                letterSpacing: 2.5,
+                textTransform: 'uppercase',
+              }}
+            >
+              {t('profile.title')}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="ayarlar"
+              onPress={onSettings}
+              hitSlop={12}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            >
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: palette.surface,
+                  borderWidth: 1,
+                  borderColor: palette.border,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Feather name="settings" size={20} color={palette.ink} />
+              </View>
+            </Pressable>
+          </View>
+        </RiseIn>
+
         {/* Hero identity — tap routes to settings where the name + username
             overrides live (and persist via zustand-persist + AsyncStorage). */}
-        <RiseIn delay={0}>
+        <RiseIn delay={40}>
           <Pressable
             onPress={async () => {
               await hx.tap();
@@ -342,26 +244,27 @@ export default function Profile() {
             style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
-              marginTop: 24,
+              marginTop: 20,
               opacity: pressed ? 0.65 : 1,
             })}
           >
             <View
               style={{
-                width: 88,
-                height: 88,
-                borderRadius: 44,
-                backgroundColor: palette.ink,
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 16,
+                marginRight: 20,
               }}
             >
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
-                  fontSize: 36,
+                  color: palette.voltInk,
+                  fontSize: 24,
+                  lineHeight: 28,
                 }}
               >
                 {initial}
@@ -374,35 +277,23 @@ export default function Profile() {
                   style={{
                     flexShrink: 1,
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.ink,
-                    fontSize: 28,
-                    lineHeight: 32,
+                    color: palette.fg,
+                    fontSize: 22,
+                    lineHeight: 26,
                     marginRight: 8,
                   }}
                 >
-                  {displayName}
+                  @{username}
                 </Text>
-                <Feather name="edit-2" size={16} color={palette.ink} />
+                <Feather name="edit-2" size={15} color={palette.voltText} />
               </View>
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Inter_700Bold',
-                  color: palette.ink,
-                  fontSize: 14,
+                  fontFamily: 'Inter_500Medium',
+                  color: palette.muted,
+                  fontSize: 13,
                   marginTop: 4,
-                }}
-              >
-                @{username}
-              </Text>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.ink,
-                  fontSize: 12,
-                  marginTop: 6,
-                  opacity: 0.7,
                 }}
               >
                 {t('profile.joined_since', {
@@ -414,79 +305,67 @@ export default function Profile() {
           </Pressable>
         </RiseIn>
 
-        {/* Streak card */}
+        {/* Streak hero — full-width coral→orange gradient. The gradient stops
+            are the only hardcoded hex (per design comp); everything else keys
+            off the palette. Falls back to a solid coral when the gradient
+            package isn't installed. */}
         <RiseIn delay={80}>
-          <View
-            style={{
-              backgroundColor: palette.butter,
-              borderRadius: 24,
-              padding: 22,
-              marginTop: 28,
-              flexDirection: 'row',
-              alignItems: 'center',
-            }}
-          >
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
-                  fontSize: 11,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                {t('profile.streak.label')}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
-                  fontSize: 64,
-                  lineHeight: 68,
-                }}
-              >
-                {ME.streakDays}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'Inter_700Bold',
-                  color: palette.ink,
-                  fontSize: 14,
-                  marginTop: 2,
-                }}
-              >
-                {t('profile.streak.days_suffix')}
-              </Text>
-            </View>
-            <StreakRing streak={ME.streakDays} milestone={milestone} />
-          </View>
+          <StreakHeroBg style={{ borderRadius: 24, padding: 28, marginTop: 16 }}>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.voltInk,
+                fontSize: 110,
+                lineHeight: 116,
+              }}
+            >
+              {ME.streakDays}
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Inter_700Bold',
+                color: palette.voltInk,
+                fontSize: 18,
+                marginTop: 4,
+              }}
+            >
+              {t('profile.streak.days_suffix')} 🔥
+            </Text>
+          </StreakHeroBg>
         </RiseIn>
 
-        {/* Stats grid (2x1 + 1) */}
+        {/* Stat grid — 2×2 dark cards, volt values over muted labels. */}
         <RiseIn delay={160}>
           <View style={{ marginTop: 16 }}>
             <View style={{ flexDirection: 'row', marginBottom: 12 }}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <StatCard
-                  label={t('profile.stats.total_minutes_label')}
                   value={String(ME.totalMinutes)}
-                  unit="dk"
+                  label={t('profile.stats.total_minutes_label')}
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <StatCard
-                  label={t('profile.stats.this_week_label')}
-                  value={String(ME.sessionsThisWeek)}
-                  unit={t('profile.stats.sessions_unit')}
+                  value="#12"
+                  label={t('profile.stats.city_rank_label')}
                 />
               </View>
             </View>
-            <StatCard
-              label={t('profile.stats.fav_label')}
-              value={`${SPORT_EMOJI[ME.favoriteSport]} ${SPORT_LABELS[ME.favoriteSport]}`}
-            />
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, marginRight: 12 }}>
+                <StatCard
+                  value={String(ME.sessionsThisWeek)}
+                  label={`${t('profile.stats.this_week_label')} · ${t('profile.stats.sessions_unit')}`}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <StatCard
+                  value={SPORT_EMOJI[ME.favoriteSport]}
+                  valueSize={34}
+                  label={t('profile.stats.fav_label')}
+                />
+              </View>
+            </View>
           </View>
         </RiseIn>
 
@@ -500,7 +379,7 @@ export default function Profile() {
           >
             <View
               style={{
-                backgroundColor: palette.ink,
+                backgroundColor: palette.surface,
                 borderRadius: 24,
                 padding: 22,
                 marginTop: 24,
@@ -509,7 +388,7 @@ export default function Profile() {
               {!capturing ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="share"
+                  accessibilityLabel="paylaş"
                   onPress={onShareFlex}
                   hitSlop={8}
                   style={({ pressed }) => ({
@@ -524,20 +403,20 @@ export default function Profile() {
                       width: 36,
                       height: 36,
                       borderRadius: 18,
-                      backgroundColor: palette.paper + '1f',
+                      backgroundColor: palette.surfaceAlt,
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    <Feather name="share-2" size={18} color={palette.paper} />
+                    <Feather name="share-2" size={18} color={palette.fg} />
                   </View>
                 </Pressable>
               ) : null}
               <Text
                 numberOfLines={1}
                 style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.butter,
+                  fontFamily: 'JetBrainsMono_500Medium',
+                  color: palette.voltText,
                   fontSize: 11,
                   letterSpacing: 1.4,
                   textTransform: 'uppercase',
@@ -549,9 +428,9 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.butter,
+                  color: palette.voltText,
                   fontSize: 56,
-                  lineHeight: 60,
+                  lineHeight: 66,
                   marginTop: 6,
                 }}
               >
@@ -560,7 +439,7 @@ export default function Profile() {
               <Text
                 style={{
                   fontFamily: 'Inter_700Bold',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 16,
                   marginTop: 2,
                 }}
@@ -570,17 +449,16 @@ export default function Profile() {
               <View
                 style={{
                   height: 1,
-                  backgroundColor: palette.paper + '22',
+                  backgroundColor: palette.border,
                   marginVertical: 16,
                 }}
               />
               <Text
                 style={{
                   fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.paper,
+                  color: palette.muted,
                   fontSize: 13,
                   lineHeight: 18,
-                  opacity: 0.85,
                 }}
               >
                 {t('profile.flex.summary', {
@@ -592,7 +470,7 @@ export default function Profile() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.butter,
+                    color: palette.voltText,
                     fontSize: 11,
                     letterSpacing: 4,
                   }}

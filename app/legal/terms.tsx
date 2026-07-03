@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
+import { Surface } from '@/components/ui';
 
 const SECTIONS: Array<{ heading: string; body: string }> = [
   {
@@ -61,7 +62,7 @@ export default function Terms() {
           paddingHorizontal: 20,
           paddingBottom: 12,
           borderBottomWidth: 1,
-          borderBottomColor: palette.ink + '14',
+          borderBottomColor: palette.border,
           flexDirection: 'row',
           alignItems: 'center',
         }}
@@ -81,20 +82,20 @@ export default function Terms() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surfaceAlt,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 1.5,
             textTransform: 'uppercase',
@@ -115,52 +116,53 @@ export default function Terms() {
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 36,
-            lineHeight: 40,
+            lineHeight: 42,
+            textTransform: 'uppercase',
           }}
         >
           kullanım koşulları
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
-            fontSize: 14,
-            lineHeight: 20,
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
+            fontSize: 12,
+            lineHeight: 18,
+            letterSpacing: 0.4,
             marginTop: 10,
-            opacity: 0.75,
           }}
         >
           son güncelleme: 27 nisan 2026 · sürüm 1.1
         </Text>
 
         {SECTIONS.map((s) => (
-          <View key={s.heading} style={{ marginTop: 28 }}>
+          <Surface key={s.heading} tone="card" radius={20} padding={18} style={{ marginTop: 16 }}>
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 16,
                 lineHeight: 22,
                 letterSpacing: 0.2,
+                textTransform: 'uppercase',
               }}
             >
               {s.heading}
             </Text>
             <Text
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink,
+                fontFamily: 'Inter_400Regular',
+                color: palette.muted,
                 fontSize: 15,
                 lineHeight: 22,
                 marginTop: 8,
-                opacity: 0.85,
               }}
             >
               {s.body}
             </Text>
-          </View>
+          </Surface>
         ))}
       </ScrollView>
     </View>

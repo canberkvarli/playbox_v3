@@ -28,8 +28,10 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
     <RiseIn delay={380}>
       <View
         style={{
-          backgroundColor: palette.mauve + '14',
+          backgroundColor: palette.surfaceAlt,
           borderRadius: 24,
+          borderWidth: 1,
+          borderColor: palette.border,
           padding: 20,
           marginTop: 20,
         }}
@@ -40,20 +42,24 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: palette.mauve + '22',
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="credit-card" size={16} color={palette.mauve} />
+            <Feather name="credit-card" size={16} color={palette.voltText} />
           </View>
           <Text
             style={{
               flex: 1,
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 16,
               lineHeight: 20,
+              textTransform: 'uppercase',
+              letterSpacing: 0.3,
             }}
           >
             {t('card.post_session.title')}
@@ -63,7 +69,7 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
         <Text
           style={{
             fontFamily: 'Inter_400Regular',
-            color: palette.ink + '99',
+            color: palette.muted,
             fontSize: 13,
             lineHeight: 18,
             marginTop: 8,
@@ -83,8 +89,8 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
               <View
                 style={{
                   borderWidth: 1.5,
-                  borderColor: palette.ink + '22',
-                  borderRadius: 16,
+                  borderColor: palette.border,
+                  borderRadius: 999,
                   paddingVertical: 14,
                   alignItems: 'center',
                   opacity: pressed ? 0.6 : 1,
@@ -92,9 +98,11 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
               >
                 <Text
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
-                    color: palette.ink,
-                    fontSize: 14,
+                    fontFamily: 'Inter_600SemiBold',
+                    color: palette.fg,
+                    fontSize: 13,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
                   }}
                 >
                   {t('card.post_session.cta_secondary')}
@@ -106,11 +114,11 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
             {({ pressed }) => (
               <View
                 style={{
-                  backgroundColor: '#e87527',
-                  borderRadius: 16,
+                  backgroundColor: palette.volt,
+                  borderRadius: 999,
                   paddingVertical: 14,
                   alignItems: 'center',
-                  shadowColor: '#e87527',
+                  shadowColor: palette.volt,
                   shadowOffset: { width: 0, height: 6 },
                   shadowOpacity: 0.3,
                   shadowRadius: 12,
@@ -120,9 +128,11 @@ export function PostSessionCardPrompt({ onSkip }: Props) {
               >
                 <Text
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
-                    color: '#ffffff',
-                    fontSize: 14,
+                    fontFamily: 'Inter_600SemiBold',
+                    color: palette.voltInk,
+                    fontSize: 13,
+                    letterSpacing: 1.2,
+                    textTransform: 'uppercase',
                   }}
                 >
                   {t('card.post_session.cta_primary')}

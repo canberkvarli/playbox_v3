@@ -35,7 +35,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
       <View
         style={{
           flex: 1,
-          backgroundColor: palette.paper,
+          backgroundColor: palette.bg,
           alignItems: 'center',
           justifyContent: 'center',
           paddingHorizontal: 32,
@@ -46,20 +46,22 @@ export class ErrorBoundary extends React.Component<Props, State> {
             width: 72,
             height: 72,
             borderRadius: 36,
-            backgroundColor: palette.coral,
+            backgroundColor: palette.danger,
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 18,
           }}
         >
-          <Feather name="alert-triangle" size={32} color={palette.paper} />
+          <Feather name="alert-triangle" size={32} color={palette.voltInk} />
         </View>
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 28,
-            lineHeight: 32,
+            lineHeight: 33,
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
             textAlign: 'center',
           }}
         >
@@ -67,13 +69,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_400Regular',
+            color: palette.muted,
             fontSize: 14,
             lineHeight: 20,
             textAlign: 'center',
             marginTop: 10,
-            opacity: 0.8,
           }}
         >
           uygulamayı kurtarmaya çalışıyoruz. devam etmek için tekrar dene.
@@ -84,26 +85,27 @@ export class ErrorBoundary extends React.Component<Props, State> {
         >
           <View
             style={{
-              backgroundColor: palette.coral,
-              borderRadius: 18,
+              backgroundColor: palette.volt,
+              borderRadius: 999,
               paddingVertical: 16,
               paddingHorizontal: 28,
               flexDirection: 'row',
               alignItems: 'center',
-              shadowColor: palette.coral,
+              shadowColor: palette.volt,
               shadowOffset: { width: 0, height: 6 },
               shadowOpacity: 0.28,
               shadowRadius: 12,
               elevation: 8,
             }}
           >
-            <Feather name="refresh-ccw" size={18} color={palette.paper} style={{ marginRight: 10 }} />
+            <Feather name="refresh-ccw" size={18} color={palette.voltInk} style={{ marginRight: 10 }} />
             <Text
               style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.voltInk,
                 fontSize: 15,
-                letterSpacing: 0.4,
+                letterSpacing: 1.2,
+                textTransform: 'uppercase',
               }}
             >
               tekrar dene
@@ -117,11 +119,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
           selectable
           style={{
             fontFamily: 'JetBrainsMono_400Regular',
-            color: palette.ink,
+            color: palette.muted,
             fontSize: 11,
             lineHeight: 16,
             marginTop: 32,
-            opacity: 0.6,
             textAlign: 'left',
             paddingHorizontal: 8,
           }}

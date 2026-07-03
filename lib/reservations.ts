@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { create as createStore } from 'zustand';
+
 import { supabase } from '@/lib/supabase';
 import type { Sport } from '@/data/stations.seed';
+import { useDevStore } from '@/stores/devStore';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
@@ -54,6 +57,49 @@ export type ReservationState = {
   terms_version_accepted: number | null;
   hold_amount_try: number;
 };
+
+// ============================================================
+// Demo Mode (App Store review) — a purely LOCAL reservation, no server. Lets a
+// reviewer make, see, and cancel a reservation without auth. Guarded by
+// demoMode so it never affects real users.
+// ============================================================
+
+type DemoResStore = { active: Reservation | null; set: (r: Reservation | null) => void };
+const useDemoReservation = createStore<DemoResStore>((set) => ({
+  active: null,
+  set: (active) => set({ active }),
+}));
+
+function demoReservationState(): ReservationState {
+  const active = useDemoReservation.getState().active;
+  return {
+    active,
+    recent: [],
+    lock: null,
+    terms_version_required: 1,
+    terms_version_accepted: 1,
+    hold_amount_try: 0,
+  };
+}
+
+function makeDemoReservation(input: CreateInput): Reservation {
+  const now = Date.now();
+  return {
+    id: `demo-${now}`,
+    user_id: 'demo',
+    station_id: input.station_id,
+    sport: input.sport,
+    gate_id: input.gate_id,
+    hold_id: null,
+    hold_amount_try: 0,
+    terms_version: 1,
+    status: 'active',
+    created_at: new Date(now).toISOString(),
+    expires_at: new Date(now + RESERVATION_LOCK_MIN * 60_000).toISOString(),
+    terminal_at: null,
+    client_meta: null,
+  };
+}
 
 // ============================================================
 // Edge function input/output types (snake_case to match server)
@@ -228,6 +274,7 @@ async function callEdge<T>(name: string, body: unknown): Promise<T> {
 
 export function useReservationsApi() {
   const fetchState = useCallback(async (): Promise<ReservationState | null> => {
+    if (useDevStore.getState().demoMode) return demoReservationState();
     const { data, error } = await supabase.rpc('get_my_reservation_state');
     if (error) {
       if (__DEV__) console.warn('[reservations] fetchState rpc error', error);
@@ -238,21 +285,31 @@ export function useReservationsApi() {
 
   const lazySweep = useCallback(() => callEdge<SweepResult>('reservation-sweep', {}), []);
 
-  const create = useCallback(
-    (input: CreateInput) => callEdge<CreateResult>('reservation-create', input),
-    [],
-  );
+  const create = useCallback(async (input: CreateInput): Promise<CreateResult> => {
+    if (useDevStore.getState().demoMode) {
+      const r = makeDemoReservation(input);
+      useDemoReservation.getState().set(r);
+      return { ok: true, reservation: r };
+    }
+    return callEdge<CreateResult>('reservation-create', input);
+  }, []);
 
-  const cancel = useCallback(
-    (reservationId: string) =>
-      callEdge<CancelResult>('reservation-cancel', { reservation_id: reservationId }),
-    [],
-  );
+  const cancel = useCallback(async (reservationId: string): Promise<CancelResult> => {
+    if (useDevStore.getState().demoMode) {
+      useDemoReservation.getState().set(null);
+      return { ok: true, status: 'cancelled' };
+    }
+    return callEdge<CancelResult>('reservation-cancel', { reservation_id: reservationId });
+  }, []);
 
-  const consume = useCallback(
-    (input: ConsumeInput) => callEdge<ConsumeResult>('reservation-consume', input),
-    [],
-  );
+  const consume = useCallback(async (input: ConsumeInput): Promise<ConsumeResult> => {
+    if (useDevStore.getState().demoMode) {
+      const id = useDemoReservation.getState().active?.id ?? 'demo';
+      useDemoReservation.getState().set(null);
+      return { ok: true, reservation_id: id };
+    }
+    return callEdge<ConsumeResult>('reservation-consume', input);
+  }, []);
 
   const retryCapture = useCallback(
     (reservationId: string) =>

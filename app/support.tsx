@@ -97,9 +97,9 @@ function ChannelButton({
           paddingVertical: 13,
           paddingHorizontal: 14,
           borderRadius: 15,
-          backgroundColor: palette.paper,
+          backgroundColor: palette.surfaceAlt,
           borderWidth: 1,
-          borderColor: palette.ink + '12',
+          borderColor: palette.border,
         }}
       >
         {/* Leading icon badge — fixed square keeps every row's text column
@@ -124,10 +124,11 @@ function ChannelButton({
       <View style={{ flex: 1, gap: 1 }}>
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink + '8c',
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
             fontSize: 10.5,
             letterSpacing: 0.4,
+            textTransform: 'uppercase',
           }}
           numberOfLines={1}
         >
@@ -135,8 +136,8 @@ function ChannelButton({
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_500Medium',
-            color: palette.ink,
+            fontFamily: 'Inter_600SemiBold',
+            color: palette.fg,
             fontSize: 15,
             letterSpacing: 0.1,
           }}
@@ -146,7 +147,7 @@ function ChannelButton({
         </Text>
       </View>
 
-        <Feather name="chevron-right" size={18} color={palette.ink + '4d'} />
+        <Feather name="chevron-right" size={18} color={palette.muted} />
       </View>
     </Pressable>
   );
@@ -181,18 +182,12 @@ function FaqCard({
       accessibilityState={{ expanded: isOpen }}
       style={({ pressed }) => ({
         borderRadius: 18,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.surface,
         borderWidth: 1,
-        // Open cards get a warm coral edge; closed cards stay quiet ink.
-        borderColor: isOpen ? palette.coral + '4d' : palette.ink + '12',
+        // Open cards get a volt edge; closed cards stay a quiet hairline.
+        borderColor: isOpen ? palette.volt + '66' : palette.border,
         paddingHorizontal: 16,
         paddingVertical: 15,
-        // Subtle lift so the cards float on the paper rather than blending in.
-        shadowColor: palette.ink,
-        shadowOpacity: isOpen ? 0.08 : 0.04,
-        shadowRadius: isOpen ? 14 : 8,
-        shadowOffset: { width: 0, height: isOpen ? 6 : 3 },
-        elevation: isOpen ? 3 : 1,
         opacity: pressed ? 0.85 : 1,
       })}
     >
@@ -201,7 +196,7 @@ function FaqCard({
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 0.1,
             lineHeight: 21,
@@ -216,14 +211,14 @@ function FaqCard({
             borderRadius: 14,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: isOpen ? palette.coral : palette.ink + '0d',
+            backgroundColor: isOpen ? palette.volt : palette.surfaceAlt,
           }}
         >
           <Animated.View style={glyphStyle}>
             <Feather
               name="plus"
               size={16}
-              color={isOpen ? palette.paper : palette.ink + '99'}
+              color={isOpen ? palette.voltInk : palette.muted}
             />
           </Animated.View>
         </View>
@@ -237,22 +232,22 @@ function FaqCard({
             marginTop: 12,
             paddingTop: 12,
             borderTopWidth: 1,
-            borderTopColor: palette.ink + '0f',
+            borderTopColor: palette.border,
           }}
         >
-          {/* Coral accent rule keys the answer to the open state. */}
+          {/* Volt accent rule keys the answer to the open state. */}
           <View
             style={{
               width: 3,
               borderRadius: 2,
-              backgroundColor: palette.coral + '66',
+              backgroundColor: palette.volt,
             }}
           />
           <Text
             style={{
               flex: 1,
               fontFamily: 'Inter_400Regular',
-              color: palette.ink + 'cc',
+              color: palette.muted,
               fontSize: 13.5,
               lineHeight: 20,
             }}
@@ -318,14 +313,14 @@ export default function Support() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surfaceAlt,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
       </View>
@@ -342,17 +337,18 @@ export default function Support() {
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 38,
-                lineHeight: 42,
+                lineHeight: 45,
+                textTransform: 'uppercase',
               }}
             >
               destek
             </Text>
             <Text
               style={{
-                fontFamily: 'Inter_500Medium',
-                color: palette.ink + '99',
+                fontFamily: 'Inter_400Regular',
+                color: palette.muted,
                 fontSize: 15,
                 lineHeight: 21,
                 marginTop: 10,
@@ -372,10 +368,10 @@ export default function Support() {
               floating on the page. */}
           <View
             style={{
-              backgroundColor: palette.ink + '05',
+              backgroundColor: palette.surface,
               borderRadius: 22,
               borderWidth: 1,
-              borderColor: palette.ink + '0d',
+              borderColor: palette.border,
               padding: 10,
               gap: 8,
             }}
@@ -455,14 +451,14 @@ function SectionLabel({
             width: 14,
             height: 3,
             borderRadius: 2,
-            backgroundColor: palette.coral,
+            backgroundColor: palette.volt,
           }}
         />
         {kicker ? (
           <Text
             style={{
               fontFamily: 'JetBrainsMono_500Medium',
-              color: palette.ink + '80',
+              color: palette.muted,
               fontSize: 11,
               letterSpacing: 1,
               textTransform: 'uppercase',
@@ -475,9 +471,11 @@ function SectionLabel({
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 20,
+          lineHeight: 24,
           letterSpacing: 0.2,
+          textTransform: 'uppercase',
         }}
       >
         {children}

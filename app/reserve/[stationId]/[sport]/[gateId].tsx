@@ -175,7 +175,7 @@ export default function ReserveFlow() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 32,
-              lineHeight: 36,
+              lineHeight: 38,
             }}
           >
             {station?.name ?? stationId}
@@ -194,7 +194,7 @@ export default function ReserveFlow() {
           <View
             style={{
               marginTop: 28,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surface + '08',
               borderRadius: 16,
               padding: 18,
             }}
@@ -388,7 +388,7 @@ function Header({ onBack }: { onBack: () => void }) {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: palette.ink + '0d',
+            backgroundColor: palette.surface + '0d',
             borderWidth: 1,
             borderColor: palette.ink + '14',
             alignItems: 'center',
@@ -441,7 +441,7 @@ function Slide({
           fontFamily: 'Unbounded_800ExtraBold',
           color: palette.ink,
           fontSize: 30,
-          lineHeight: 34,
+          lineHeight: 35,
           marginBottom: 16,
         }}
       >
@@ -507,7 +507,7 @@ function GhostButton({
         style={{
           paddingVertical: 14,
           borderRadius: 14,
-          backgroundColor: palette.ink + '0d',
+          backgroundColor: palette.surface + '0d',
           borderWidth: 1,
           borderColor: palette.ink + '14',
           alignItems: 'center',
@@ -552,7 +552,7 @@ function PrimaryButton({
         style={{
           paddingVertical: 14,
           borderRadius: 14,
-          backgroundColor: palette.ink,
+          backgroundColor: palette.surface,
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: palette.ink,
@@ -565,7 +565,7 @@ function PrimaryButton({
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.paper,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 0.3,
           }}

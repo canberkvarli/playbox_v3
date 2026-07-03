@@ -20,19 +20,25 @@ import { useNearbyStore } from '@/stores/nearbyStore';
  */
 export function useConnectionPresence(): void {
   useEffect(() => {
-    const id = setInterval(() => {
+    const poll = () => {
       const name = stationClient.connectedName?.();
-      if (!name) return;
+      if (!name) {
+        // Link dropped — clear the authoritative "connected = açık" flag. The
+        // synthetic sighting we last recorded still rides out the 25s stale
+        // window, so a brief flap doesn't flicker the marker to kapalı.
+        useNearbyStore.getState().setConnected(null);
+        return;
+      }
       // BLE advertising name → stationId, e.g. "Playbox-DEV-001" → "DEV-001".
       const stationId = name.startsWith('Playbox-')
         ? name.slice('Playbox-'.length)
         : name;
-      useNearbyStore.getState().record({
-        stationId,
-        rssi: -50,
-        lastSeenAt: Date.now(),
-      });
-    }, 3000);
+      const store = useNearbyStore.getState();
+      store.setConnected(stationId); // authoritative açık, reactive + instant
+      store.record({ stationId, rssi: -50, lastSeenAt: Date.now() });
+    };
+    poll(); // run once now so açık flips immediately, not after the first tick
+    const id = setInterval(poll, 3000);
     return () => clearInterval(id);
   }, []);
 }

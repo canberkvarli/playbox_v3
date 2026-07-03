@@ -10,6 +10,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { useDevStore } from '@/stores/devStore';
 import { supabase } from '@/lib/supabase';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -91,7 +92,7 @@ export default function Phone() {
       keyboardVerticalOffset={0}
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -110,14 +111,14 @@ export default function Phone() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={5} active={4} />
@@ -130,7 +131,7 @@ export default function Phone() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 48,
+              lineHeight: 52,
             }}
           >
             {t('onb.phone.title')}
@@ -138,11 +139,10 @@ export default function Phone() {
           <Text
             style={{
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 16,
               lineHeight: 22,
               marginTop: 12,
-              opacity: 0.85,
             }}
           >
             {t('onb.phone.sub')}
@@ -154,8 +154,10 @@ export default function Phone() {
         <View style={{ marginTop: 32, flexDirection: 'row', alignItems: 'center' }}>
           <View
             style={{
-              backgroundColor: palette.ink,
+              backgroundColor: palette.surfaceAlt,
               borderRadius: 16,
+              borderWidth: 1,
+              borderColor: palette.border,
               paddingHorizontal: 18,
               paddingVertical: 22,
               alignItems: 'center',
@@ -167,8 +169,8 @@ export default function Phone() {
           >
             <Text
               style={{
-                color: palette.paper,
-                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.voltText,
+                fontFamily: 'JetBrainsMono_500Medium',
                 fontSize: 22,
                 letterSpacing: 0.5,
               }}
@@ -180,20 +182,20 @@ export default function Phone() {
             value={formatted}
             onChangeText={onChange}
             placeholder={t('onb.phone.placeholder')}
-            placeholderTextColor={palette.ink + '66'}
+            placeholderTextColor={palette.muted}
             keyboardType="phone-pad"
             autoFocus
             textContentType="telephoneNumber"
             maxLength={14}
             style={{
               flex: 1,
-              backgroundColor: palette.paper,
-              borderWidth: 2,
-              borderColor: palette.ink + '22',
+              backgroundColor: palette.surfaceAlt,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 16,
               paddingHorizontal: 18,
               fontFamily: 'JetBrainsMono_500Medium',
-              color: palette.ink,
+              color: palette.fg,
               minHeight: 70,
               fontSize: 22,
               letterSpacing: 0.5,
@@ -205,7 +207,7 @@ export default function Phone() {
       {error ? (
         <Text
           style={{
-            color: palette.coral,
+            color: palette.danger,
             fontSize: 12,
             marginTop: 8,
             marginLeft: 4,
@@ -217,7 +219,7 @@ export default function Phone() {
       ) : raw.length >= 10 && !valid ? (
         <Text
           style={{
-            color: palette.coral,
+            color: palette.danger,
             fontSize: 12,
             marginTop: 8,
             marginLeft: 4,
@@ -229,12 +231,11 @@ export default function Phone() {
       ) : (
         <Text
           style={{
-            color: palette.ink,
+            color: palette.muted,
             fontSize: 12,
             marginTop: 8,
             marginLeft: 4,
             fontFamily: 'Inter_600SemiBold',
-            opacity: 0.7,
           }}
         >
           türkiye mobil numarası
@@ -244,41 +245,13 @@ export default function Phone() {
       <View style={{ flex: 1 }} />
 
       <RiseIn delay={220} style={{ marginBottom: 16 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.phone.cta')}
-          accessibilityState={{ disabled: !ctaEnabled }}
+        <Button
+          label={t('onb.phone.cta')}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          style={({ pressed }) => ({
-            opacity: !ctaEnabled ? 0.45 : pressed ? 0.92 : 1,
-          })}
-        >
-          <View
-            style={{
-              backgroundColor: ctaEnabled ? palette.coral : palette.ink + '33',
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: ctaEnabled ? 0.32 : 0,
-              shadowRadius: 18,
-              elevation: ctaEnabled ? 12 : 0,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {busy ? '...' : t('onb.phone.cta')}
-            </Text>
-          </View>
-        </Pressable>
+          loading={busy}
+          full
+        />
       </RiseIn>
 
       {__DEV__ ? (
@@ -295,8 +268,7 @@ export default function Phone() {
             style={{
               fontFamily: 'JetBrainsMono_400Regular',
               fontSize: 12,
-              color: palette.ink,
-              opacity: 0.55,
+              color: palette.muted,
               textDecorationLine: 'underline',
               textAlign: 'center',
             }}

@@ -24,6 +24,7 @@ import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence } from '@/stores/nearbyStore';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
@@ -98,8 +99,38 @@ export default function SessionPrep() {
 
   // DEV-001 is the no-card bench station (server honors dev_bypass for it), so
   // never force a card there — lets the real rent flow be tested without one.
+  // Demo Mode (App Store review) also never requires a card — the whole rent
+  // flow runs on the mock driver with no iyzico hold.
+  const demoMode = useDevStore((s) => s.demoMode);
   const mustAddCardFirst =
-    cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
+    !demoMode && cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
+
+  // --- Unlock pre-fetch ------------------------------------------------------
+  // Stable correlationId for THIS prep session (== the firmware session_id).
+  // Generated once so the background pre-sign below and the eventual onOyna
+  // unlock use the SAME value (the pre-fetch cache is keyed on it).
+  const correlationIdRef = useRef<string | null>(null);
+  if (correlationIdRef.current === null) {
+    correlationIdRef.current = `unlock:${stationId}:${sport}:${Date.now()}`;
+  }
+  const correlationId = correlationIdRef.current;
+
+  // Pre-sign the unlock in the background while the user reads the prep slides,
+  // so the final OYNA tap skips the sign-unlock round-trip and the door opens
+  // sooner. Best-effort + additive: onOyna falls back to a fresh sign on a miss
+  // (e.g. a real station whose payment hold isn't placed until onOyna runs).
+  useEffect(() => {
+    if (!station || demoMode) return; // demo: no hardware, nothing to pre-sign
+    const gateIdx = station.sports.indexOf(sport);
+    getDriver().prefetchUnlock?.({
+      stationId,
+      gate: Math.max(1, gateIdx + 1),
+      gateId: reservedGateId || undefined,
+      correlationId,
+      durationMin: durationMinutes,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station, sport, stationId, reservedGateId, correlationId, durationMinutes]);
 
   const [step, setStep] = useState(0);
   const [unlocking, setUnlocking] = useState(false);
@@ -138,7 +169,10 @@ export default function SessionPrep() {
   // Either signal counts as genuinely present, so the "yaklaş" nudge only
   // shows when the station truly isn't reachable.
   const { inRange: activelyPresent } = useStationInRange(stationId);
-  const freshlyPresent = passivelyPresent || activelyPresent;
+  // Demo Mode (App Store review): no hardware advertises, so count as present —
+  // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
+  // mock unlock succeeds.
+  const freshlyPresent = passivelyPresent || activelyPresent || demoMode;
 
   if (!station) {
     return (
@@ -166,6 +200,7 @@ export default function SessionPrep() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 28,
+            lineHeight: 33,
             textAlign: 'center',
           }}
         >
@@ -241,7 +276,7 @@ export default function SessionPrep() {
     await hx.tap();
 
     let holdId: string | null = null;
-    if (cardStatus === 'on_file') {
+    if (cardStatus === 'on_file' && !demoMode) {
       const conversationId = `${station.id}:${sport}:${Date.now()}`;
       const res = await preauthorize(PREAUTH_HOLD_TRY, conversationId);
       if (!res.ok) {
@@ -259,6 +294,12 @@ export default function SessionPrep() {
       }
       holdId = res.holdId;
       setHold(holdId);
+    }
+
+    // Demo Mode (App Store review): never dead-end on a lingering session — clear
+    // any active one first so OYNA always unlocks fresh for the reviewer.
+    if (demoMode && useSessionStore.getState().active) {
+      useSessionStore.getState().endSession();
     }
 
     // Pre-flight the session guard BEFORE the theatrics (haptics, timers).
@@ -290,8 +331,13 @@ export default function SessionPrep() {
     // /gate-unlock Edge Function which verifies session + dispatches MQTT.
     // Failure here MUST release the iyzico hold; we charged for an unlock
     // we never delivered.
-    const { data: { session: authSession } } = await supabase.auth.getSession();
-    const sessionToken = authSession?.access_token ?? '';
+    // Demo Mode (App Store review): there is NO hardware and NO Supabase session,
+    // so never talk to the driver — a stale/BLE driver instance would return
+    // connection_failed ("kapı yanıt vermedi") and dead-end the reviewer. Treat
+    // the unlock as an instant success and fall through to startSession.
+    const sessionToken = demoMode
+      ? ''
+      : (await supabase.auth.getSession()).data.session?.access_token ?? '';
     const driver = getDriver();
     // Reservation-linkage slug. This MUST equal the EXACT slug the reservation
     // holds (`reservations.gate_id`), which is the selected gate's id
@@ -312,15 +358,18 @@ export default function SessionPrep() {
     // explicitly (rather than re-parsed from the slug in the driver) so it stays
     // stable even when the linkage slug is omitted.
     const gate = Math.max(1, gateIndex + 1);
-    const correlationId = `unlock:${station.id}:${sport}:${Date.now()}`;
-    const unlockRes = await driver.unlockGate({
-      stationId: station.id,
-      gate,
-      gateId,
-      sessionToken,
-      correlationId,
-      durationMin: durationMinutes,
-    });
+    // correlationId is the stable one generated at mount (also used by the
+    // background pre-sign), so the pre-fetched payload matches this unlock.
+    const unlockRes = demoMode
+      ? ({ ok: true, openedAt: Date.now() } as const)
+      : await driver.unlockGate({
+          stationId: station.id,
+          gate,
+          gateId,
+          sessionToken,
+          correlationId,
+          durationMin: durationMinutes,
+        });
     if (!unlockRes.ok) {
       if (holdId) {
         releaseHold(holdId).catch(() => {});
@@ -435,7 +484,7 @@ export default function SessionPrep() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface + '0d',
               borderWidth: 1,
               borderColor: palette.ink + '14',
               alignItems: 'center',
@@ -456,7 +505,7 @@ export default function SessionPrep() {
       <View style={{ alignItems: 'flex-start', marginTop: 24 }}>
         <View
           style={{
-            backgroundColor: palette.ink,
+            backgroundColor: palette.surface,
             paddingHorizontal: 14,
             paddingVertical: 8,
             borderRadius: 999,
@@ -465,7 +514,7 @@ export default function SessionPrep() {
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 12,
               letterSpacing: 0.5,
             }}
@@ -498,7 +547,7 @@ export default function SessionPrep() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 42,
-              lineHeight: 46,
+              lineHeight: 50,
               marginTop: 8,
             }}
           >

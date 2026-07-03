@@ -114,26 +114,26 @@ export default function Scan() {
     router.back();
   };
 
-  if (!permission) return <View className="flex-1 bg-ink" />;
+  if (!permission) return <View className="flex-1 bg-surface" />;
 
   if (!permission.granted) {
     return (
-      <View className="flex-1 bg-ink items-center justify-center px-6">
-        <Text className="font-display-x text-paper text-3xl text-center">
+      <View className="flex-1 bg-surface items-center justify-center px-6">
+        <Text className="font-display-x text-fg text-3xl text-center leading-[35px]">
           {t('scan.permission_needed')}
         </Text>
         <Pressable
           onPress={requestPermission}
-          className="bg-coral rounded-2xl py-4 px-6 mt-8"
+          className="bg-coral rounded-full py-4 px-6 mt-8"
         >
-          <Text className="text-paper font-semibold text-base">{t('scan.grant')}</Text>
+          <Text className="text-volt-ink font-semibold text-base uppercase tracking-wide">{t('scan.grant')}</Text>
         </Pressable>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-ink">
+    <View className="flex-1 bg-surface">
       <CameraView
         style={{ flex: 1 }}
         facing="back"
@@ -203,12 +203,12 @@ export default function Scan() {
         }}
       >
         <Text
-          className="font-display-x text-paper text-3xl text-center"
+          className="font-display-x text-fg text-3xl text-center leading-[35px]"
           style={{ lineHeight: 32 }}
         >
           {t('scan.title')}
         </Text>
-        <Text className="font-sans text-paper/80 text-base text-center mt-2">
+        <Text className="font-sans text-fg/80 text-base text-center mt-2">
           {t('scan.sub')}
         </Text>
       </View>

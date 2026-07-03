@@ -132,7 +132,7 @@ export default function Otp() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -151,14 +151,14 @@ export default function Otp() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={5} active={4} />
@@ -171,7 +171,7 @@ export default function Otp() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 48,
+              lineHeight: 52,
             }}
           >
             {t('onb.otp.title')}
@@ -179,11 +179,10 @@ export default function Otp() {
           <Text
             style={{
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 16,
               lineHeight: 22,
               marginTop: 12,
-              opacity: 0.85,
             }}
           >
             {t('onb.otp.sub', { phone: phone ?? '' })}
@@ -198,10 +197,10 @@ export default function Otp() {
               const filled = digit !== '';
               const errored = error !== null;
               const borderColor = errored
-                ? palette.coral
+                ? palette.danger
                 : filled
-                ? palette.ink
-                : palette.ink + '33';
+                ? palette.volt
+                : palette.border;
               const borderWidth = errored || filled ? 2 : 1.5;
               return (
                 <View
@@ -212,7 +211,7 @@ export default function Otp() {
                     borderRadius: 14,
                     borderWidth,
                     borderColor,
-                    backgroundColor: palette.paper,
+                    backgroundColor: palette.surfaceAlt,
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginHorizontal: 4,
@@ -220,9 +219,9 @@ export default function Otp() {
                 >
                   <Text
                     style={{
-                      fontFamily: 'Unbounded_800ExtraBold',
-                      color: palette.ink,
-                      fontSize: 30,
+                      fontFamily: 'JetBrainsMono_500Medium',
+                      color: palette.fg,
+                      fontSize: 28,
                       lineHeight: 34,
                       includeFontPadding: false,
                     }}
@@ -263,9 +262,8 @@ export default function Otp() {
             <Text
               style={{
                 fontFamily: 'JetBrainsMono_500Medium',
-                color: palette.ink,
+                color: palette.muted,
                 fontSize: 14,
-                opacity: 0.7,
               }}
             >
               {t('onb.otp.resend_in', { s: secondsLeft })}
@@ -275,7 +273,7 @@ export default function Otp() {
               <Text
                 style={{
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.coral,
+                  color: palette.voltText,
                   fontSize: 14,
                   textDecorationLine: 'underline',
                 }}
@@ -291,7 +289,7 @@ export default function Otp() {
         <Text
           style={{
             fontFamily: 'Unbounded_700Bold',
-            color: palette.coral,
+            color: palette.danger,
             fontSize: 13,
             textAlign: 'center',
             marginTop: 16,

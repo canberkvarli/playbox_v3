@@ -28,6 +28,7 @@ import { handleOptions, json } from '../_shared/cors.ts';
 import { getBearerToken, getUserIdFromRequest } from '../_shared/auth.ts';
 import { signUnlock, signReturnUnlock } from '../_shared/blesign.ts';
 import { selectReservationToLink } from './link-session.ts';
+import { validateUnlockParams } from './validate.ts';
 
 Deno.serve(async (req) => {
   const opt = handleOptions(req);
@@ -79,6 +80,14 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'bad_cmd' }, 400);
   }
 
+  // SECURITY: validate session_id charset (pipe-injection into the HMAC string)
+  // + bound gate/duration, BEFORE signing. Pure + unit-tested in
+  // lib/server/signUnlockValidate.test.ts.
+  const paramCheck = validateUnlockParams({ session_id, gate, duration_min });
+  if (!paramCheck.ok) {
+    return json({ ok: false, error: paramCheck.error }, 400);
+  }
+
   const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
   const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   if (!SERVICE_ROLE_KEY) return json({ ok: false, error: 'service_role_missing' }, 500);
@@ -93,6 +102,21 @@ Deno.serve(async (req) => {
   // payment for any real station.
   const allowDevBypass = dev_bypass && station_id === 'DEV-001';
 
+  // SECURITY: this function is deployed with --no-verify-jwt so it can serve the
+  // DEV-001 dev_bypass path (which carries no JWT). For EVERY other call we must
+  // therefore verify the JWT signature ourselves — getUserIdFromRequest only
+  // base64-decodes the (unverified) payload, so without this a forged token with
+  // a victim's `sub` would pass. admin.auth.getUser verifies against the
+  // project's auth secret. The verified id is the ONLY identity we trust below.
+  let authedUserId = userId;
+  if (!allowDevBypass) {
+    const { data: authData, error: authErr } = await admin.auth.getUser(jwt!);
+    if (authErr || !authData?.user) {
+      return json({ ok: false, error: 'unauthorized' }, 401);
+    }
+    authedUserId = authData.user.id;
+  }
+
   if (!allowDevBypass) {
     // Same payment-hold check as gate-unlock — refuse to sign anything for a
     // user without an active iyzico preauth. Without this, BLE unlock would
@@ -100,7 +124,7 @@ Deno.serve(async (req) => {
     const { data: hold, error: holdErr } = await admin
       .from('payment_holds')
       .select('id, station_id, captured_at, released_at')
-      .eq('user_id', userId)
+      .eq('user_id', authedUserId)
       .eq('station_id', station_id)
       .is('captured_at', null)
       .is('released_at', null)
@@ -149,7 +173,7 @@ Deno.serve(async (req) => {
   //
   // The actual decision (which reservation, idempotency, conflict handling)
   // lives in the pure, Jest-tested ./link-session.ts; here we only do I/O.
-  if (cmd === 'unlock' && userId) {
+  if (cmd === 'unlock' && authedUserId) {
     try {
       if (!gate_id) {
         console.log('[sign-unlock] linkage skipped: no gate_id in request');
@@ -157,7 +181,7 @@ Deno.serve(async (req) => {
       const { data: candidates, error: candErr } = await admin
         .from('reservations')
         .select('id, status, gate_id, ble_session_id, created_at')
-        .eq('user_id', userId)
+        .eq('user_id', authedUserId)
         .eq('station_id', station_id)
         .in('status', ['active', 'consumed'])
         .order('created_at', { ascending: false });
@@ -176,7 +200,7 @@ Deno.serve(async (req) => {
             .from('reservations')
             .update({ ble_session_id: session_id })
             .eq('id', decision.reservationId)
-            .eq('user_id', userId);
+            .eq('user_id', authedUserId);
 
           if (updErr) {
             console.error('[sign-unlock] ble_session_id update failed (non-blocking)', updErr);

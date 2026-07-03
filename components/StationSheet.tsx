@@ -119,12 +119,12 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.ink + '0d',
+          backgroundColor: palette.surfaceAlt,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="x" size={20} color={palette.ink} />
+        <Feather name="x" size={20} color={palette.fg} />
       </Pressable>
       <Pressable
         onPress={onHelp}
@@ -135,12 +135,12 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
           width: 40,
           height: 40,
           borderRadius: 20,
-          backgroundColor: palette.ink + '0d',
+          backgroundColor: palette.surfaceAlt,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="help-circle" size={20} color={palette.ink} />
+        <Feather name="help-circle" size={20} color={palette.fg} />
       </Pressable>
     </View>
   );
@@ -154,8 +154,8 @@ export const StationSheet = forwardRef<StationSheetHandle>(function StationSheet
         enablePanDownToClose
         backdropComponent={renderBackdrop}
         onClose={() => setStationSheetOpen(false)}
-        backgroundStyle={{ backgroundColor: palette.paper }}
-        handleIndicatorStyle={{ backgroundColor: palette.ink + '44', width: 40, height: 4 }}
+        backgroundStyle={{ backgroundColor: palette.surface, borderRadius: 24 }}
+        handleIndicatorStyle={{ backgroundColor: palette.border, width: 40, height: 4 }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}

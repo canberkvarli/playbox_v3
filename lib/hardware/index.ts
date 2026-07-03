@@ -27,6 +27,10 @@ function pickKind(): 'mock' | 'ble' {
   if (FORCED === 'ble') return 'ble';
   if (FORCED === 'mock') return 'mock';
 
+  // Review/demo mode → mock driver even in release, so Apple can test the full
+  // flow without a physical locker. Auto-enabled for the REVIEW_PHONE account.
+  if (useDevStore.getState().demoMode) return 'mock';
+
   if (__DEV__) {
     // Dev: mock by default; let the user opt in to real BLE via dev store.
     const live = useDevStore.getState().bleHardware;

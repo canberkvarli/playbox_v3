@@ -23,7 +23,9 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { useDevStore } from '@/stores/devStore';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type PermStatus = 'idle' | 'granted' | 'denied';
@@ -108,10 +110,10 @@ function PermissionCard({
   const granted = status === 'granted';
   const denied = status === 'denied';
 
-  const cardBg = granted ? palette.butter : palette.paper;
-  const cardBorder = denied ? palette.coral + '55' : palette.ink + '22';
-  const iconBg = granted ? palette.ink : denied ? palette.coral + '22' : palette.ink + '0d';
-  const iconColor = granted ? palette.paper : denied ? palette.coral : palette.ink;
+  const cardBg = granted ? palette.volt + '14' : palette.surface;
+  const cardBorder = granted ? palette.volt : denied ? palette.danger + '55' : palette.border;
+  const iconBg = granted ? palette.volt : denied ? palette.danger + '22' : palette.surfaceAlt;
+  const iconColor = granted ? palette.voltInk : denied ? palette.danger : palette.fg;
 
   return (
     <Pressable
@@ -162,14 +164,14 @@ function PermissionCard({
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 borderRadius: 999,
-                backgroundColor: REQUIRED[k] ? palette.coral + '26' : palette.ink + '14',
+                backgroundColor: REQUIRED[k] ? palette.volt + '26' : palette.surfaceAlt,
               }}
             >
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
                   fontSize: 9,
-                  color: REQUIRED[k] ? palette.coral : palette.ink,
+                  color: REQUIRED[k] ? palette.volt : palette.muted,
                   letterSpacing: 0.6,
                   textTransform: 'uppercase',
                 }}
@@ -181,11 +183,10 @@ function PermissionCard({
           <Text
             style={{
               fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 13,
               lineHeight: 18,
               marginTop: 4,
-              opacity: 0.8,
             }}
           >
             {t(`onb.perms.${k}.why`)}
@@ -193,7 +194,7 @@ function PermissionCard({
           {denied && (
             <Text
               style={{
-                color: palette.coral,
+                color: palette.danger,
                 fontSize: 12,
                 marginTop: 4,
                 fontFamily: 'Unbounded_700Bold',
@@ -204,15 +205,15 @@ function PermissionCard({
           )}
         </View>
         {granted ? (
-          <Feather name="check" size={22} color={palette.ink} />
+          <Feather name="check" size={22} color={palette.voltText} />
         ) : denied ? (
-          <Text style={{ color: palette.coral, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
+          <Text style={{ color: palette.danger, fontFamily: 'Unbounded_700Bold', fontSize: 13 }}>
             {/* iOS only allows the system Bluetooth prompt once. After deny,
                 recovery is via Settings — the card press handler routes there. */}
             {k === 'bt' ? t('onb.perms.open_settings') : t('onb.perms.retry')}
           </Text>
         ) : (
-          <Feather name="chevron-right" size={20} color={palette.ink} />
+          <Feather name="chevron-right" size={20} color={palette.muted} />
         )}
       </View>
     </Pressable>
@@ -231,9 +232,36 @@ export default function Permissions() {
     bt: 'idle',
   });
 
+  const demoSession = useDevStore((s) => s.demoSession);
+
   useEffect(() => {
-    readInitial().then(setPerms).catch(() => {});
-  }, []);
+    let cancelled = false;
+    (async () => {
+      const initial = await readInitial().catch(() => null);
+      if (cancelled || !initial) return;
+      setPerms(initial);
+      // Reviewers (Demo Mode) never reach onboarding, but guard anyway — no
+      // point prompting a reviewer for real device permissions.
+      if (demoSession) return;
+      // Proactively ask for the REQUIRED permissions right here so the OS
+      // prompts appear on this screen. Only fire when still 'idle' (never
+      // asked) — 'granted'/'denied' won't re-prompt.
+      let state = initial;
+      if (state.location === 'idle') {
+        const r = await request('location');
+        state = { ...state, location: r };
+        if (!cancelled) setPerms(state);
+      }
+      if (state.bt === 'idle') {
+        const r = await request('bt');
+        state = { ...state, bt: r };
+        if (!cancelled) setPerms(state);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [demoSession]);
 
   const handle = (key: PermKey) => async () => {
     await hx.tap();
@@ -264,7 +292,7 @@ export default function Permissions() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -283,14 +311,14 @@ export default function Permissions() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={4} active={3} />
@@ -303,7 +331,7 @@ export default function Permissions() {
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
               fontSize: 44,
-              lineHeight: 48,
+              lineHeight: 52,
             }}
           >
             {t('onb.perms.title')}
@@ -323,49 +351,19 @@ export default function Permissions() {
       <View style={{ flex: 1 }} />
 
       <RiseIn delay={220}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.perms.cta')}
-          accessibilityState={{ disabled: !ctaEnabled }}
+        <Button
+          label={t('onb.perms.cta')}
           onPress={onContinue}
           disabled={!ctaEnabled}
-          style={({ pressed }) => ({
-            opacity: !ctaEnabled ? 0.45 : pressed ? 0.92 : 1,
-          })}
-        >
-          <View
-            style={{
-              backgroundColor: ctaEnabled ? palette.coral : palette.ink + '33',
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: ctaEnabled ? 0.32 : 0,
-              shadowRadius: 18,
-              elevation: ctaEnabled ? 12 : 0,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {t('onb.perms.cta')}
-            </Text>
-          </View>
-        </Pressable>
+          full
+        />
         <Text
           style={{
             fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            color: palette.muted,
             fontSize: 12,
             textAlign: 'center',
             marginTop: 12,
-            opacity: 0.7,
           }}
         >
           {t('onb.perms.optional_hint')}

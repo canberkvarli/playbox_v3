@@ -8,12 +8,15 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { applyScheme } from '@/constants/theme';
 import { useLoadedFonts } from '@/hooks/useLoadedFonts';
 import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
 import { useConnectionPresence } from '@/hooks/useConnectionPresence';
+import { useReviewerDemo } from '@/hooks/useReviewerDemo';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
+import { DemoBadge } from '@/components/DemoBadge';
 import { initTelemetry } from '@/lib/telemetry';
 import { useColdLaunchReattach } from '@/lib/hardware/useColdLaunchReattach';
 
@@ -34,6 +37,10 @@ AppState.addEventListener('change', (state) => {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  // Sync the mutable `palette` singleton to the active scheme every render
+  // (cheap Object.assign). The `key={colorScheme}` on the tree below forces a
+  // remount when the scheme flips so the ~980 static `palette.X` reads refresh.
+  applyScheme(colorScheme);
   const { loaded, error } = useLoadedFonts();
 
   // Register the Expo push token once permissions land. Best-effort,
@@ -49,6 +56,10 @@ export default function RootLayout() {
   // while we hold a GATT connection, so the passive scan can't see it). Read +
   // store-write only, no radio work — safe to run app-wide.
   useConnectionPresence();
+
+  // App Store review account → auto-enable Demo Mode (mock hardware) so Apple
+  // can test the full flow without a physical locker.
+  useReviewerDemo();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming
@@ -71,7 +82,7 @@ export default function RootLayout() {
   if (!loaded && !error) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView key={colorScheme} style={{ flex: 1 }}>
       <AppErrorBoundary>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack screenOptions={{ headerShown: false }}>
@@ -127,7 +138,8 @@ export default function RootLayout() {
               options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
             />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+          <DemoBadge />
         </ThemeProvider>
       </AppErrorBoundary>
     </GestureHandlerRootView>

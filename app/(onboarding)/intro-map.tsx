@@ -17,6 +17,7 @@ import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
 import { RiseIn } from '@/components/RiseIn';
+import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 
 type MarkerProps = { left: `${number}%`; top: `${number}%`; delay: number };
@@ -88,7 +89,7 @@ export default function IntroMap() {
     <View
       style={{
         flex: 1,
-        backgroundColor: palette.paper,
+        backgroundColor: palette.bg,
         paddingHorizontal: 24,
         paddingTop: insets.top + 24,
         paddingBottom: insets.bottom + 16,
@@ -107,14 +108,14 @@ export default function IntroMap() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surface,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <OnboardingProgress total={3} active={1} />
@@ -129,7 +130,7 @@ export default function IntroMap() {
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.ink,
                 fontSize: 44,
-                lineHeight: 48,
+                lineHeight: 52,
               }}
             >
               {line}
@@ -158,10 +159,10 @@ export default function IntroMap() {
           style={{
             flex: 1,
             borderRadius: 18,
-            backgroundColor: palette.butter,
+            backgroundColor: palette.surface,
             overflow: 'hidden',
             borderWidth: 1,
-            borderColor: palette.ink + '14',
+            borderColor: palette.border,
           }}
         >
           {[0.25, 0.5, 0.75].map((p) => (
@@ -173,7 +174,7 @@ export default function IntroMap() {
                 right: 0,
                 top: `${p * 100}%`,
                 height: 1,
-                backgroundColor: palette.ink + '0d',
+                backgroundColor: palette.border,
               }}
             />
           ))}
@@ -186,7 +187,7 @@ export default function IntroMap() {
                 bottom: 0,
                 left: `${p * 100}%`,
                 width: 1,
-                backgroundColor: palette.ink + '0d',
+                backgroundColor: palette.border,
               }}
             />
           ))}
@@ -197,37 +198,7 @@ export default function IntroMap() {
       </RiseIn>
 
       <RiseIn delay={240}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('onb.intro_map.cta')}
-          onPress={onContinue}
-          style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
-        >
-          <View
-            style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 20,
-              alignItems: 'center',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 10 },
-              shadowOpacity: 0.32,
-              shadowRadius: 18,
-              elevation: 12,
-            }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
-                fontSize: 18,
-                letterSpacing: 0.5,
-              }}
-            >
-              {t('onb.intro_map.cta')}
-            </Text>
-          </View>
-        </Pressable>
+        <Button label={t('onb.intro_map.cta')} onPress={onContinue} full />
       </RiseIn>
     </View>
   );

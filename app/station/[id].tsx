@@ -14,15 +14,17 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { STATIONS, type Station, type Sport } from '@/data/stations.seed';
+import { CITY_LABELS, STATIONS, type Station, type Sport } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
+import { useDevStore } from '@/stores/devStore';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { stationClient } from '@/lib/ble/stationClient';
 import { fetchSignedUnlock, fetchSignedReturnUnlock } from '@/lib/ble/signUnlock';
+import { DirectionsSheet } from '@/components/DirectionsSheet';
 
 export default function StationDetail() {
   const { t } = useT();
@@ -92,7 +94,11 @@ export default function StationDetail() {
   // simultaneously "kapalı" here. The 10s default caused that inconsistency —
   // a sighting 10–15s old read present on the map but absent on this screen.
   const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 25_000 });
-  const open = proximity.present;
+  // Demo Mode (App Store review): there's no hardware advertising, so treat the
+  // station as in-range/open — otherwise OYNA never lights up and a reviewer
+  // can't run the unlock. The mock driver simulates the rest.
+  const demoMode = useDevStore((s) => s.demoMode);
+  const open = demoMode || proximity.present;
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
   // neutral "bağlanıyor…" rather than flashing "kapalı" at someone standing in
@@ -114,7 +120,7 @@ export default function StationDetail() {
   // for the positive ("açık") and transient ("bağlanıyor…") states.
   const statusLabel = open ? 'açık' : settling ? 'bağlanıyor…' : '';
   const statusDot = open
-    ? '#3aaf6a'
+    ? palette.volt
     : closed
     ? palette.ink + '55'
     : palette.ink + '33';
@@ -143,7 +149,7 @@ export default function StationDetail() {
             fontFamily: 'Unbounded_800ExtraBold',
             color: palette.ink,
             fontSize: 28,
-            lineHeight: 32,
+            lineHeight: 33,
             textAlign: 'center',
           }}
         >
@@ -168,15 +174,11 @@ export default function StationDetail() {
     router.back();
   };
 
+  const [dirOpen, setDirOpen] = useState(false);
   const onDirections = async () => {
     await hx.tap();
-    const url = Platform.select({
-      ios: `maps:0,0?q=${encodeURIComponent(station.name)}@${station.lat},${station.lng}`,
-      android: `geo:${station.lat},${station.lng}?q=${station.lat},${station.lng}(${encodeURIComponent(
-        station.name
-      )})`,
-    });
-    if (url) Linking.openURL(url).catch(() => {});
+    // Open the on-brand chooser (Apple / Google / Yandex). See DirectionsSheet.
+    setDirOpen(true);
   };
 
   const onUnlock = useGuardedPress(async (sport: Sport, durationMinutes: number, gateId?: string) => {
@@ -202,7 +204,9 @@ export default function StationDetail() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
-      {/* Top chrome — back arrow only (info icon removed; directions inline below) */}
+      {/* Top bar — back chevron (dark rounded square) · centered location line ·
+          info "i" (dark rounded circle). The mini-title (scroll-driven) stacks
+          over the location line and fades in once the big title scrolls away. */}
       <View
         style={{
           paddingTop: insets.top + 12,
@@ -217,38 +221,67 @@ export default function StationDetail() {
           accessibilityRole="button"
           accessibilityLabel={t('common.back')}
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: palette.paper,
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: palette.surface,
             alignItems: 'center',
             justifyContent: 'center',
-            borderWidth: 1.5,
-            borderColor: palette.ink + '1a',
           }}
         >
-          <Feather name="arrow-left" size={22} color={palette.ink} />
+          <Feather name="chevron-left" size={24} color={palette.fg} />
         </Pressable>
 
-        {/* Mini title — appears in the fixed header row once the big title
-            has scrolled away. Fades + slides in via miniTitleStyle. */}
-        <Animated.Text
-          numberOfLines={1}
-          style={[
-            {
-              flex: 1,
-              marginLeft: 14,
-              marginRight: 8,
-              fontFamily: 'Unbounded_700Bold',
-              fontSize: 17,
-              color: palette.ink,
-              letterSpacing: 0.2,
-            },
-            miniTitleStyle,
-          ]}
+        {/* Centered location line + scroll-driven mini title stacked on top. */}
+        <View style={{ flex: 1, marginHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'JetBrainsMono_500Medium',
+              fontSize: 13,
+              color: palette.fg,
+              letterSpacing: 0.3,
+              textAlign: 'center',
+            }}
+          >
+            {CITY_LABELS[station.city]}
+          </Text>
+          {/* Mini title — appears once the big title has scrolled away.
+              Fades + slides in via miniTitleStyle. */}
+          <Animated.Text
+            numberOfLines={1}
+            style={[
+              {
+                position: 'absolute',
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 15,
+                color: palette.fg,
+                letterSpacing: 0.2,
+                textAlign: 'center',
+              },
+              miniTitleStyle,
+            ]}
+          >
+            {station.name.toUpperCase()}
+          </Animated.Text>
+        </View>
+
+        <Pressable
+          onPress={onDirections}
+          hitSlop={14}
+          accessibilityRole="button"
+          accessibilityLabel={t('station.directions')}
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: palette.surface,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {station.name}
-        </Animated.Text>
+          <Feather name="navigation" size={19} color={palette.fg} />
+        </Pressable>
       </View>
 
       <Animated.ScrollView
@@ -261,77 +294,27 @@ export default function StationDetail() {
           paddingBottom: insets.bottom + 120,
         }}
       >
-        {/* Title block — name + status dot + hours + directions link */}
+        {/* Title block — big Anton headline (uppercase) + live status dot. */}
         <Animated.Text
           style={[
             {
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
-              fontSize: 40,
-              lineHeight: 44,
+              color: palette.fg,
+              fontSize: 29,
+              lineHeight: 34,
               letterSpacing: 0.2,
+              textTransform: 'uppercase',
             },
             bigTitleStyle,
           ]}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
         >
           {station.name}
         </Animated.Text>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginTop: 14,
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <View
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
-                marginRight: 8,
-                backgroundColor: statusDot,
-              }}
-            />
-            <Text
-              style={{
-                color: palette.ink,
-                fontSize: 13,
-                fontFamily: 'Unbounded_700Bold',
-                letterSpacing: 0.5,
-              }}
-            >
-              {statusLabel}
-            </Text>
-          </View>
-          <Pressable
-            onPress={onDirections}
-            hitSlop={8}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 6,
-              backgroundColor: palette.ink + '0d',
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderRadius: 999,
-              opacity: pressed ? 0.6 : 1,
-            })}
-          >
-            <Feather name="navigation" size={14} color={palette.ink} />
-            <Text
-              style={{
-                fontSize: 13,
-                color: palette.ink,
-                fontFamily: 'Unbounded_700Bold',
-                letterSpacing: 0.3,
-              }}
-            >
-              {t('station.directions')}
-            </Text>
-          </Pressable>
-        </View>
+        {/* No small status dot here — the big "kapalı"/"bağlanıyor…" text in the
+            selector below carries the status. */}
 
         <View style={{ marginTop: 36 }}>
           {/* Always render the selector so the balls (sports) stay visible even
@@ -347,11 +330,11 @@ export default function StationDetail() {
           />
         </View>
 
-        {/* Phase 0: always render DevServoButtons on every station so we
-            don't get bitten by an id-case mismatch or stale cache hiding
-            them. The buttons themselves are scoped server-side via
-            dev_bypass which only honors station_id="DEV-001". */}
-        <DevServoButtons stationId={station.id} />
+        {/* Bench servo controls — DEV BUILDS ONLY. Never shipped to a release
+            build, so App Store reviewers / prod users get the clean flow
+            (locker → OYNA → unlock → session → return). You still get them on a
+            dev build (real BLE) for hardware bring-up. */}
+        {__DEV__ ? <DevServoButtons stationId={station.id} /> : null}
 
         {/* Support — always reachable from the station screen so a user stuck
             at a station (no connection, jammed door, etc.) can get help fast. */}
@@ -375,7 +358,7 @@ export default function StationDetail() {
               paddingVertical: 11,
               paddingHorizontal: 18,
               borderRadius: 999,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surface + '08',
               borderWidth: 1,
               borderColor: palette.ink + '12',
             }}
@@ -395,6 +378,12 @@ export default function StationDetail() {
           </View>
         </Pressable>
       </Animated.ScrollView>
+
+      <DirectionsSheet
+        dest={station ? { name: station.name, lat: station.lat, lng: station.lng } : null}
+        visible={dirOpen}
+        onClose={() => setDirOpen(false)}
+      />
     </View>
   );
 }
@@ -626,7 +615,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           style={{
             flex: 1,
             height: 1,
-            backgroundColor: palette.ink + '22',
+            backgroundColor: palette.surface + '22',
           }}
         />
         <Text
@@ -644,7 +633,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           style={{
             flex: 1,
             height: 1,
-            backgroundColor: palette.ink + '22',
+            backgroundColor: palette.surface + '22',
           }}
         />
       </View>
@@ -691,6 +680,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
                   fontSize: 26,
+                  lineHeight: 31,
                   color: selected ? palette.ink : palette.ink + '88',
                 }}
               >
@@ -772,7 +762,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             />
             <Text
               style={{
-                color: palette.paper,
+                color: palette.fg,
                 fontFamily: 'Unbounded_800ExtraBold',
                 fontSize: 17,
                 letterSpacing: 0.5,
@@ -816,7 +806,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             />
             <Text
               style={{
-                color: palette.paper,
+                color: palette.fg,
                 fontFamily: 'Unbounded_800ExtraBold',
                 fontSize: 17,
                 letterSpacing: 0.5,
@@ -844,7 +834,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             paddingVertical: 18,
             borderRadius: 20,
             borderWidth: 2,
-            borderColor: palette.ink,
+            borderColor: palette.border,
             backgroundColor: 'transparent',
             alignItems: 'center',
             justifyContent: 'center',
@@ -892,7 +882,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             borderRadius: 18,
             borderWidth: 2,
             borderColor: palette.ink + '33',
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surface + '08',
           }}
         >
           <Feather

@@ -25,6 +25,23 @@ type DevStore = {
    */
   ignoreFirmwareTimeouts: boolean;
   setIgnoreFirmwareTimeouts: (v: boolean) => void;
+  /**
+   * REVIEW/DEMO MODE. When ON, `getDriver()` returns the MOCK hardware driver
+   * even in a release build, so the full unlock → session → return flow works
+   * with NO physical locker. Auto-enabled when the App Store review account
+   * (REVIEW_PHONE) is logged in — see hooks/useReviewerDemo. Lets Apple review
+   * the app without hardware (avoids a Guideline 2.1 rejection).
+   */
+  demoMode: boolean;
+  setDemoMode: (v: boolean) => void;
+  /**
+   * Local DEMO SESSION (App Store review "Demo Login"). When on, the app treats
+   * the user as signed-in WITHOUT a Supabase session — the entry router lets
+   * them into the tabs, and Supabase-backed screens fall back to a safe demo
+   * state. Set together with demoMode by the Demo Login on the welcome screen.
+   */
+  demoSession: boolean;
+  setDemoSession: (v: boolean) => void;
 };
 
 export const useDevStore = create<DevStore>()(
@@ -39,6 +56,10 @@ export const useDevStore = create<DevStore>()(
       ignoreFirmwareTimeouts: true,
       setIgnoreFirmwareTimeouts: (ignoreFirmwareTimeouts) =>
         set({ ignoreFirmwareTimeouts }),
+      demoMode: false,
+      setDemoMode: (demoMode) => set({ demoMode }),
+      demoSession: false,
+      setDemoSession: (demoSession) => set({ demoSession }),
     }),
     {
       name: 'playbox.dev',

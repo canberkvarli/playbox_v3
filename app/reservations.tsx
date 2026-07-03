@@ -28,10 +28,11 @@ import {
   type ReservationStatus,
 } from '@/lib/reservations';
 
-const BG = palette.paper;
-const TEXT = palette.ink;
-const TEXT_MUTED = palette.ink + '99';
-const DIVIDER = palette.ink + '14';
+const BG = palette.bg;
+const TEXT = palette.fg;
+const TEXT_MUTED = palette.muted;
+const DIVIDER = palette.border;
+const CARD = palette.surface;
 
 /**
  * Resolve a `station_id` back to its display station. Looks first in the
@@ -102,23 +103,18 @@ function ActiveReservationCard({
 
   const expired = secondsLeft <= 0;
   const lowTime = !expired && secondsLeft <= 5 * 60;
-  const accent = expired ? palette.coral : lowTime ? palette.coral : palette.ink;
+  const accent = expired ? palette.danger : lowTime ? palette.danger : palette.fg;
   const stationLabel = station?.name ?? 'istasyon';
   const cityLabel = station ? CITY_LABELS[station.city] : '';
 
   return (
     <View
       style={{
-        backgroundColor: BG,
+        backgroundColor: CARD,
         borderRadius: 24,
-        borderWidth: 1.5,
-        borderColor: expired ? palette.coral + '55' : palette.ink + '1f',
+        borderWidth: 1,
+        borderColor: expired ? palette.danger + '55' : palette.border,
         padding: 20,
-        shadowColor: palette.ink,
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 18,
-        elevation: 4,
       }}
     >
       {/* Top: emoji tile + station name + gate badge */}
@@ -128,7 +124,9 @@ function ActiveReservationCard({
             width: 60,
             height: 60,
             borderRadius: 30,
-            backgroundColor: palette.butter,
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             alignItems: 'center',
             justifyContent: 'center',
             marginRight: 14,
@@ -174,7 +172,7 @@ function ActiveReservationCard({
                     width: 3,
                     height: 3,
                     borderRadius: 1.5,
-                    backgroundColor: palette.ink + '55',
+                    backgroundColor: palette.muted,
                     marginHorizontal: 8,
                   }}
                 />
@@ -195,7 +193,9 @@ function ActiveReservationCard({
         </View>
         <View
           style={{
-            backgroundColor: palette.ink,
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             borderRadius: 10,
             paddingHorizontal: 10,
             paddingVertical: 6,
@@ -203,8 +203,8 @@ function ActiveReservationCard({
         >
           <Text
             style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              fontFamily: 'JetBrainsMono_500Medium',
+              color: palette.voltText,
               fontSize: 12,
               letterSpacing: 0.4,
             }}
@@ -272,7 +272,7 @@ function ActiveReservationCard({
           </Text>
           <Text
             style={{
-              fontFamily: 'Unbounded_700Bold',
+              fontFamily: 'JetBrainsMono_500Medium',
               color: TEXT,
               fontSize: 16,
             }}
@@ -294,24 +294,19 @@ function ActiveReservationCard({
         >
           <View
             style={{
-              backgroundColor: palette.coral,
-              borderRadius: 14,
+              backgroundColor: palette.volt,
+              borderRadius: 999,
               paddingVertical: 14,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: 0.28,
-              shadowRadius: 10,
-              elevation: 6,
             }}
           >
-            <Feather name="navigation" size={14} color={palette.paper} style={{ marginRight: 8 }} />
+            <Feather name="navigation" size={14} color={palette.voltInk} style={{ marginRight: 8 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.paper,
+                color: palette.voltInk,
                 fontSize: 13,
                 letterSpacing: 0.6,
               }}
@@ -325,9 +320,9 @@ function ActiveReservationCard({
           disabled={cancelling}
           style={({ pressed }) => ({
             paddingHorizontal: 18,
-            borderRadius: 14,
+            borderRadius: 999,
             borderWidth: 1.5,
-            borderColor: palette.ink + '22',
+            borderColor: palette.border,
             alignItems: 'center',
             justifyContent: 'center',
             opacity: cancelling ? 0.4 : pressed ? 0.5 : 1,
@@ -375,19 +370,19 @@ function LockBanner({
   return (
     <View
       style={{
-        backgroundColor: palette.coral + '14',
-        borderColor: palette.coral + '44',
+        backgroundColor: palette.danger + '14',
+        borderColor: palette.danger + '44',
         borderWidth: 1.5,
         borderRadius: 16,
         padding: 16,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-        <Feather name="lock" size={16} color={palette.coral} style={{ marginRight: 8 }} />
+        <Feather name="lock" size={16} color={palette.danger} style={{ marginRight: 8 }} />
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.coral,
+            color: palette.danger,
             fontSize: 13,
             letterSpacing: 0.4,
             textTransform: 'uppercase',
@@ -411,8 +406,8 @@ function LockBanner({
           onPress={() => onPressCta(lock.reason)}
           style={({ pressed }) => ({
             marginTop: 12,
-            backgroundColor: palette.coral,
-            borderRadius: 12,
+            backgroundColor: palette.danger,
+            borderRadius: 999,
             paddingVertical: 12,
             alignItems: 'center',
             opacity: pressed ? 0.85 : 1,
@@ -421,7 +416,7 @@ function LockBanner({
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
+              color: palette.fg,
               fontSize: 13,
               letterSpacing: 0.5,
             }}
@@ -472,7 +467,7 @@ function CancelConfirmModal({
         <Pressable
           onPress={(e) => e.stopPropagation()}
           style={{
-            backgroundColor: BG,
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
             paddingHorizontal: 24,
@@ -486,7 +481,7 @@ function CancelConfirmModal({
               width: 48,
               height: 4,
               borderRadius: 2,
-              backgroundColor: palette.ink + '22',
+              backgroundColor: palette.border,
               marginBottom: 18,
             }}
           />
@@ -496,19 +491,20 @@ function CancelConfirmModal({
                 width: 64,
                 height: 64,
                 borderRadius: 32,
-                backgroundColor: palette.coral + '1a',
+                backgroundColor: palette.danger + '1a',
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 14,
               }}
             >
-              <Feather name="x" size={32} color={palette.coral} />
+              <Feather name="x" size={32} color={palette.danger} />
             </View>
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: TEXT,
                 fontSize: 22,
+                lineHeight: 26,
                 textAlign: 'center',
               }}
             >
@@ -541,8 +537,8 @@ function CancelConfirmModal({
           >
             <View
               style={{
-                backgroundColor: palette.coral,
-                borderRadius: 16,
+                backgroundColor: palette.danger,
+                borderRadius: 999,
                 paddingVertical: 16,
                 alignItems: 'center',
               }}
@@ -550,7 +546,7 @@ function CancelConfirmModal({
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 14,
                   letterSpacing: 0.6,
                 }}
@@ -568,9 +564,9 @@ function CancelConfirmModal({
               style={{
                 paddingVertical: 16,
                 alignItems: 'center',
-                borderRadius: 16,
+                borderRadius: 999,
                 borderWidth: 1.5,
-                borderColor: palette.ink + '22',
+                borderColor: palette.border,
               }}
             >
               <Text
@@ -683,14 +679,14 @@ export default function Reservations() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surfaceAlt,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
         <Text
@@ -735,19 +731,22 @@ export default function Reservations() {
                 width: 88,
                 height: 88,
                 borderRadius: 44,
-                backgroundColor: palette.butter,
+                backgroundColor: palette.surfaceAlt,
+                borderWidth: 1,
+                borderColor: palette.border,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 18,
               }}
             >
-              <Feather name="calendar" size={36} color={palette.ink} />
+              <Feather name="calendar" size={36} color={palette.voltText} />
             </View>
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: TEXT,
                 fontSize: 22,
+                lineHeight: 26,
                 textAlign: 'center',
                 marginBottom: 10,
               }}
@@ -776,26 +775,22 @@ export default function Reservations() {
             >
               <View
                 style={{
-                  backgroundColor: palette.coral,
-                  borderRadius: 16,
+                  backgroundColor: palette.volt,
+                  borderRadius: 999,
                   paddingVertical: 14,
                   paddingHorizontal: 28,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  shadowColor: palette.coral,
-                  shadowOffset: { width: 0, height: 8 },
-                  shadowOpacity: 0.28,
-                  shadowRadius: 14,
-                  elevation: 8,
                 }}
               >
-                <Feather name="map" size={16} color={palette.paper} style={{ marginRight: 8 }} />
+                <Feather name="map" size={16} color={palette.voltInk} style={{ marginRight: 8 }} />
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.paper,
+                    color: palette.voltInk,
                     fontSize: 15,
                     letterSpacing: 0.5,
+                    textTransform: 'uppercase',
                   }}
                 >
                   haritayı aç
@@ -851,7 +846,7 @@ export default function Reservations() {
                 <View
                   key={r.id}
                   style={{
-                    backgroundColor: BG,
+                    backgroundColor: CARD,
                     borderRadius: 16,
                     borderWidth: 1,
                     borderColor: DIVIDER,
@@ -866,7 +861,7 @@ export default function Reservations() {
                       width: 44,
                       height: 44,
                       borderRadius: 22,
-                      backgroundColor: palette.ink + '08',
+                      backgroundColor: palette.surfaceAlt,
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: 12,
@@ -905,7 +900,7 @@ export default function Reservations() {
                           r.status === 'cancelled'
                             ? TEXT_MUTED
                             : captured
-                              ? palette.coral
+                              ? palette.danger
                               : TEXT_MUTED,
                         fontSize: 11,
                         marginTop: 4,
@@ -919,8 +914,8 @@ export default function Reservations() {
                   {captured ? (
                     <Text
                       style={{
-                        fontFamily: 'Unbounded_700Bold',
-                        color: palette.coral,
+                        fontFamily: 'JetBrainsMono_500Medium',
+                        color: palette.danger,
                         fontSize: 13,
                         marginLeft: 8,
                       }}

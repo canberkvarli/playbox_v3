@@ -3,6 +3,14 @@ import { Alert, Linking, Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
@@ -19,6 +27,7 @@ import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
+import { Button, CircularTimer } from '@/components/ui';
 
 // Safe-import expo-image-picker the same way GearReportSheet does — keeps the
 // bundle from exploding if the native module isn't linked in some build, and
@@ -42,9 +51,44 @@ function fmt(ms: number): string {
   return `${h}sa ${m}dk`;
 }
 
+/**
+ * Small live-status dot for the active-session eyebrow — gently pulses so the
+ * header reads as "live". Purely visual; carries no timer state.
+ */
+function PulseDot({ color }: { color: string }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+  }, [p]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.5 + p.value * 0.5,
+    transform: [{ scale: 0.85 + p.value * 0.4 }],
+  }));
+  return (
+    <Animated.View
+      style={[
+        {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: color,
+          marginRight: 8,
+        },
+        style,
+      ]}
+    />
+  );
+}
+
 function LiveTimer({ session }: { session: ActiveSession }) {
   const [now, setNow] = useState(() => Date.now());
-  const firedTwoMinRef = useRef(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -58,184 +102,69 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   const remainingMs = Math.max(0, total - elapsed);
   const overMs = Math.max(0, elapsed - total);
 
-  // Distinctive foreground buzz the instant we cross the 2-minute mark (once).
-  // The scheduled local notification carries the chime and fires even when
-  // backgrounded; this adds the unique haptic while the user is on the screen.
-  useEffect(() => {
-    if (!overtime && remainingMs > 0 && remainingMs <= 120_000 && !firedTwoMinRef.current) {
-      firedTwoMinRef.current = true;
-      hx.alert2min();
-    }
-  }, [remainingMs, overtime]);
+  const accent = overtime ? palette.danger : palette.volt;
 
-  const accent = overtime ? palette.coral : palette.butter;
+  // Comp target (Asphalt Volt): a single volt ring on the dark app bg — big
+  // JetBrains Mono countdown in cream, muted caption. When overtime, the arc
+  // switches to coral and the center shows how far past planned we are.
+  // The `progress` prop drives the REMAINING fraction (arc empties as time
+  // runs out), so we pass `1 - progress`.
+  const remainingFraction = Math.max(0, 1 - progress);
+  const centerTime = overtime ? `+${fmt(overMs)}` : fmt(remainingMs);
+  // Demo Mode (App Store review) sessions are free — never show a ₺ charge.
+  const demoMode = useDevStore((s) => s.demoMode);
+  const caption = demoMode
+    ? `${session.durationMinutes} dk planlandı · ücretsiz`
+    : overtime
+    ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
+    : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
+
+  // Subtle "alive" pulse behind the ring — a soft accent halo that gently
+  // breathes (scale + opacity). PURELY visual: it never touches the per-second
+  // timer tick above; it just signals that the session is live.
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+        withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.quad) }),
+      ),
+      -1,
+      false,
+    );
+  }, [pulse]);
+
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: 0.06 + pulse.value * 0.12,
+    transform: [{ scale: 0.94 + pulse.value * 0.08 }],
+  }));
+
+  const HERO = 300;
 
   return (
-    <View
-      style={{
-        backgroundColor: palette.ink,
-        borderRadius: 32,
-        paddingVertical: 32,
-        paddingHorizontal: 28,
-        alignItems: 'center',
-        shadowColor: palette.ink,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.22,
-        shadowRadius: 24,
-        elevation: 10,
-      }}
-    >
-      <Text
-        style={{
-          fontFamily: 'JetBrainsMono_500Medium',
-          color: accent + 'cc',
-          fontSize: 11,
-          letterSpacing: 1.5,
-          textTransform: 'uppercase',
-        }}
-      >
-        geçen süre
-      </Text>
-
-      <Text
-        style={{
-          fontFamily: 'JetBrainsMono_400Regular',
-          color: palette.paper,
-          fontSize: 80,
-          lineHeight: 86,
-          letterSpacing: 3,
-          marginTop: 6,
-          includeFontPadding: false,
-        }}
-      >
-        {fmt(elapsed)}
-      </Text>
-
-      {/* Progress bar — strokes full-width with overtime bleed */}
-      <View
-        style={{
-          width: '100%',
-          height: 8,
-          backgroundColor: palette.paper + '1f',
-          borderRadius: 4,
-          marginTop: 22,
-          overflow: 'hidden',
-        }}
-      >
-        <View
-          style={{
-            width: `${progress * 100}%`,
-            height: '100%',
+    <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
+      {/* Breathing accent halo — sits behind the ring, non-interactive. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          {
+            position: 'absolute',
+            width: HERO + 40,
+            height: HERO + 40,
+            borderRadius: (HERO + 40) / 2,
             backgroundColor: accent,
-            borderRadius: 4,
-          }}
-        />
-      </View>
-
-      {/* Remaining status chip */}
-      <View
-        style={{
-          marginTop: 18,
-          paddingHorizontal: 14,
-          paddingVertical: 8,
-          borderRadius: 999,
-          backgroundColor: overtime ? palette.coral : palette.paper + '14',
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <Feather
-          name={overtime ? 'alert-triangle' : 'clock'}
-          size={13}
-          color={overtime ? palette.paper : accent}
-          style={{ marginRight: 8 }}
-        />
-        <Text
-          style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: overtime ? palette.paper : accent,
-            fontSize: 13,
-            letterSpacing: 0.4,
-          }}
-        >
-          {overtime
-            ? `${fmt(overMs)} geciktin`
-            : `${fmt(remainingMs)} kaldı`}
-        </Text>
-      </View>
-
-      {/* Cost row — rate disclosure on the left, running accrued total on
-          the right. Coral when overtime so the user feels the penalty. */}
-      <View
-        style={{
-          marginTop: 14,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 4,
-          width: '100%',
-        }}
-      >
-        <Text
-          style={{
-            fontFamily: 'JetBrainsMono_500Medium',
-            color: palette.paper + '99',
-            fontSize: 11,
-            letterSpacing: 0.6,
-          }}
-        >
-          {formatTry(RATE_PER_MIN_GROSS)}/dk · KDV dahil
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: overtime ? palette.coral : palette.butter,
-            fontSize: 16,
-            letterSpacing: 0.4,
-          }}
-        >
-          {formatTry(costForMs(elapsed))}
-        </Text>
-      </View>
-
-      {/* Overtime breakdown — only when over the planned duration */}
-      {overtime ? (
-        <View
-          style={{
-            marginTop: 8,
-            backgroundColor: palette.coral + '33',
-            borderRadius: 10,
-            paddingHorizontal: 10,
-            paddingVertical: 6,
-            alignSelf: 'stretch',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <Text
-            style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.paper,
-              fontSize: 11,
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-            }}
-          >
-            ek ücret
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
-              fontSize: 13,
-              letterSpacing: 0.4,
-            }}
-          >
-            +{formatTry(costForMs(overMs))}
-          </Text>
-        </View>
-      ) : null}
+          },
+          haloStyle,
+        ]}
+      />
+      <CircularTimer
+        progress={remainingFraction}
+        time={centerTime}
+        caption={caption}
+        size={HERO}
+        stroke={16}
+        color={accent}
+      />
     </View>
   );
 }
@@ -246,6 +175,8 @@ export default function Play() {
   const active = useSessionStore((s) => s.active);
   const startSession = useSessionStore((s) => s.startSession);
   const endSession = useSessionStore((s) => s.endSession);
+  // Demo/review sessions are free — no accrued charge anywhere.
+  const demoMode = useDevStore((s) => s.demoMode);
 
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
@@ -389,7 +320,10 @@ export default function Play() {
     setReturnPhase('opening');
     await hx.yes();
 
-    const isFake = fakeActiveSession || !active?.bleSessionId || !active?.gate;
+    // Demo Mode has no hardware — never call the BLE driver on return or it fails
+    // with connection_failed and traps the reviewer. Treat it like a fake session
+    // (local-only close), same as the unlock path in session-prep.
+    const isFake = demoMode || fakeActiveSession || !active?.bleSessionId || !active?.gate;
     if (!isFake && active) {
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const sessionToken = authSession?.access_token ?? '';
@@ -538,56 +472,102 @@ export default function Play() {
           flex: 1,
           backgroundColor: palette.paper,
           paddingTop: insets.top + 40,
-          paddingHorizontal: 24,
+          paddingBottom: insets.bottom + 32,
+          paddingHorizontal: 28,
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <Feather name="zap" size={48} color={palette.ink + '44'} />
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
-            fontSize: 30,
-            textAlign: 'center',
-            marginTop: 18,
-          }}
-        >
-          aktif seans yok
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
-            fontSize: 16,
-            textAlign: 'center',
-            marginTop: 10,
-          }}
-        >
-          haritadan bir istasyona git ve oyna
-        </Text>
+        {/* Money moment: strong centered empty state whose one job is to send
+            the user to the map. Big Archivo Expanded headline, a muted line,
+            and a large volt CTA that dominates the screen. */}
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', paddingHorizontal: 32 }}>
+          {/* Volt bolt badge — a warm, inviting anchor above the headline. */}
+          <View
+            style={{
+              width: 84,
+              height: 84,
+              borderRadius: 42,
+              backgroundColor: palette.volt,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 26,
+              shadowColor: palette.volt,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+              elevation: 10,
+            }}
+          >
+            <Feather name="zap" size={40} color={palette.voltInk} />
+          </View>
+
+          <Text
+            style={{
+              fontFamily: 'Unbounded_800ExtraBold',
+              color: palette.fg,
+              fontSize: 40,
+              lineHeight: 44,
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            aktif seans yok
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Inter_500Medium',
+              color: palette.muted,
+              fontSize: 16,
+              lineHeight: 23,
+              textAlign: 'center',
+              marginTop: 14,
+              maxWidth: 300,
+            }}
+          >
+            haritadan bir istasyona git ve oyna
+          </Text>
+        </View>
+
+        {/* Prominent, centered, LARGER primary CTA — volt pill, voltInk text,
+            bigger than a standard Button (~58 tall, larger label). Keeps the
+            existing onGoMap handler. */}
         <Pressable
           onPress={onGoMap}
-          style={({ pressed }) => ({ marginTop: 24, opacity: pressed ? 0.85 : 1 })}
+          accessibilityRole="button"
+          accessibilityLabel="haritayı aç"
+          style={({ pressed }) => ({
+            width: '100%',
+            opacity: pressed ? 0.92 : 1,
+          })}
         >
           <View
             style={{
-              backgroundColor: palette.coral,
-              borderRadius: 20,
-              paddingVertical: 16,
-              paddingHorizontal: 32,
-              shadowColor: palette.coral,
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 14,
-              elevation: 6,
+              height: 68,
+              borderRadius: 999,
+              backgroundColor: palette.volt,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingHorizontal: 24,
+              shadowColor: palette.volt,
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 18,
+              elevation: 10,
             }}
           >
+            <Feather name="map" size={24} color={palette.voltInk} style={{ marginRight: 12 }} />
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
               style={{
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
-                fontSize: 16,
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.voltInk,
+                fontSize: 21,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
               }}
             >
               haritayı aç
@@ -628,27 +608,41 @@ export default function Play() {
               width: 44,
               height: 44,
               borderRadius: 22,
-              borderWidth: 1.5,
-              borderColor: palette.ink + '33',
-              backgroundColor: palette.ink + '0d',
+              borderWidth: 1,
+              borderColor: palette.border,
+              backgroundColor: palette.surface,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="chevron-left" size={22} color={palette.ink} />
+            <Feather name="chevron-left" size={22} color={palette.fg} />
           </View>
         </Pressable>
-        <Text
+        {/* Comp header: a small VOLT dot + tracked JetBrains Mono line reading
+            "<SPORT> · <STATION SHORT>". Station short = first token of the
+            station name, uppercased (no dedicated short field on the session).
+            Recolors coral on overtime, mirroring the old eyebrow behavior. */}
+        <View
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: isOvertime ? palette.coral : palette.ink,
-            fontSize: 13,
-            letterSpacing: 1.5,
-            textTransform: 'uppercase',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {isOvertime ? 'süre aşımı' : 'aktif seans'}
-        </Text>
+          <PulseDot color={isOvertime ? palette.danger : palette.volt} />
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              color: isOvertime ? palette.danger : palette.volt,
+              fontSize: 13,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+            }}
+          >
+            {`${SPORT_LABELS[active.sport] ?? active.sport} · ${active.stationName.split(' ')[0]}`}
+          </Text>
+        </View>
         <View style={{ width: 44 }} />
       </View>
 
@@ -699,8 +693,8 @@ export default function Play() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.coral + '1f',
-            borderColor: palette.coral + '55',
+            backgroundColor: palette.danger + '1f',
+            borderColor: palette.danger + '55',
             borderWidth: 1,
             borderRadius: 16,
             paddingHorizontal: 14,
@@ -708,12 +702,12 @@ export default function Play() {
             marginBottom: 16,
           }}
         >
-          <Feather name="alert-triangle" size={18} color={palette.coral} style={{ marginRight: 10 }} />
+          <Feather name="alert-triangle" size={18} color={palette.danger} style={{ marginRight: 10 }} />
           <Text
             style={{
               flex: 1,
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              fontFamily: 'Inter_500Medium',
+              color: palette.fg,
               fontSize: 14,
               lineHeight: 20,
             }}
@@ -735,13 +729,13 @@ export default function Play() {
           alignItems: 'center',
         }}
       >
-        <Feather name="map-pin" size={16} color={palette.ink} style={{ marginRight: 8 }} />
+        <Feather name="map-pin" size={16} color={palette.voltText} style={{ marginRight: 8 }} />
         <Text
           numberOfLines={1}
           style={{
             flex: 1,
             fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 15,
             letterSpacing: 0.2,
           }}
@@ -752,7 +746,9 @@ export default function Play() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.ink + '0d',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 10,
             paddingVertical: 5,
             borderRadius: 999,
@@ -762,7 +758,7 @@ export default function Play() {
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 11,
               letterSpacing: 0.5,
               textTransform: 'uppercase',
@@ -785,9 +781,9 @@ export default function Play() {
             icon="help-circle"
             label="nasıl bitirilir"
             sub="kapıyı kapat & bitir"
-            tint={palette.butter}
-            iconBg={palette.ink}
-            iconColor={palette.paper}
+            tint={palette.surface}
+            iconBg={palette.volt}
+            iconColor={palette.voltInk}
             onPress={onHowToFinish}
           />
         </View>
@@ -796,9 +792,9 @@ export default function Play() {
             icon="phone"
             label="destek"
             sub="hemen yardım al"
-            tint={palette.coral + '22'}
-            iconBg={palette.coral}
-            iconColor={palette.paper}
+            tint={palette.surface}
+            iconBg={palette.surfaceAlt}
+            iconColor={palette.fg}
             onPress={async () => {
               await hx.tap();
               router.push('/support');
@@ -809,41 +805,22 @@ export default function Play() {
 
       <View style={{ flex: 1 }} />
 
-      {/* Primary CTA — can't-miss coral with strong shadow */}
-      <Pressable
-        onPress={onFinishSession}
-        accessibilityRole="button"
-        accessibilityLabel="seansı bitir"
-        style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
+      {/* Primary CTA — comp coral-OUTLINE pill (transparent fill, coral border
+          + coral label). Same onPress; the Button primitive owns the styling. */}
+      <Button variant="danger" label="seansı bitir" onPress={onFinishSession} />
+
+      {/* Hint under the end button — muted, centered. */}
+      <Text
+        style={{
+          marginTop: 12,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
+          fontSize: 13,
+          textAlign: 'center',
+        }}
       >
-        <View
-          style={{
-            backgroundColor: palette.coral,
-            borderRadius: 28,
-            paddingVertical: 22,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            shadowColor: palette.coral,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: 0.35,
-            shadowRadius: 18,
-            elevation: 12,
-          }}
-        >
-          <Feather name="check" size={22} color={palette.paper} style={{ marginRight: 12 }} />
-          <Text
-            style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
-              fontSize: 22,
-              letterSpacing: 1.2,
-            }}
-          >
-            seansı bitir
-          </Text>
-        </View>
-      </Pressable>
+        süre dolmadan telefonun titrer ⏱
+      </Text>
 
       {/* Report-a-problem — subtle text link under the primary CTA. Opens the
           gear report sheet with the active session context. Best-effort: never
@@ -860,8 +837,8 @@ export default function Play() {
       >
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '88',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 13,
             textDecorationLine: 'underline',
           }}
@@ -886,7 +863,7 @@ export default function Play() {
         onManualConfirmClosed={onManualConfirmClosed}
         onAddClosingPhoto={addClosingPhoto}
         photoState={photoState}
-        accruedTry={costForMs(Date.now() - active.startedAt)}
+        accruedTry={demoMode ? 0 : costForMs(Date.now() - active.startedAt)}
       />
 
       <GearReportSheet
@@ -976,9 +953,9 @@ export default function Play() {
                   paddingVertical: 10,
                   paddingHorizontal: 16,
                   borderRadius: 12,
-                  backgroundColor: palette.ink + '0d',
+                  backgroundColor: palette.surface,
                   borderWidth: 1.5,
-                  borderColor: palette.ink + '44',
+                  borderColor: palette.border,
                   borderStyle: 'dashed',
                 }}
               >
@@ -1061,9 +1038,11 @@ function EndSessionModal({
         <Pressable
           onPress={() => {}}
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
+            borderTopWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 24,
             paddingTop: 12,
             paddingBottom: 36,
@@ -1077,7 +1056,7 @@ function EndSessionModal({
               width: 44,
               height: 5,
               borderRadius: 3,
-              backgroundColor: palette.ink + '22',
+              backgroundColor: palette.border,
               marginBottom: 18,
               opacity: dismissable ? 1 : 0.3,
             }}
@@ -1127,33 +1106,33 @@ function ConfirmPhase({
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.butter,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
         }}
       >
-        <Feather name="rotate-ccw" size={30} color={palette.ink} />
+        <Feather name="rotate-ccw" size={30} color={palette.voltInk} />
       </View>
 
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 28,
-          lineHeight: 32,
+          lineHeight: 33,
+          textTransform: 'uppercase',
         }}
       >
         iade edelim mi?
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 15,
           lineHeight: 21,
           marginTop: 8,
-          opacity: 0.85,
         }}
       >
         kapıyı şimdi açacağız. sırasıyla şu adımları yap:
@@ -1166,7 +1145,9 @@ function ConfirmPhase({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: palette.butter,
+              backgroundColor: palette.surfaceAlt,
+              borderWidth: 1,
+              borderColor: palette.border,
               borderRadius: 14,
               paddingVertical: 14,
               paddingHorizontal: 14,
@@ -1178,7 +1159,7 @@ function ConfirmPhase({
                 width: 26,
                 height: 26,
                 borderRadius: 13,
-                backgroundColor: palette.ink,
+                backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginRight: 12,
@@ -1186,8 +1167,8 @@ function ConfirmPhase({
             >
               <Text
                 style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  fontFamily: 'JetBrainsMono_700Bold',
+                  color: palette.voltInk,
                   fontSize: 13,
                 }}
               >
@@ -1197,14 +1178,14 @@ function ConfirmPhase({
             <Feather
               name={step.icon}
               size={18}
-              color={palette.ink}
+              color={palette.fg}
               style={{ marginRight: 10 }}
             />
             <Text
               style={{
                 flex: 1,
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 14,
                 letterSpacing: 0.2,
               }}
@@ -1223,13 +1204,13 @@ function ConfirmPhase({
           marginTop: 14,
           paddingTop: 14,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '14',
+          borderTopColor: palette.border,
         }}
       >
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
             fontSize: 13,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
@@ -1239,8 +1220,8 @@ function ConfirmPhase({
         </Text>
         <Text
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: palette.voltText,
             fontSize: 22,
             letterSpacing: 0.4,
           }}
@@ -1260,13 +1241,13 @@ function ConfirmPhase({
       >
         <View
           style={{
-            backgroundColor: palette.coral,
-            borderRadius: 18,
+            backgroundColor: palette.volt,
+            borderRadius: 999,
             paddingVertical: 18,
             alignItems: 'center',
             flexDirection: 'row',
             justifyContent: 'center',
-            shadowColor: palette.coral,
+            shadowColor: palette.volt,
             shadowOffset: { width: 0, height: 8 },
             shadowOpacity: 0.3,
             shadowRadius: 16,
@@ -1276,13 +1257,13 @@ function ConfirmPhase({
           <Feather
             name="unlock"
             size={20}
-            color={palette.paper}
+            color={palette.voltInk}
             style={{ marginRight: 10 }}
           />
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.paper,
+              color: palette.voltInk,
               fontSize: 17,
               letterSpacing: 0.4,
             }}
@@ -1304,18 +1285,18 @@ function ConfirmPhase({
         <View
           style={{
             paddingVertical: 14,
-            borderRadius: 18,
+            borderRadius: 999,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: palette.ink + '0d',
-            borderWidth: 1.5,
-            borderColor: palette.ink + '22',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
           }}
         >
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.fg,
               fontSize: 14,
               letterSpacing: 0.3,
             }}
@@ -1336,30 +1317,31 @@ function OpeningPhase() {
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.coral,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 18,
         }}
       >
-        <Feather name="unlock" size={30} color={palette.paper} />
+        <Feather name="unlock" size={30} color={palette.voltInk} />
       </View>
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 24,
+          lineHeight: 28,
           textAlign: 'center',
+          textTransform: 'uppercase',
         }}
       >
         kapı açılıyor...
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 14,
-          opacity: 0.7,
           marginTop: 8,
           textAlign: 'center',
         }}
@@ -1388,33 +1370,33 @@ function AwaitingClosePhase({
           width: 64,
           height: 64,
           borderRadius: 32,
-          backgroundColor: palette.coral,
+          backgroundColor: palette.volt,
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
         }}
       >
-        <Feather name="check" size={30} color={palette.paper} />
+        <Feather name="check" size={30} color={palette.voltInk} />
       </View>
 
       <Text
         style={{
           fontFamily: 'Unbounded_800ExtraBold',
-          color: palette.ink,
+          color: palette.fg,
           fontSize: 28,
-          lineHeight: 32,
+          lineHeight: 33,
+          textTransform: 'uppercase',
         }}
       >
         kapı açık
       </Text>
       <Text
         style={{
-          fontFamily: 'Inter_600SemiBold',
-          color: palette.ink,
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
           fontSize: 15,
           lineHeight: 21,
           marginTop: 8,
-          opacity: 0.8,
         }}
       >
         son üç adım — sırasıyla yap, sonra bitir.
@@ -1438,7 +1420,9 @@ function AwaitingClosePhase({
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                backgroundColor: palette.butter,
+                backgroundColor: palette.surfaceAlt,
+                borderWidth: 1,
+                borderColor: palette.border,
                 borderRadius: 14,
                 paddingVertical: 14,
                 paddingHorizontal: 14,
@@ -1450,19 +1434,19 @@ function AwaitingClosePhase({
                   width: 26,
                   height: 26,
                   borderRadius: 13,
-                  backgroundColor: palette.ink,
+                  backgroundColor: palette.volt,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 12,
                 }}
               >
                 {done ? (
-                  <Feather name="check" size={14} color={palette.paper} />
+                  <Feather name="check" size={14} color={palette.voltInk} />
                 ) : (
                   <Text
                     style={{
-                      fontFamily: 'Unbounded_800ExtraBold',
-                      color: palette.paper,
+                      fontFamily: 'JetBrainsMono_700Bold',
+                      color: palette.voltInk,
                       fontSize: 13,
                     }}
                   >
@@ -1473,14 +1457,14 @@ function AwaitingClosePhase({
               <Feather
                 name={step.icon}
                 size={18}
-                color={palette.ink}
+                color={palette.fg}
                 style={{ marginRight: 10 }}
               />
               <Text
                 style={{
                   flex: 1,
                   fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
+                  color: palette.fg,
                   fontSize: 14,
                   letterSpacing: 0.2,
                 }}
@@ -1502,13 +1486,13 @@ function AwaitingClosePhase({
           marginTop: 18,
           paddingTop: 16,
           borderTopWidth: 1,
-          borderTopColor: palette.ink + '14',
+          borderTopColor: palette.border,
         }}
       >
         <Text
           style={{
-            fontFamily: 'Unbounded_700Bold',
-            color: palette.ink + '99',
+            fontFamily: 'JetBrainsMono_500Medium',
+            color: palette.muted,
             fontSize: 12,
             letterSpacing: 0.6,
             textTransform: 'uppercase',
@@ -1518,8 +1502,8 @@ function AwaitingClosePhase({
         </Text>
         <Text
           style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            fontFamily: 'JetBrainsMono_700Bold',
+            color: palette.voltText,
             fontSize: 30,
             letterSpacing: 0.2,
           }}
@@ -1547,7 +1531,7 @@ function AwaitingClosePhase({
           : photoSatisfied
           ? 'kapattım, bitir'
           : 'kapanış fotoğrafı çek';
-        const bg = photoSatisfied ? palette.ink : palette.coral;
+        const bg = palette.volt;
         return (
           <Pressable
             onPress={onPress}
@@ -1563,7 +1547,7 @@ function AwaitingClosePhase({
             <View
               style={{
                 backgroundColor: bg,
-                borderRadius: 18,
+                borderRadius: 999,
                 paddingVertical: 18,
                 alignItems: 'center',
                 flexDirection: 'row',
@@ -1578,13 +1562,13 @@ function AwaitingClosePhase({
               <Feather
                 name={photoSatisfied ? 'check' : 'camera'}
                 size={20}
-                color={palette.paper}
+                color={palette.voltInk}
                 style={{ marginRight: 10 }}
               />
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.paper,
+                  color: palette.voltInk,
                   fontSize: 17,
                   letterSpacing: 0.4,
                 }}
@@ -1601,8 +1585,8 @@ function AwaitingClosePhase({
         <Text
           style={{
             marginTop: 10,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '99',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             textAlign: 'center',
             lineHeight: 17,
@@ -1615,8 +1599,8 @@ function AwaitingClosePhase({
         <Text
           style={{
             marginTop: 10,
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink + '99',
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             textAlign: 'center',
             lineHeight: 17,
@@ -1654,17 +1638,16 @@ function FirmwareBanner({
   body: string;
   onReport: () => void;
 }) {
-  const tint = tone === 'alert' ? palette.coral : palette.butter;
-  const borderTint = tone === 'alert' ? palette.coral + '55' : palette.ink + '33';
-  const accent = tone === 'alert' ? palette.coral : palette.ink;
-  const onBody = palette.ink;
+  const accent = palette.danger;
+  const borderTint = tone === 'alert' ? palette.danger + '66' : palette.border;
+  const onBody = palette.fg;
 
   return (
     <View
       style={{
         flexDirection: 'row',
         alignItems: 'flex-start',
-        backgroundColor: tone === 'alert' ? palette.coral + '1f' : tint,
+        backgroundColor: tone === 'alert' ? palette.danger + '1f' : palette.surfaceAlt,
         borderColor: borderTint,
         borderWidth: 1,
         borderRadius: 16,
@@ -1684,7 +1667,7 @@ function FirmwareBanner({
           marginRight: 12,
         }}
       >
-        <Feather name={icon} size={16} color={palette.paper} />
+        <Feather name={icon} size={16} color={palette.fg} />
       </View>
       <View style={{ flex: 1 }}>
         <Text
@@ -1700,12 +1683,11 @@ function FirmwareBanner({
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: onBody,
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 13,
             lineHeight: 18,
             marginTop: 4,
-            opacity: 0.85,
           }}
         >
           {body}
@@ -1728,7 +1710,7 @@ function FirmwareBanner({
             style={{
               flexDirection: 'row',
               alignItems: 'center',
-              backgroundColor: palette.ink,
+              backgroundColor: palette.volt,
               paddingHorizontal: 12,
               paddingVertical: 6,
               borderRadius: 999,
@@ -1737,13 +1719,13 @@ function FirmwareBanner({
             <Feather
               name="message-circle"
               size={12}
-              color={palette.paper}
+              color={palette.voltInk}
               style={{ marginRight: 6 }}
             />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.paper,
+                color: palette.voltInk,
                 fontSize: 11,
                 letterSpacing: 0.6,
                 textTransform: 'uppercase',
@@ -1796,6 +1778,8 @@ function ActionCard({
         style={{
           backgroundColor: tint,
           borderRadius: 18,
+          borderWidth: 1,
+          borderColor: palette.border,
           paddingVertical: 14,
           paddingHorizontal: 14,
           width: '100%',
@@ -1817,22 +1801,22 @@ function ActionCard({
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 14,
             letterSpacing: 0.3,
             lineHeight: 18,
+            textTransform: 'uppercase',
           }}
         >
           {label}
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_500Medium',
+            color: palette.muted,
             fontSize: 12,
             lineHeight: 16,
             marginTop: 3,
-            opacity: 0.75,
           }}
         >
           {sub}

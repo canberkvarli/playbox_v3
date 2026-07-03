@@ -19,9 +19,9 @@ export function OnboardingProgress({ total, active }: Props) {
               width: isActive ? 24 : 10,
               height: 10,
               borderRadius: 5,
-              backgroundColor: isActive ? palette.coral : '#ffffff',
-              borderWidth: isActive ? 0 : 2,
-              borderColor: palette.ink + '55',
+              backgroundColor: isActive ? palette.volt : palette.surfaceAlt,
+              borderWidth: isActive ? 0 : 1,
+              borderColor: palette.border,
             }}
           />
         );

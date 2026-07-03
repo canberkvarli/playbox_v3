@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -26,7 +26,11 @@ import Animated, {
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { STATIONS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
+import { useTheme } from '@/hooks/useTheme';
+import { EmptyState } from '@/components/EmptyState';
+import { Wordmark } from '@/components/ui';
+import { STATIONS, REAL_STATION_IDS, SPORT_LABELS, CITY_LABELS, type Sport, type Station } from '@/data/stations.seed';
+import { useDevStore } from '@/stores/devStore';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useMapStore } from '@/stores/mapStore';
 import { haversineKm } from '@/lib/geo';
@@ -51,7 +55,7 @@ const FILTERS: Array<Sport | 'all'> = ['all', 'football', 'basketball', 'volleyb
 
 type SportCounts = Record<Sport | 'all', number>;
 
-function StationMarkerView({
+const StationMarkerView = memo(function StationMarkerView({
   station,
   index,
   dimmed = false,
@@ -60,109 +64,111 @@ function StationMarkerView({
   index: number;
   dimmed?: boolean;
 }) {
-  const enter = useSharedValue(0);
   // Live BLE sighting — driven by the passive scan started on map focus.
-  // When true: stronger border, larger animated badge so the user can
-  // visually scan a busy map and find the station that's literally in
-  // front of them without tapping.
+  // When true: stronger border + a glowing green dot so the user can spot the
+  // station that's literally in front of them without tapping.
   const nearby = useIsNearby(station.id);
+  // Demo Mode (App Store review) has no BLE, so `nearby` never flips true and
+  // every pin would render offline/coral/dimmed. Treat demo pins as available so
+  // the reviewer sees a live, tappable map.
+  const demo = useDevStore((s) => s.demoMode);
+  const available = nearby || demo;
 
-  useEffect(() => {
-    enter.value = withDelay(
-      index * 40,
-      withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) })
-    );
-  }, [enter, index]);
+  // STATIC marker — NO entrance/scale animation. Animating a custom marker makes
+  // react-native-maps re-capture the view every frame and flash the pin to the
+  // top-left corner on iOS (the bug). The live green state still updates because
+  // the parent REMOUNTS this marker (via its key) the moment `nearby` flips —
+  // see the Marker key at the render site. Offline pins gray to 55%; filtered-out
+  // pins to 25%; online pins full.
+  const opacity = dimmed ? 0.25 : available ? 1 : 0.55;
 
-  const style = useAnimatedStyle(() => ({
-    // Offline (not in BLE range) pins gray out to ~55%; filtered-out pins stay
-    // at 25% (density without competing for attention); online pins are full.
-    // The online state is applied INSTANTLY (no spring "pop"): continuously
-    // animating a custom marker makes react-native-maps re-capture it every
-    // frame and flash the pin to the top-left corner on iOS while a station
-    // comes online. Border/green-dot still convey "live".
-    opacity: enter.value * (dimmed ? 0.25 : nearby ? 1 : 0.55),
-    transform: [{ scale: 0.85 + 0.15 * enter.value }],
-  }));
-
-  // Show up to 3 sport emojis stacked horizontally so users see at a glance
-  // that one station hosts multiple games.
-  const visibleSports = station.sports.slice(0, 3);
-  const overflow = Math.max(0, station.sports.length - 3);
-  const baseW = 30;
-  const perEmoji = 18;
-  const width = baseW + visibleSports.length * perEmoji + (overflow > 0 ? 14 : 0);
+  // Teardrop pin whose head GROWS with the sport count so every ball is visible:
+  // one sport = a compact circle; multiple = a wider pill showing all balls side
+  // by side. Open/live = volt fill; offline = coral fill (muted via opacity).
+  const ballSports = station.sports.slice(0, 3);
+  const fill = available ? palette.volt : palette.danger;
+  const ballSize = 17;
+  const headH = 40;
+  const headW = ballSports.length <= 1 ? 40 : 16 + ballSports.length * 22;
 
   return (
-    <Animated.View
-      style={[
-        {
-          backgroundColor: palette.butter,
-          borderRadius: 16,
-          height: 40,
-          width,
-          paddingHorizontal: 8,
+    <View
+      pointerEvents="none"
+      style={{ width: headW, height: headH + 8, alignItems: 'center', opacity }}
+    >
+      {/* Pointed tail — a rotated square peeking below the head reads as the
+          teardrop point. Same fill/shadow as the head so it looks like one pin. */}
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 2,
+          width: 14,
+          height: 14,
+          backgroundColor: fill,
+          transform: [{ rotate: '45deg' }],
+          borderRadius: 3,
+        }}
+      />
+      {/* Head grows into a pill for multiple sports so all balls are visible */}
+      <View
+        style={{
+          width: headW,
+          height: headH,
+          borderRadius: headH / 2,
+          backgroundColor: fill,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 2,
-          borderWidth: nearby ? 3 : 2,
-          // Green = "açık": the station's ESP32 is powered and in BLE range.
-          borderColor: nearby ? '#22c55e' : palette.ink,
-          shadowColor: nearby ? '#22c55e' : palette.ink,
+          borderWidth: available ? 3 : 2,
+          // Volt = "açık": the station's ESP32 is powered and in BLE range.
+          borderColor: available ? palette.voltInk : palette.deep,
+          shadowColor: available ? palette.volt : palette.deep,
           shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: nearby ? 0.45 : 0.22,
-          shadowRadius: nearby ? 8 : 5,
+          shadowOpacity: available ? 0.45 : 0.22,
+          shadowRadius: available ? 8 : 5,
           elevation: 5,
-        },
-        style,
-      ]}
-    >
-      {visibleSports.map((sp) => (
-        <Text key={sp} style={{ fontSize: 16 }}>
-          {SPORT_EMOJI[sp]}
-        </Text>
-      ))}
-      {overflow > 0 ? (
-        <Text
-          style={{
-            fontSize: 10,
-            color: palette.ink,
-            fontWeight: '700',
-            marginLeft: 2,
-          }}
-        >
-          +{overflow}
-        </Text>
-      ) : null}
+        }}
+      >
+        {ballSports.map((sp, i) => (
+          <Text
+            key={sp}
+            style={{
+              fontSize: ballSize,
+              marginLeft: i === 0 ? 0 : 3,
+            }}
+          >
+            {SPORT_EMOJI[sp]}
+          </Text>
+        ))}
+      </View>
       {/* No text label: a per-pin word ("kapalı") truncated against the narrow
-          one-emoji marker width and looked broken. Instead, open stations get a
-          glowing green "live" dot + the green border/pop above; closed stations
-          carry no badge at all — they simply gray out (see the opacity in
-          `style`). Status reads purely from color/brightness now. */}
+          marker width and looked broken. Instead, open stations get a glowing
+          "live" dot + the volt border/pop above; closed stations carry no badge
+          — they simply gray out (see the opacity above). Status reads purely
+          from color/brightness now. */}
       {nearby && (
         <View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: -5,
-            right: -5,
+            top: -3,
+            left: -1,
             width: 12,
             height: 12,
             borderRadius: 6,
-            backgroundColor: '#22c55e',
+            backgroundColor: palette.volt,
             borderWidth: 2,
-            borderColor: palette.paper,
-            shadowColor: '#22c55e',
+            borderColor: palette.bg,
+            shadowColor: palette.volt,
             shadowOffset: { width: 0, height: 0 },
             shadowOpacity: 0.6,
             shadowRadius: 4,
           }}
         />
       )}
-    </Animated.View>
+    </View>
   );
-}
+});
 
 function ClusterMarker({ count, index }: { count: number; index: number }) {
   const enter = useSharedValue(0);
@@ -183,7 +189,7 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
     <Animated.View
       style={[
         {
-          backgroundColor: palette.butter,
+          backgroundColor: palette.surface,
           borderRadius: 22,
           minWidth: 44,
           height: 44,
@@ -191,8 +197,8 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 2,
-          borderColor: palette.ink,
-          shadowColor: palette.ink,
+          borderColor: palette.volt,
+          shadowColor: palette.deep,
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.18,
           shadowRadius: 4,
@@ -201,7 +207,7 @@ function ClusterMarker({ count, index }: { count: number; index: number }) {
         style,
       ]}
     >
-      <Text className="font-display-x text-ink" style={{ fontSize: 18 }}>
+      <Text className="font-display-x" style={{ fontSize: 18, color: palette.fg }}>
         {count}
       </Text>
     </Animated.View>
@@ -232,19 +238,24 @@ function NearMeSweep({ userLoc }: { userLoc: { lat: number; lng: number } | null
 
   const radiusMeters = phase * 200;
   const opacity = 0.45 * (1 - phase);
+  // Volt sweep ring — hex alpha byte derived from the fade so no literal color.
+  const fillAlpha = Math.round(opacity * 0.15 * 255)
+    .toString(16)
+    .padStart(2, '0');
 
   return (
     <Circle
       center={{ latitude: userLoc.lat, longitude: userLoc.lng }}
       radius={radiusMeters}
-      strokeColor={palette.coral}
+      strokeColor={palette.volt}
       strokeWidth={2}
-      fillColor={`rgba(226, 105, 114, ${opacity * 0.15})`}
+      fillColor={palette.volt + fillAlpha}
     />
   );
 }
 
 function CommandBar() {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const {
@@ -308,7 +319,7 @@ function CommandBar() {
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
-          className="flex-1 font-sans text-ink dark:text-paper text-base"
+          className="flex-1 font-sans text-ink dark:text-fg text-base"
           style={{ paddingVertical: 0 }}
         />
         {searchQuery.length > 0 ? (
@@ -316,7 +327,7 @@ function CommandBar() {
             <Feather name="x" size={16} color={palette.ink + '99'} />
           </Pressable>
         ) : null}
-        <View style={{ width: 1, height: 22, backgroundColor: palette.ink + '1a' }} />
+        <View style={{ width: 1, height: 22, backgroundColor: palette.surface + '1a' }} />
         <View style={{ flexDirection: 'row', gap: 2 }}>
           {(['map', 'list'] as const).map((m) => (
             <Pressable
@@ -353,6 +364,7 @@ function SearchSuggestions({
   userLoc: { lat: number; lng: number } | null;
   onPickStation: (s: Station) => void;
 }) {
+  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const { t } = useT();
   const searchFocused = useMapStore((s) => s.searchFocused);
@@ -401,11 +413,11 @@ function SearchSuggestions({
         {recentSearches.length > 0 ? (
           <View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold">
+              <Text className="font-medium text-ink dark:text-fg uppercase tracking-wider text-[12px] font-bold">
                 {t('map.suggest.recent')}
               </Text>
               <Pressable onPress={clearRecentSearches} hitSlop={6}>
-                <Text className="font-sans text-ink dark:text-paper font-semibold text-[11px]">
+                <Text className="font-sans text-ink dark:text-fg font-semibold text-[11px]">
                   {t('map.suggest.clear')}
                 </Text>
               </Pressable>
@@ -416,7 +428,7 @@ function SearchSuggestions({
                   key={q}
                   onPress={() => setSearchQuery(q)}
                   style={{
-                    backgroundColor: palette.ink + '0d',
+                    backgroundColor: palette.surface + '0d',
                     paddingHorizontal: 12,
                     paddingVertical: 7,
                     borderRadius: 999,
@@ -426,7 +438,7 @@ function SearchSuggestions({
                   }}
                 >
                   <Feather name="clock" size={12} color={palette.ink + '88'} />
-                  <Text className="font-sans text-ink dark:text-paper text-sm">{q}</Text>
+                  <Text className="font-sans text-ink dark:text-fg text-sm">{q}</Text>
                 </Pressable>
               ))}
             </View>
@@ -435,7 +447,7 @@ function SearchSuggestions({
 
         {nearby.length > 0 ? (
           <View>
-            <Text className="font-medium text-ink dark:text-paper uppercase tracking-wider text-[12px] font-bold mb-2">
+            <Text className="font-medium text-ink dark:text-fg uppercase tracking-wider text-[12px] font-bold mb-2">
               {t('map.suggest.nearby')}
             </Text>
             <View style={{ gap: 2 }}>
@@ -456,11 +468,11 @@ function SearchSuggestions({
                     })}
                   >
                     <Feather name="map-pin" size={15} color={palette.coral} />
-                    <Text className="flex-1 font-medium text-ink dark:text-paper text-[15px]">
+                    <Text className="flex-1 font-medium text-ink dark:text-fg text-[15px]">
                       {s.name}
                     </Text>
                     {km !== null ? (
-                      <Text className="font-mono text-ink dark:text-paper font-bold text-xs">
+                      <Text className="font-mono text-ink dark:text-fg font-bold text-xs">
                         {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
                       </Text>
                     ) : null}
@@ -484,7 +496,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
         position: 'absolute',
         top: insets.top + 76,
         left: 20,
-        backgroundColor: palette.ink,
+        backgroundColor: palette.surface,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 999,
@@ -493,7 +505,7 @@ function CityBadge({ cityLabel, count }: { cityLabel: string; count: number }) {
     >
       <Text
         style={{
-          color: palette.paper,
+          color: palette.fg,
           fontFamily: 'Inter_500Medium',
           fontSize: 11,
           letterSpacing: 0.3,
@@ -518,6 +530,7 @@ function SportChip({
   onPress: () => void;
   label: string;
 }) {
+  const theme = useTheme();
   const scale = useSharedValue(active ? 1.04 : 1);
 
   useEffect(() => {
@@ -537,7 +550,7 @@ function SportChip({
         paddingVertical: 8,
         gap: 6,
         borderRadius: 999,
-        backgroundColor: active ? theme.butter : palette.paper + 'cc',
+        backgroundColor: active ? theme.volt : palette.paper + 'cc',
         borderWidth: 1,
         borderColor: active ? palette.ink + '1a' : palette.ink + '14',
         opacity: disabled ? 0.3 : 1,
@@ -549,7 +562,7 @@ function SportChip({
         style={{
           fontFamily: 'Unbounded_700Bold',
           fontSize: 13,
-          color: palette.ink,
+          color: active ? theme.voltInk : palette.ink,
           textTransform: 'lowercase',
           letterSpacing: 0.3,
         }}
@@ -573,7 +586,7 @@ function SportChip({
             width: 6,
             height: 6,
             borderRadius: 3,
-            backgroundColor: theme.coral,
+            backgroundColor: theme.voltInk,
             marginLeft: 2,
           }}
         />
@@ -683,8 +696,8 @@ function StationListView({
             key={s.id}
             onPress={() => onStationPress(s)}
             style={({ pressed }) => ({
-              backgroundColor: palette.paper,
-              borderColor: palette.ink + '1a',
+              backgroundColor: palette.surface,
+              borderColor: palette.border,
               borderWidth: 1,
               borderRadius: 20,
               padding: 16,
@@ -696,7 +709,18 @@ function StationListView({
                 {km < 10 ? km.toFixed(1) : km.toFixed(0)} km
               </Text>
             )}
-            <Text className="font-display text-ink dark:text-paper text-xl mt-1">{s.name}</Text>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                fontSize: 18,
+                lineHeight: 22,
+                color: palette.fg,
+                textTransform: 'uppercase',
+                marginTop: 4,
+              }}
+            >
+              {s.name}
+            </Text>
             <View className="flex-row flex-wrap gap-2 mt-3">
               {s.sports.map((sport) => {
                 const stock = s.stock[sport] ?? 0;
@@ -705,7 +729,7 @@ function StationListView({
                   <View
                     key={sport}
                     style={{
-                      backgroundColor: out ? palette.ink + '14' : palette.butter,
+                      backgroundColor: out ? palette.surfaceAlt : palette.volt,
                       borderRadius: 10,
                       paddingHorizontal: 10,
                       paddingVertical: 6,
@@ -718,7 +742,7 @@ function StationListView({
                     <Text
                       className={
                         out
-                          ? 'font-sans text-ink dark:text-paper font-semibold text-xs'
+                          ? 'font-sans text-ink dark:text-fg font-semibold text-xs'
                           : 'font-medium text-ink text-xs'
                       }
                     >
@@ -760,7 +784,7 @@ function TopBarPill({
           by a Pressable behavior or background being overridden. */}
       <View
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: palette.surface,
           borderRadius: 999,
           height: 46,
           minWidth: 46,
@@ -768,10 +792,10 @@ function TopBarPill({
           alignItems: 'center',
           justifyContent: 'center',
           borderWidth: 1.5,
-          borderColor: palette.ink + '30',
-          shadowColor: '#000',
+          borderColor: palette.border,
+          shadowColor: palette.deep,
           shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
+          shadowOpacity: 0.35,
           shadowRadius: 8,
           elevation: 6,
         }}
@@ -834,26 +858,17 @@ function TopBar({
         pointerStyle,
       ]}
     >
-      <TopBarPill square onPress={onLocate} accessibilityLabel="locate me">
-        <Feather name="navigation" size={18} color={palette.ink} />
-      </TopBarPill>
-      <TopBarPill>
-        <Text
-          className="font-display-x"
-          style={{
-            color: palette.ink,
-            fontSize: 17,
-            letterSpacing: 0.6,
-            lineHeight: 20,
-            includeFontPadding: false,
-          }}
-        >
-          Playbox
-        </Text>
-      </TopBarPill>
-      <TopBarPill square onPress={onMenu} accessibilityLabel="menu">
-        <Feather name="menu" size={18} color={palette.ink} />
-      </TopBarPill>
+      {/* No wordmark on the map — action icons only. Empty spacer keeps them
+          grouped on the right. */}
+      <View />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <TopBarPill square onPress={onLocate} accessibilityLabel="konumum">
+          <Feather name="navigation" size={18} color={palette.ink} />
+        </TopBarPill>
+        <TopBarPill square onPress={onMenu} accessibilityLabel="menü">
+          <Feather name="menu" size={18} color={palette.ink} />
+        </TopBarPill>
+      </View>
     </Animated.View>
   );
 }
@@ -908,11 +923,11 @@ function HomeBottomSheet({
       // search row and filters pill butt up against the Dynamic Island.
       topInset={insets.top}
       backgroundStyle={{
-        backgroundColor: palette.paper,
-        borderTopLeftRadius: 32,
-        borderTopRightRadius: 32,
+        backgroundColor: palette.surface,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
       }}
-      handleIndicatorStyle={{ backgroundColor: palette.ink + '26', width: 44, height: 5 }}
+      handleIndicatorStyle={{ backgroundColor: palette.border, width: 44, height: 5 }}
     >
       <BottomSheetScrollView
         showsVerticalScrollIndicator={false}
@@ -926,7 +941,7 @@ function HomeBottomSheet({
           <View
             style={{
               flex: 1,
-              backgroundColor: palette.ink + '08',
+              backgroundColor: palette.surfaceAlt,
               borderRadius: 18,
               paddingHorizontal: 16,
               paddingVertical: 14,
@@ -935,7 +950,7 @@ function HomeBottomSheet({
               gap: 10,
             }}
           >
-            <Feather name="search" size={18} color={palette.ink} />
+            <Feather name="search" size={18} color={palette.muted} />
             <BottomSheetTextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -966,7 +981,7 @@ function HomeBottomSheet({
               height: 50,
               borderRadius: 18,
               backgroundColor:
-                showFilters || filter !== 'all' ? palette.ink : palette.ink + '08',
+                showFilters || filter !== 'all' ? palette.volt : palette.surfaceAlt,
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -974,7 +989,7 @@ function HomeBottomSheet({
             <Feather
               name="sliders"
               size={18}
-              color={showFilters || filter !== 'all' ? palette.paper : palette.ink}
+              color={showFilters || filter !== 'all' ? palette.voltInk : palette.fg}
             />
             {filter !== 'all' ? (
               <View
@@ -985,9 +1000,9 @@ function HomeBottomSheet({
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: palette.coral,
+                  backgroundColor: palette.danger,
                   borderWidth: 1.5,
-                  borderColor: palette.paper,
+                  borderColor: palette.bg,
                 }}
               />
             ) : null}
@@ -1012,7 +1027,7 @@ function HomeBottomSheet({
                     paddingHorizontal: 16,
                     paddingVertical: 10,
                     borderRadius: 999,
-                    backgroundColor: active ? palette.coral : palette.ink + '08',
+                    backgroundColor: active ? palette.volt : palette.surfaceAlt,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 8,
@@ -1022,7 +1037,7 @@ function HomeBottomSheet({
                   <Text
                     style={{
                       fontSize: 13,
-                      color: active ? palette.paper : palette.ink,
+                      color: active ? palette.voltInk : palette.fg,
                       fontWeight: '600',
                       letterSpacing: 0.2,
                     }}
@@ -1039,7 +1054,7 @@ function HomeBottomSheet({
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surfaceAlt,
             borderRadius: 18,
             padding: 5,
             marginTop: 4,
@@ -1059,9 +1074,9 @@ function HomeBottomSheet({
                   flex: 1,
                   paddingVertical: 14,
                   borderRadius: 14,
-                  backgroundColor: active ? palette.paper : 'transparent',
+                  backgroundColor: active ? palette.bg : 'transparent',
                   alignItems: 'center',
-                  shadowColor: '#000',
+                  shadowColor: palette.deep,
                   shadowOffset: { width: 0, height: active ? 2 : 0 },
                   shadowOpacity: active ? 0.1 : 0,
                   shadowRadius: active ? 4 : 0,
@@ -1136,9 +1151,7 @@ function HomeBottomSheet({
       >
         {segment === 'stations' ? (
           sorted.length === 0 ? (
-            <Text className="font-sans text-ink dark:text-paper text-base text-center font-semibold mt-8">
-              {t('map.empty.no_stations')}
-            </Text>
+            <EmptyState icon="map-pin" title={t('map.empty.no_stations')} />
           ) : (
             sorted.map((s) => {
               const km = userLoc
@@ -1151,8 +1164,8 @@ function HomeBottomSheet({
                   key={s.id}
                   onPress={() => onPickStation(s)}
                   style={({ pressed }) => ({
-                    backgroundColor: palette.paper,
-                    borderColor: palette.ink + '12',
+                    backgroundColor: palette.surfaceAlt,
+                    borderColor: palette.border,
                     borderWidth: 1,
                     borderRadius: 20,
                     paddingHorizontal: 14,
@@ -1183,11 +1196,12 @@ function HomeBottomSheet({
                   {/* Name + status */}
                   <View style={{ flex: 1 }}>
                     <Text
-                      className="font-display"
                       style={{
+                        fontFamily: 'Unbounded_800ExtraBold',
                         fontSize: 16,
                         lineHeight: 20,
-                        color: palette.ink,
+                        color: palette.fg,
+                        textTransform: 'uppercase',
                       }}
                       numberOfLines={1}
                     >
@@ -1197,7 +1211,7 @@ function HomeBottomSheet({
                       className="font-mono"
                       style={{
                         fontSize: 12,
-                        color: live ? '#2a8a52' : palette.ink + '66',
+                        color: live ? palette.volt : palette.muted,
                         fontWeight: '600',
                         marginTop: 3,
                       }}
@@ -1245,6 +1259,11 @@ export default function Map() {
   const stationSheetOpen = useMapStore((s) => s.stationSheetOpen);
   const pendingSheetStationId = useMapStore((s) => s.pendingSheetStationId);
   const setPendingSheetStationId = useMapStore((s) => s.setPendingSheetStationId);
+  // Live BLE presence set, used to key the station markers so a pin remounts
+  // (and re-captures green/gray) the moment its station comes online/offline.
+  // Self-decays on a 1s tick only while something is in range; markers are
+  // memoized so this re-render skips every pin whose nearby state didn't flip.
+  const nearbyIds = useNearbyIds();
 
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [city, setCity] = useState<keyof typeof CITY_LABELS | 'generic'>('istanbul');
@@ -1253,9 +1272,17 @@ export default function Map() {
   // into it (continuous, not just on snap). TopBar reads it to fade smoothly.
   const homeSheetAnimatedIndex = useSharedValue(0);
 
+  // Demo Mode (App Store review) + dev builds see the full dummy set generated
+  // around the user. Real prod shows ONLY stations with live hardware
+  // (REAL_STATION_IDS) — no generated fixtures — so the map is honest (empty
+  // until a real locker exists).
+  const demoStations = useDevStore((s) => s.demoMode) || __DEV__;
   const allStations = useMemo(
-    () => stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 }),
-    [userLoc]
+    () =>
+      demoStations
+        ? stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 })
+        : STATIONS.filter((s) => REAL_STATION_IDS.has(s.id)),
+    [userLoc, demoStations]
   );
 
   // Persist every station the user can see so /reservations can resolve a
@@ -1353,6 +1380,7 @@ export default function Map() {
           istanbul: { lat: 41.0082, lng: 28.9784 },
           ankara: { lat: 39.9334, lng: 32.8597 },
           izmir: { lat: 38.4237, lng: 27.1428 },
+          dalyan: { lat: 36.8319, lng: 28.6423 },
         };
         let best: keyof typeof CITY_LABELS = 'istanbul';
         let bestDist = Infinity;
@@ -1402,7 +1430,17 @@ export default function Map() {
   }, [pendingSheetStationId, allStations, cacheStation, setPendingSheetStationId]);
 
   const onRegionChangeComplete = (region: Region) => {
-    setLatDelta(region.latitudeDelta);
+    // PERF: latDelta drives the clustering memo AND a full marker re-render.
+    // A PAN changes latitudeDelta by a sub-percent amount (map projection), so
+    // calling setLatDelta on every region settle re-clustered + re-rendered
+    // every marker on every pan. Only update when the ZOOM changes meaningfully
+    // (~10%, i.e. 0.15 in log2) — panning stays cheap, real zoom still tracks.
+    setLatDelta((prev) =>
+      prev > 0 &&
+      Math.abs(Math.log2(region.latitudeDelta) - Math.log2(prev)) < 0.15
+        ? prev
+        : region.latitudeDelta
+    );
   };
 
   const openStation = useGuardedPress(async (s: Station) => {
@@ -1462,7 +1500,7 @@ export default function Map() {
   });
 
   return (
-    <View className="flex-1 bg-paper dark:bg-ink">
+    <View className="flex-1 bg-paper dark:bg-surface">
       <MapView
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
@@ -1504,7 +1542,15 @@ export default function Map() {
           }
           return (
             <Marker
-              key={`${filter}-${searchQuery}-${item.data.id}`}
+              // Include the live BLE 'nearby' state in the key so the marker
+              // REMOUNTS the instant a station comes online/offline. With
+              // tracksViewChanges={false} the native pin is captured once and
+              // frozen, so a plain re-render wouldn't redraw the green state —
+              // the remount forces a fresh capture. Now a powered-on ESP32 turns
+              // the pin green on the map with no tap-in/tap-out needed.
+              key={`${filter}-${searchQuery}-${item.data.id}-${
+                nearbyIds.has(item.data.id.toUpperCase()) ? 'on' : 'off'
+              }`}
               coordinate={{ latitude: item.data.lat, longitude: item.data.lng }}
               onPress={() => openStation(item.data)}
               tracksViewChanges={false}

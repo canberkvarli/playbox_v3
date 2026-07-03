@@ -73,14 +73,14 @@ export default function Payments() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: palette.ink + '0d',
+              backgroundColor: palette.surfaceAlt,
               borderWidth: 1,
-              borderColor: palette.ink + '14',
+              borderColor: palette.border,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Feather name="arrow-left" size={20} color={palette.ink} />
+            <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
       </View>
@@ -96,18 +96,19 @@ export default function Payments() {
         <Text
           style={{
             fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.ink,
+            color: palette.fg,
             fontSize: 38,
-            lineHeight: 42,
+            lineHeight: 45,
             marginTop: 16,
+            textTransform: 'uppercase',
           }}
         >
           ödemeler
         </Text>
         <Text
           style={{
-            fontFamily: 'Inter_600SemiBold',
-            color: palette.ink,
+            fontFamily: 'Inter_400Regular',
+            color: palette.muted,
             fontSize: 16,
             lineHeight: 22,
             marginTop: 8,
@@ -138,7 +139,7 @@ export default function Payments() {
                 style={{
                   width: CARD_W,
                   marginRight: CARD_GAP,
-                  backgroundColor: palette.ink,
+                  backgroundColor: palette.surface,
                   borderRadius: 24,
                   padding: 24,
                   aspectRatio: 1.586,
@@ -162,17 +163,17 @@ export default function Payments() {
                     width: 44,
                     height: 44,
                     borderRadius: 22,
-                    backgroundColor: palette.butter,
+                    backgroundColor: palette.volt,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
                 >
-                  <Feather name="credit-card" size={22} color={palette.ink} />
+                  <Feather name="credit-card" size={22} color={palette.voltInk} />
                 </View>
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.butter,
+                    color: palette.voltText,
                     fontSize: 13,
                     letterSpacing: 2.4,
                     textTransform: 'uppercase',
@@ -184,7 +185,7 @@ export default function Payments() {
               <Text
                 style={{
                   fontFamily: 'JetBrainsMono_500Medium',
-                  color: palette.paper,
+                  color: palette.fg,
                   fontSize: 24,
                   letterSpacing: 5,
                 }}
@@ -201,7 +202,7 @@ export default function Payments() {
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.butter,
+                    color: palette.voltText,
                     fontSize: 14,
                     letterSpacing: 3.6,
                   }}
@@ -212,7 +213,7 @@ export default function Payments() {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    backgroundColor: palette.paper + '14',
+                    backgroundColor: palette.surfaceAlt,
                     paddingHorizontal: 10,
                     paddingVertical: 5,
                     borderRadius: 999,
@@ -223,14 +224,14 @@ export default function Payments() {
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: '#3aaf6a',
+                      backgroundColor: palette.volt,
                       marginRight: 6,
                     }}
                   />
                   <Text
                     style={{
                       fontFamily: 'Unbounded_700Bold',
-                      color: palette.paper,
+                      color: palette.fg,
                       fontSize: 10,
                       letterSpacing: 0.6,
                       textTransform: 'uppercase',
@@ -256,8 +257,8 @@ export default function Payments() {
                     borderRadius: 24,
                     borderWidth: 2,
                     borderStyle: 'dashed',
-                    borderColor: palette.ink + '33',
-                    backgroundColor: palette.ink + '06',
+                    borderColor: palette.border,
+                    backgroundColor: palette.surface,
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}
@@ -267,18 +268,18 @@ export default function Payments() {
                       width: 56,
                       height: 56,
                       borderRadius: 28,
-                      backgroundColor: palette.coral + '22',
+                      backgroundColor: palette.volt + '22',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginBottom: 12,
                     }}
                   >
-                    <Feather name="plus" size={28} color={palette.coral} />
+                    <Feather name="plus" size={28} color={palette.voltText} />
                   </View>
                   <Text
                     style={{
                       fontFamily: 'Unbounded_800ExtraBold',
-                      color: palette.ink,
+                      color: palette.fg,
                       fontSize: 16,
                       letterSpacing: 0.3,
                     }}
@@ -315,23 +316,23 @@ export default function Payments() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     paddingVertical: 12,
-                    borderRadius: 12,
-                    backgroundColor: palette.ink + '0d',
+                    borderRadius: 999,
+                    backgroundColor: palette.surfaceAlt,
                     borderWidth: 1,
-                    borderColor: palette.ink + '14',
+                    borderColor: palette.border,
                     padding:10
                   }}
                 >
                   <Feather
                     name="refresh-ccw"
                     size={14}
-                    color={palette.ink}
+                    color={palette.fg}
                     style={{ marginRight: 8 }}
                   />
                   <Text
                     style={{
                       fontFamily: 'Unbounded_700Bold',
-                      color: palette.ink,
+                      color: palette.fg,
                       fontSize: 13,
                       letterSpacing: 0.3,
                     }}
@@ -356,23 +357,23 @@ export default function Payments() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     paddingVertical: 12,
-                    borderRadius: 12,
-                    backgroundColor: palette.coral + '14',
+                    borderRadius: 999,
+                    backgroundColor: palette.danger + '14',
                     borderWidth: 1,
-                    borderColor: palette.coral + '33',
+                    borderColor: palette.danger + '55',
                     padding: 10
                   }}
                 >
                   <Feather
                     name="trash-2"
                     size={14}
-                    color={palette.coral}
+                    color={palette.danger}
                     style={{ marginRight: 8 }}
                   />
                   <Text
                     style={{
                       fontFamily: 'Unbounded_700Bold',
-                      color: palette.coral,
+                      color: palette.danger,
                       fontSize: 13,
                       letterSpacing: 0.3,
                     }}
@@ -392,16 +393,11 @@ export default function Payments() {
           >
             <View
               style={{
-                backgroundColor: palette.coral,
+                backgroundColor: palette.volt,
                 borderRadius: 24,
                 padding: 24,
                 aspectRatio: 1.586,
                 justifyContent: 'space-between',
-                shadowColor: palette.coral,
-                shadowOffset: { width: 0, height: 12 },
-                shadowOpacity: 0.32,
-                shadowRadius: 22,
-                elevation: 12,
               }}
             >
               <View
@@ -409,21 +405,22 @@ export default function Payments() {
                   width: 56,
                   height: 56,
                   borderRadius: 28,
-                  backgroundColor: palette.paper + '22',
+                  backgroundColor: palette.voltInk + '1f',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <Feather name="plus" size={28} color={palette.paper} />
+                <Feather name="plus" size={28} color={palette.voltInk} />
               </View>
               <View>
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.paper,
+                    color: palette.voltInk,
                     fontSize: 24,
                     lineHeight: 28,
                     letterSpacing: 0.3,
+                    textTransform: 'uppercase',
                   }}
                 >
                   kart ekle
@@ -431,7 +428,7 @@ export default function Payments() {
                 <Text
                   style={{
                     fontFamily: 'Inter_600SemiBold',
-                    color: palette.paper,
+                    color: palette.voltInk,
                     fontSize: 13,
                     lineHeight: 18,
                     marginTop: 6,
@@ -450,19 +447,21 @@ export default function Payments() {
           style={{
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             borderRadius: 14,
             paddingVertical: 12,
             paddingHorizontal: 14,
             marginTop: 18,
           }}
         >
-          <Feather name="lock" size={16} color={palette.ink} style={{ marginRight: 10 }} />
+          <Feather name="lock" size={16} color={palette.voltText} style={{ marginRight: 10 }} />
           <Text
             style={{
               flex: 1,
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink,
+              fontFamily: 'Inter_400Regular',
+              color: palette.muted,
               fontSize: 13,
               lineHeight: 18,
             }}
@@ -477,7 +476,9 @@ export default function Payments() {
         <View
           style={{
             borderRadius: 16,
-            backgroundColor: palette.ink + '08',
+            backgroundColor: palette.surfaceAlt,
+            borderWidth: 1,
+            borderColor: palette.border,
             paddingVertical: 22,
             paddingHorizontal: 18,
             alignItems: 'center',
@@ -486,9 +487,10 @@ export default function Payments() {
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
+              color: palette.muted,
               fontSize: 15,
               textAlign: 'center',
+              textTransform: 'uppercase',
             }}
           >
             henüz seans yok
@@ -504,7 +506,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <Text
       style={{
         fontFamily: 'Unbounded_800ExtraBold',
-        color: palette.ink,
+        color: palette.fg,
         fontSize: 13,
         letterSpacing: 1.6,
         textTransform: 'uppercase',

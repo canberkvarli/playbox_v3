@@ -124,14 +124,16 @@ export function BadFeedbackModal({
 
         <View
           style={{
-            backgroundColor: palette.paper,
+            backgroundColor: palette.surface,
             borderRadius: 28,
+            borderWidth: 1,
+            borderColor: palette.border,
             paddingHorizontal: 24,
             paddingTop: 26,
             paddingBottom: 22,
-            shadowColor: palette.ink,
+            shadowColor: palette.deep,
             shadowOffset: { width: 0, height: 12 },
-            shadowOpacity: 0.22,
+            shadowOpacity: 0.5,
             shadowRadius: 32,
             elevation: 24,
           }}
@@ -144,17 +146,19 @@ export function BadFeedbackModal({
             <Text
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 22,
                 lineHeight: 26,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
               }}
             >
               {t(titleKey)}
             </Text>
             <Text
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + 'cc',
+                fontFamily: 'Inter_400Regular',
+                color: palette.muted,
                 fontSize: 14,
                 lineHeight: 20,
                 marginTop: 6,
@@ -185,24 +189,24 @@ export function BadFeedbackModal({
                       paddingVertical: 11,
                       borderRadius: 12,
                       backgroundColor: selected
-                        ? palette.coral
+                        ? palette.volt
                         : pressed
-                        ? palette.ink + '14'
-                        : palette.paper,
+                        ? palette.surfaceAlt
+                        : palette.surfaceAlt,
                       borderWidth: 1.5,
-                      borderColor: selected ? palette.coral : palette.ink + '33',
+                      borderColor: selected ? palette.volt : palette.border,
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: 6,
                     })}
                   >
                     {selected ? (
-                      <Feather name="check" size={13} color={palette.paper} />
+                      <Feather name="check" size={13} color={palette.voltInk} />
                     ) : null}
                     <Text
                       style={{
                         fontFamily: 'Unbounded_700Bold',
-                        color: selected ? palette.paper : palette.ink,
+                        color: selected ? palette.voltInk : palette.fg,
                         fontSize: 12,
                         letterSpacing: 0.2,
                       }}
@@ -217,8 +221,8 @@ export function BadFeedbackModal({
             {/* Free-text */}
             <Text
               style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + '99',
+                fontFamily: 'JetBrainsMono_500Medium',
+                color: palette.muted,
                 fontSize: 11,
                 letterSpacing: 1.2,
                 textTransform: 'uppercase',
@@ -232,28 +236,28 @@ export function BadFeedbackModal({
               value={message}
               onChangeText={(v) => setMessage(v.slice(0, MAX_MESSAGE))}
               placeholder={t('feedback.bad.message_placeholder')}
-              placeholderTextColor={palette.ink + '66'}
+              placeholderTextColor={palette.muted}
               multiline
               numberOfLines={3}
               style={{
                 fontFamily: 'Inter_400Regular',
-                color: palette.ink,
+                color: palette.fg,
                 fontSize: 14,
                 lineHeight: 20,
                 minHeight: 80,
                 paddingHorizontal: 14,
                 paddingVertical: 12,
                 borderRadius: 14,
-                backgroundColor: palette.ink + '08',
+                backgroundColor: palette.surfaceAlt,
                 borderWidth: 1,
-                borderColor: palette.ink + '14',
+                borderColor: palette.border,
                 textAlignVertical: 'top',
               }}
             />
             <Text
               style={{
                 fontFamily: 'JetBrainsMono_500Medium',
-                color: palette.ink + '66',
+                color: palette.muted,
                 fontSize: 10,
                 marginTop: 4,
                 textAlign: 'right',
@@ -285,10 +289,11 @@ export function BadFeedbackModal({
                 >
                   <Text
                     style={{
-                      fontFamily: 'Unbounded_700Bold',
-                      color: palette.ink + '99',
+                      fontFamily: 'Inter_600SemiBold',
+                      color: palette.muted,
                       fontSize: 13,
-                      letterSpacing: 0.3,
+                      letterSpacing: 1.2,
+                      textTransform: 'uppercase',
                     }}
                   >
                     {t('feedback.bad.skip')}
@@ -303,19 +308,20 @@ export function BadFeedbackModal({
                   style={({ pressed }) => ({
                     flex: 1,
                     paddingVertical: 16,
-                    borderRadius: 16,
+                    borderRadius: 999,
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: disabled ? palette.ink + '1f' : palette.coral,
+                    backgroundColor: disabled ? palette.surfaceAlt : palette.volt,
                     opacity: pressed && !disabled ? 0.9 : 1,
                   })}
                 >
                   <Text
                     style={{
-                      fontFamily: 'Unbounded_800ExtraBold',
-                      color: disabled ? palette.ink + '88' : palette.paper,
+                      fontFamily: 'Inter_600SemiBold',
+                      color: disabled ? palette.muted : palette.voltInk,
                       fontSize: 14,
-                      letterSpacing: 0.3,
+                      letterSpacing: 1.2,
+                      textTransform: 'uppercase',
                     }}
                   >
                     {submitting ? t('feedback.bad.submitting') : t('feedback.bad.submit')}

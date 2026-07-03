@@ -21,7 +21,7 @@ type StepConfig = {
 const STEPS: StepConfig[] = [
   { key: 'pick',   icon: 'grid',         bg: palette.mauve + '33' },
   { key: 'scan',   icon: 'camera',       bg: palette.coral + '33' },
-  { key: 'play',   icon: 'play-circle',  bg: palette.butter },
+  { key: 'play',   icon: 'play-circle',  bg: palette.coral + '33' },
   { key: 'return', icon: 'rotate-ccw',   bg: palette.ink + '26' },
 ];
 
@@ -72,7 +72,7 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
         backdropComponent={renderBackdrop}
         onClose={onDismiss}
         backgroundStyle={{ backgroundColor: palette.paper }}
-        handleIndicatorStyle={{ backgroundColor: palette.ink + '44', width: 40, height: 4 }}
+        handleIndicatorStyle={{ backgroundColor: palette.surface + '44', width: 40, height: 4 }}
       >
         <BottomSheetScrollView
           contentContainerStyle={{
@@ -82,16 +82,16 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
           }}
           showsVerticalScrollIndicator={false}
         >
-          <Text className="font-mono text-ink/50 dark:text-paper/50 text-xs uppercase tracking-widest text-center">
+          <Text className="font-mono text-ink/50 dark:text-fg/50 text-xs uppercase tracking-widest text-center">
             {t('tour.eyebrow')}
           </Text>
           <Text
-            className="font-display-x text-ink dark:text-paper text-4xl text-center mt-2"
+            className="font-display-x text-ink dark:text-fg text-4xl text-center mt-2 leading-[42px]"
             style={{ lineHeight: 44 }}
           >
             {t('tour.title')}
           </Text>
-          <Text className="font-sans text-ink/70 dark:text-paper/70 text-base text-center mt-3">
+          <Text className="font-sans text-ink/70 dark:text-fg/70 text-base text-center mt-3">
             {t('tour.sub')}
           </Text>
 
@@ -99,7 +99,7 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
             {STEPS.map((step, i) => (
               <View
                 key={step.key}
-                className="bg-paper dark:bg-ink/40 rounded-3xl p-5 border border-ink/10 dark:border-paper/10"
+                className="bg-paper dark:bg-surface/40 rounded-3xl p-5 border border-border/10 dark:border-paper/10"
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}
               >
                 <View
@@ -113,17 +113,17 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
                   }}
                 >
                   <Text
-                    className="font-display-x text-2xl"
+                    className="font-display-x text-2xl leading-[28px]"
                     style={{ color: palette.ink }}
                   >
                     {i + 1}
                   </Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text className="font-display text-ink dark:text-paper text-lg">
+                  <Text className="font-display text-ink dark:text-fg text-lg">
                     {t(`tour.steps.${step.key}.title`)}
                   </Text>
-                  <Text className="font-sans text-ink/70 dark:text-paper/70 text-sm mt-1">
+                  <Text className="font-sans text-ink/70 dark:text-fg/70 text-sm mt-1">
                     {t(`tour.steps.${step.key}.desc`)}
                   </Text>
                 </View>
@@ -136,13 +136,13 @@ export const StationTourSheet = forwardRef<StationTourSheetHandle, Props>(
             onPress={onGotIt}
             accessibilityRole="button"
             accessibilityLabel={t('tour.cta')}
-            className="bg-coral rounded-2xl py-4 mt-8"
+            className="bg-coral rounded-full py-4 mt-8"
             style={({ pressed }) => ({
               transform: [{ scale: pressed ? 0.98 : 1 }],
               opacity: pressed ? 0.9 : 1,
             })}
           >
-            <Text className="text-paper font-semibold text-lg text-center">
+            <Text className="text-volt-ink font-semibold text-base text-center uppercase tracking-wide">
               {t('tour.cta')}
             </Text>
           </Pressable>
