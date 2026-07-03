@@ -173,8 +173,11 @@ export function ActiveSessionBanner() {
     <View
       pointerEvents="box-none"
       style={{
+        // Sit just ABOVE the tab bar (its designed home) — a top placement ran
+        // the marquee under the map's locate/menu pills and made both unreadable.
+        // Rendered after <Tabs>, so it paints over the map's bottom sheet too.
         position: 'absolute',
-        top: insets.top + 10,
+        bottom: insets.bottom + 64,
         left: 12,
         right: 12,
         zIndex: 50,
