@@ -7,12 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "playbox",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1a1f3a"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.playbox.turkiye",
@@ -96,7 +90,17 @@
           ],
           "bluetoothAlwaysPermission": "Playbox istasyonun kapısını açmak için Bluetooth kullanır."
         }
-      ]
+      ],
+      "expo-sharing",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1a1f3a"
+        }
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

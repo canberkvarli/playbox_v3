@@ -1470,7 +1470,7 @@ export default function Map() {
         initialRegion={FALLBACK_REGION}
         showsUserLocation
         showsMyLocationButton={false}
-        showsPointsOfInterest={false}
+        showsPointsOfInterests={false}
         showsCompass={false}
         showsScale={false}
         onRegionChangeComplete={onRegionChangeComplete}

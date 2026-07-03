@@ -20,7 +20,8 @@ try {
 let Sharing: any = { isAvailableAsync: async () => false, shareAsync: async () => {} };
 try { Sharing = require('expo-sharing'); } catch {}
 let FileSystem: any = null;
-try { FileSystem = require('expo-file-system'); } catch {}
+// SDK 56+: the legacy copyAsync/cacheDirectory API moved to expo-file-system/legacy.
+try { FileSystem = require('expo-file-system/legacy'); } catch { try { FileSystem = require('expo-file-system'); } catch {} }
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
