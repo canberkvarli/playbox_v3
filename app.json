@@ -100,7 +100,26 @@
           "backgroundColor": "#17181C"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-widgets",
+        {
+          "bundleIdentifier": "com.playbox.turkiye.widgets",
+          "groupIdentifier": "group.com.playbox.turkiye",
+          "widgets": [
+            {
+              "name": "PlayboxWidget",
+              "displayName": "Playbox Seans",
+              "description": "Aktif seansını ve kalan süreyi ana ekranda göster.",
+              "contentMarginsDisabled": true,
+              "supportedFamilies": [
+                "systemSmall",
+                "systemMedium"
+              ]
+            }
+          ]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
