@@ -10,7 +10,6 @@ import { RiseIn } from '@/components/RiseIn';
 import { useSessionStore } from '@/stores/sessionStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
-import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { PostSessionCardPrompt } from '@/components/PostSessionCardPrompt';
 import { BadFeedbackModal } from '@/components/BadFeedbackModal';
@@ -164,95 +163,45 @@ export default function SessionReview() {
         </View>
       </RiseIn>
 
-      {/* Summary */}
+      {/* Summary — slim, chrome-less: sport · station + one mono stat line.
+          (Was a bordered card with a divider and two big 28px stats — too heavy,
+          and "₺0 toplam" was meaningless for free/demo sessions.) */}
       <RiseIn delay={120}>
         <View
           style={{
-            backgroundColor: palette.surface,
-            borderRadius: 22,
-            borderWidth: 1,
-            borderColor: palette.border,
-            padding: 22,
-            marginTop: 28,
+            marginTop: 24,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 10,
+            paddingHorizontal: 12,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-            <Text style={{ fontSize: 36 }}>{SPORT_EMOJI[lastEnded.sport]}</Text>
-            <View style={{ flex: 1 }}>
-              <Text
-                numberOfLines={1}
-                style={{
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.ink,
-                  fontSize: 18,
-                  lineHeight: 22,
-                }}
-              >
-                {lastEnded.stationName}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'JetBrainsMono_400Regular',
-                  color: palette.ink + '99',
-                  fontSize: 12,
-                  marginTop: 2,
-                }}
-              >
-                {SPORT_LABELS[lastEnded.sport]}
-              </Text>
-            </View>
-          </View>
-
-          <View style={{ height: 1, backgroundColor: palette.border, marginVertical: 16 }} />
-
-          <View style={{ flexDirection: 'row' }}>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
-                  fontSize: 28,
-                  lineHeight: 33,
-                }}
-              >
-                {elapsedMin}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'JetBrainsMono_400Regular',
-                  color: palette.ink + '99',
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
-              >
-                dakika
-              </Text>
-            </View>
-            <View style={{ width: 1, backgroundColor: palette.border }} />
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text
-                style={{
-                  fontFamily: 'Unbounded_800ExtraBold',
-                  color: palette.ink,
-                  fontSize: 28,
-                  lineHeight: 33,
-                }}
-              >
-                ₺{total}
-              </Text>
-              <Text
-                style={{
-                  fontFamily: 'JetBrainsMono_400Regular',
-                  color: palette.ink + '99',
-                  fontSize: 11,
-                  marginTop: 2,
-                }}
-              >
-                toplam
-              </Text>
-            </View>
-          </View>
+          <Text style={{ fontSize: 26 }}>{SPORT_EMOJI[lastEnded.sport]}</Text>
+          <Text
+            numberOfLines={1}
+            style={{
+              fontFamily: 'Unbounded_700Bold',
+              color: palette.ink,
+              fontSize: 17,
+              lineHeight: 21,
+            }}
+          >
+            {lastEnded.stationName}
+          </Text>
         </View>
+        <Text
+          style={{
+            textAlign: 'center',
+            marginTop: 8,
+            fontFamily: 'JetBrainsMono_400Regular',
+            color: palette.ink + '99',
+            fontSize: 13,
+            letterSpacing: 0.3,
+          }}
+        >
+          {`${elapsedMin} dakika · ${Number(total) > 0 ? `₺${total}` : 'ücretsiz'}`}
+        </Text>
       </RiseIn>
 
       {/* Quick rating */}
