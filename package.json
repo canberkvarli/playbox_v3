@@ -34,6 +34,7 @@
     "buffer": "^6.0.3",
     "expo": "^57.0.2",
     "expo-auth-session": "~57.0.1",
+    "expo-battery": "~57.0.0",
     "expo-blur": "~57.0.0",
     "expo-camera": "~57.0.0",
     "expo-constants": "~57.0.3",

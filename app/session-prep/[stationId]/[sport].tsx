@@ -275,6 +275,37 @@ export default function SessionPrep() {
     setUnlocking(true);
     await hx.tap();
 
+    // Low-battery guard (like Martı): the renter needs their phone's BLE to
+    // unlock AND to return the gear, so a dying phone can strand them + the
+    // locker. Block below 15% unless charging. Demo-exempt; wrapped so it no-ops
+    // on binaries without expo-battery (OTA-safe lazy require).
+    if (!demoMode) {
+      const MIN_BATTERY = 0.15; // 15%
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const Battery = require('expo-battery');
+        const { batteryLevel, batteryState } = await Battery.getPowerStateAsync();
+        const charging =
+          batteryState === Battery.BatteryState.CHARGING ||
+          batteryState === Battery.BatteryState.FULL;
+        if (batteryLevel >= 0 && batteryLevel < MIN_BATTERY && !charging) {
+          setUnlocking(false);
+          unlockingRef.current = false;
+          await hx.no();
+          Alert.alert(
+            'şarjın çok düşük',
+            `Kiralamak için telefon şarjın en az %${Math.round(
+              MIN_BATTERY * 100,
+            )} olmalı — dolabı açmak ve iade etmek için telefonuna ihtiyacın olacak.`,
+            [{ text: 'tamam' }],
+          );
+          return;
+        }
+      } catch {
+        // expo-battery not linked (older binary) or read failed → don't block.
+      }
+    }
+
     let holdId: string | null = null;
     if (cardStatus === 'on_file' && !demoMode) {
       const conversationId = `${station.id}:${sport}:${Date.now()}`;
