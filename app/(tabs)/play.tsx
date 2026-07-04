@@ -110,7 +110,18 @@ function LiveTimer({ session }: { session: ActiveSession }) {
   // The `progress` prop drives the REMAINING fraction (arc empties as time
   // runs out), so we pass `1 - progress`.
   const remainingFraction = Math.max(0, 1 - progress);
-  const centerTime = overtime ? `+${fmt(overMs)}` : fmt(remainingMs);
+  // Compact H:MM / MM:SS so the ring centre stays one line — the old "21sa 22dk"
+  // wrapped and overflowed the ring on long overruns.
+  const ringFmt = (ms: number) => {
+    const s = Math.floor(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    return h > 0
+      ? `${h}:${m.toString().padStart(2, '0')}`
+      : `${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
+  };
+  const centerTime = overtime ? `+${ringFmt(overMs)}` : ringFmt(remainingMs);
   // Demo Mode (App Store review) sessions are free — never show a ₺ charge.
   const demoMode = useDevStore((s) => s.demoMode);
   const caption = demoMode
@@ -691,28 +702,27 @@ export default function Play() {
       {isOvertime ? (
         <View
           style={{
+            alignSelf: 'flex-start',
             flexDirection: 'row',
             alignItems: 'center',
-            backgroundColor: palette.danger + '1f',
-            borderColor: palette.danger + '55',
-            borderWidth: 1,
-            borderRadius: 16,
-            paddingHorizontal: 14,
-            paddingVertical: 12,
-            marginBottom: 16,
+            backgroundColor: palette.danger + '14',
+            borderRadius: 999,
+            paddingLeft: 10,
+            paddingRight: 14,
+            paddingVertical: 7,
+            marginBottom: 14,
           }}
         >
-          <Feather name="alert-triangle" size={18} color={palette.danger} style={{ marginRight: 10 }} />
+          <Feather name="alert-triangle" size={14} color={palette.danger} style={{ marginRight: 7 }} />
           <Text
             style={{
-              flex: 1,
-              fontFamily: 'Inter_500Medium',
-              color: palette.fg,
-              fontSize: 14,
-              lineHeight: 20,
+              fontFamily: 'Inter_600SemiBold',
+              color: palette.danger,
+              fontSize: 12.5,
+              letterSpacing: 0.2,
             }}
           >
-            planladığın süreyi geçtin. her ek dakika için ücretlendirileceksin.
+            planlanan süre doldu · ek dakika ücretli
           </Text>
         </View>
       ) : null}
@@ -808,19 +818,6 @@ export default function Play() {
       {/* Primary CTA — comp coral-OUTLINE pill (transparent fill, coral border
           + coral label). Same onPress; the Button primitive owns the styling. */}
       <Button variant="danger" label="seansı bitir" onPress={onFinishSession} />
-
-      {/* Hint under the end button — muted, centered. */}
-      <Text
-        style={{
-          marginTop: 12,
-          fontFamily: 'Inter_500Medium',
-          color: palette.muted,
-          fontSize: 13,
-          textAlign: 'center',
-        }}
-      >
-        süre dolmadan telefonun titrer ⏱
-      </Text>
 
       {/* Report-a-problem — subtle text link under the primary CTA. Opens the
           gear report sheet with the active session context. Best-effort: never
