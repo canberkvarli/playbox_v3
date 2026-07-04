@@ -1,4 +1,4 @@
-import { HStack, Image, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import { HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
   font,
   foregroundStyle,
@@ -13,74 +13,40 @@ import { createLiveActivity, type LiveActivityEnvironment } from 'expo-widgets';
 /**
  * Live Activity props for an active Playbox rental session.
  *
- * Split conceptually into static attributes ({ stationName, sport, gate }) that
- * do not change over the life of the activity, and dynamic content
- * ({ plannedEndAt, overrun }) pushed on update. All values are JSON-serialized
- * across the bridge, so `plannedEndAt` is epoch ms and rebuilt to a Date here.
+ * Static attributes ({ stationName, sport, gate }) + dynamic content
+ * ({ plannedEndAt, overrun }). All values are JSON-serialized across the bridge,
+ * so `plannedEndAt` is epoch ms and rebuilt to a Date here.
  */
 export type SessionActivityProps = {
-  // static attributes
   stationName: string;
   sport: string; // Turkish sport label (e.g. "basket")
   gate?: number;
-  // dynamic content
   plannedEndAt: number; // epoch ms — startedAt + durationMinutes*60000
   overrun: boolean;
 };
 
-const BG = '#17181C';
 const VOLT = '#D6FB3C';
 const CORAL = '#FF5C39';
 const DIM = '#FFFFFF99';
 const WHITE = '#FFFFFF';
 
+// NOTE: everything here must be INLINE expo/ui primitives. The 'widget' directive
+// transpiles this body to SwiftUI at build time and only understands expo/ui
+// components — a nested custom component (e.g. a <Countdown/> helper) maps to
+// nothing and renders EMPTY. So the timer Text is inlined in every region.
 const SessionActivity = (props: SessionActivityProps, _env: LiveActivityEnvironment) => {
   'widget';
   const accent = props.overrun ? CORAL : VOLT;
-  const end = new Date(props.plannedEndAt);
-  const start = new Date(Math.min(Date.now(), props.plannedEndAt));
-  // Overrun counts up from the planned end; cap the interval 4h out (system max).
-  const overrunUpper = new Date(props.plannedEndAt + 4 * 3600_000);
-
-  // Live countdown / count-up rendered by SwiftUI itself via timerInterval —
-  // no per-second JS pushes. Fixed-width frame + monospacedDigit keep the greedy
-  // timer text from overflowing its region.
-  const Countdown = ({
-    size,
-    width,
-    align = 'trailing',
-  }: {
-    size: number;
-    width: number;
-    align?: 'leading' | 'trailing' | 'center';
-  }) =>
-    props.overrun ? (
-      <Text
-        timerInterval={{ lower: end, upper: overrunUpper }}
-        countsDown={false}
-        modifiers={[
-          font({ weight: 'heavy', size }),
-          monospacedDigit(),
-          foregroundStyle(CORAL),
-          multilineTextAlignment(align),
-          frame({ width, alignment: align }),
-        ]}
-      />
-    ) : (
-      <Text
-        timerInterval={{ lower: start, upper: end }}
-        countsDown
-        modifiers={[
-          font({ weight: 'heavy', size }),
-          monospacedDigit(),
-          foregroundStyle(VOLT),
-          multilineTextAlignment(align),
-          frame({ width, alignment: align }),
-        ]}
-      />
-    );
-
   const stateLabel = props.overrun ? 'GEÇ' : 'KALDI';
+  // Countdown (or count-up on overrun) rendered by SwiftUI's own timer text —
+  // no per-second JS pushes. Bounds computed once and reused inline.
+  const lower = props.overrun
+    ? new Date(props.plannedEndAt)
+    : new Date(Math.min(Date.now(), props.plannedEndAt));
+  const upper = props.overrun
+    ? new Date(props.plannedEndAt + 4 * 3600_000) // cap 4h out (system max)
+    : new Date(props.plannedEndAt);
+  const countsDown = !props.overrun;
 
   return {
     // Lock Screen / Notification Center banner.
@@ -109,7 +75,17 @@ const SessionActivity = (props: SessionActivityProps, _env: LiveActivityEnvironm
           <Text modifiers={[font({ weight: 'medium', size: 10 }), foregroundStyle(DIM)]}>
             {stateLabel}
           </Text>
-          <Countdown size={26} width={90} align="trailing" />
+          <Text
+            timerInterval={{ lower, upper }}
+            countsDown={countsDown}
+            modifiers={[
+              font({ weight: 'heavy', size: 26 }),
+              monospacedDigit(),
+              foregroundStyle(accent),
+              multilineTextAlignment('trailing'),
+              frame({ width: 92, alignment: 'trailing' }),
+            ]}
+          />
         </VStack>
       </HStack>
     ),
@@ -117,16 +93,42 @@ const SessionActivity = (props: SessionActivityProps, _env: LiveActivityEnvironm
     // Dynamic Island — compact: brand dot leading, countdown trailing.
     compactLeading: (
       <Text
-        modifiers={[font({ weight: 'heavy', size: 13 }), foregroundStyle(accent), padding({ leading: 4 })]}>
+        modifiers={[
+          font({ weight: 'heavy', size: 13 }),
+          foregroundStyle(accent),
+          padding({ leading: 4 }),
+        ]}>
         ●
       </Text>
     ),
-    compactTrailing: <Countdown size={13} width={52} align="trailing" />,
+    compactTrailing: (
+      <Text
+        timerInterval={{ lower, upper }}
+        countsDown={countsDown}
+        modifiers={[
+          font({ weight: 'heavy', size: 13 }),
+          monospacedDigit(),
+          foregroundStyle(accent),
+          frame({ width: 54, alignment: 'trailing' }),
+        ]}
+      />
+    ),
 
-    // Minimal — just the countdown (tiny region).
-    minimal: <Countdown size={12} width={40} align="center" />,
+    // Minimal — just the countdown.
+    minimal: (
+      <Text
+        timerInterval={{ lower, upper }}
+        countsDown={countsDown}
+        modifiers={[
+          font({ weight: 'heavy', size: 12 }),
+          monospacedDigit(),
+          foregroundStyle(accent),
+          frame({ width: 40, alignment: 'center' }),
+        ]}
+      />
+    ),
 
-    // Expanded — station/sport on the left, countdown on the right, state below.
+    // Expanded — sport on the left, countdown on the right, station below.
     expandedLeading: (
       <VStack alignment="leading" spacing={2} modifiers={[padding({ leading: 8 })]}>
         <Text modifiers={[font({ weight: 'heavy', size: 10 }), foregroundStyle(accent)]}>
@@ -143,7 +145,16 @@ const SessionActivity = (props: SessionActivityProps, _env: LiveActivityEnvironm
         <Text modifiers={[font({ weight: 'medium', size: 10 }), foregroundStyle(DIM)]}>
           {stateLabel}
         </Text>
-        <Countdown size={20} width={72} align="trailing" />
+        <Text
+          timerInterval={{ lower, upper }}
+          countsDown={countsDown}
+          modifiers={[
+            font({ weight: 'heavy', size: 20 }),
+            monospacedDigit(),
+            foregroundStyle(accent),
+            frame({ width: 74, alignment: 'trailing' }),
+          ]}
+        />
       </VStack>
     ),
     expandedBottom: (
