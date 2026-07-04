@@ -191,8 +191,9 @@ export function ActiveSessionBanner() {
   // Strip spans the screen diagonal so its ends reach past the corners once
   // rotated. Both cross at the same centre point → an X.
   const stripW = Math.hypot(screenW, screenH) + 80;
-  // Angle that runs each strip exactly corner-to-corner (crossing at center).
-  const cornerDeg = (Math.atan2(screenH, screenW) * 180) / Math.PI;
+  // Moderate diagonal — true corner-to-corner (~62°) hugged the screen edges and
+  // read as too steep. 38° gives a balanced X across the middle.
+  const tapeDeg = 38;
   const centerTop = screenH * 0.5 - STRIP_H / 2;
   const left = (screenW - stripW) / 2;
 
@@ -203,7 +204,7 @@ export function ActiveSessionBanner() {
     >
       <TapeStrip
         text={text}
-        rotateDeg={cornerDeg}
+        rotateDeg={tapeDeg}
         dir={-1}
         bg={bg}
         fg={fg}
@@ -215,7 +216,7 @@ export function ActiveSessionBanner() {
       />
       <TapeStrip
         text={text}
-        rotateDeg={-cornerDeg}
+        rotateDeg={-tapeDeg}
         dir={1}
         bg={bg}
         fg={fg}

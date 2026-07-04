@@ -189,6 +189,9 @@ export default function Play() {
   // Demo/review sessions are free — no accrued charge anywhere.
   const demoMode = useDevStore((s) => s.demoMode);
 
+  const reopeningRef = useRef(false);
+  const [reopening, setReopening] = useState(false);
+
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
   const ignoreFirmwareTimeouts = useDevStore((s) => s.ignoreFirmwareTimeouts);
@@ -320,6 +323,60 @@ export default function Play() {
   const onFinishSession = async () => {
     await hx.punch();
     setEndModalOpen(true);
+  };
+
+  // Re-open the gate mid-session — the user may have shut it by mistake or needs
+  // back in. Same unlock as session-prep, but the session already exists so we
+  // don't touch the session store. Demo/fake sessions succeed instantly (no BLE).
+  const onReopen = async () => {
+    if (reopeningRef.current || !active) return;
+    reopeningRef.current = true;
+    setReopening(true);
+    await hx.tap();
+    try {
+      if (!(demoMode || fakeActiveSession || !active.gate)) {
+        const {
+          data: { session: authSession },
+        } = await supabase.auth.getSession();
+        const sessionToken = authSession?.access_token ?? '';
+        const driver = getDriver();
+        const res = await driver.unlockGate({
+          stationId: active.stationId,
+          gate: active.gate!,
+          sessionToken,
+          correlationId: `reopen:${active.stationId}:${active.bleSessionId ?? active.startedAt}:${Date.now()}`,
+          durationMin: active.durationMinutes,
+        });
+        if (!res.ok) {
+          await hx.punch();
+          const reasonMap: Record<string, string> = {
+            not_in_range: 'kapıya yaklaş ve tekrar dene.',
+            permission_denied: 'bluetooth izni gerekiyor — ayarlardan aç.',
+            bluetooth_off: 'bluetooth\'u açıp tekrar dene.',
+            connection_failed: 'kapı yanıt vermedi. tekrar dene.',
+            auth_rejected: 'oturum doğrulanamadı.',
+            gate_busy: 'kapı şu an meşgul. bir an sonra dene.',
+            timeout: 'kapı yanıtı gelmedi. tekrar dene.',
+            network: 'internet bağlantın yok gibi.',
+            unsupported: 'bu cihaz kapı açmayı desteklemiyor.',
+            unknown: 'bir sorun çıktı, tekrar dene.',
+          };
+          Alert.alert('kapı açılamadı', reasonMap[res.error] ?? reasonMap.unknown, [
+            { text: 'tamam' },
+          ]);
+          return;
+        }
+      } else {
+        await new Promise((r) => setTimeout(r, 450));
+      }
+      await hx.yes();
+    } catch {
+      await hx.punch();
+      Alert.alert('kapı açılamadı', 'bir sorun çıktı, tekrar dene.', [{ text: 'tamam' }]);
+    } finally {
+      reopeningRef.current = false;
+      setReopening(false);
+    }
   };
 
   // Phase 'confirm' → 'opening': fire the return_unlock BLE write. On
@@ -814,6 +871,12 @@ export default function Play() {
       </View>
 
       <View style={{ flex: 1 }} />
+
+      {/* Re-open the door — available anytime during the session in case the user
+          closed it by mistake or needs back in. Volt primary. */}
+      <View style={{ marginBottom: 10 }}>
+        <Button label={reopening ? 'açılıyor…' : 'kapıyı aç'} onPress={onReopen} full />
+      </View>
 
       {/* Primary CTA — comp coral-OUTLINE pill (transparent fill, coral border
           + coral label). Same onPress; the Button primitive owns the styling. */}
