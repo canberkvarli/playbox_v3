@@ -191,7 +191,9 @@ export function ActiveSessionBanner() {
   // Strip spans the screen diagonal so its ends reach past the corners once
   // rotated. Both cross at the same centre point → an X.
   const stripW = Math.hypot(screenW, screenH) + 80;
-  const centerTop = screenH * 0.44 - STRIP_H / 2;
+  // Angle that runs each strip exactly corner-to-corner (crossing at center).
+  const cornerDeg = (Math.atan2(screenH, screenW) * 180) / Math.PI;
+  const centerTop = screenH * 0.5 - STRIP_H / 2;
   const left = (screenW - stripW) / 2;
 
   return (
@@ -201,7 +203,7 @@ export function ActiveSessionBanner() {
     >
       <TapeStrip
         text={text}
-        rotateDeg={20}
+        rotateDeg={cornerDeg}
         dir={-1}
         bg={bg}
         fg={fg}
@@ -213,7 +215,7 @@ export function ActiveSessionBanner() {
       />
       <TapeStrip
         text={text}
-        rotateDeg={-20}
+        rotateDeg={-cornerDeg}
         dir={1}
         bg={bg}
         fg={fg}
