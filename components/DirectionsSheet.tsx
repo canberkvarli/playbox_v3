@@ -1,6 +1,6 @@
 import { Modal, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
 import { Feather } from '@expo/vector-icons';
 
 import { palette } from '@/constants/theme';
@@ -21,7 +21,9 @@ export function DirectionsSheet({ dest, visible, onClose }: Props) {
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View entering={FadeIn.duration(160)} style={{ flex: 1 }}>
         <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' }}>
-          <Animated.View entering={SlideInDown.springify().damping(18)}>
+          {/* Plain slide-up, no spring — a simple pull-up-from-bottom (was
+              SlideInDown.springify() which overshot and "bounced crazily"). */}
+          <Animated.View entering={SlideInDown.duration(240).easing(Easing.out(Easing.cubic))}>
             <Pressable
               onPress={() => {}}
               style={{
