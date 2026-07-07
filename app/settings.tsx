@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -881,12 +881,45 @@ function DeleteAccountModal({
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
-  const [confirmText, setConfirmText] = useState('');
-  useEffect(() => {
-    if (!visible) setConfirmText('');
-  }, [visible]);
+  // Hold-to-delete — no typing (the old "type HOŞÇAKAL" was painful on English
+  // keyboards). Press and hold ~1.5s; a fill sweeps across the button, then it
+  // deletes. The deliberate hold is the accident guard.
+  const HOLD_MS = 1500;
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdRafRef = useRef<number | null>(null);
+  const holdStartRef = useRef(0);
 
-  const matches = confirmText.trim().toLocaleUpperCase('tr-TR') === 'HOŞÇAKAL';
+  const cancelHold = () => {
+    if (holdRafRef.current != null) cancelAnimationFrame(holdRafRef.current);
+    holdRafRef.current = null;
+  };
+  const startHold = () => {
+    void hx.no();
+    holdStartRef.current = Date.now();
+    const tick = () => {
+      const p = Math.min((Date.now() - holdStartRef.current) / HOLD_MS, 1);
+      setHoldProgress(p);
+      if (p >= 1) {
+        cancelHold();
+        setHoldProgress(0);
+        onConfirm();
+      } else {
+        holdRafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    holdRafRef.current = requestAnimationFrame(tick);
+  };
+  const endHold = () => {
+    cancelHold();
+    setHoldProgress((p) => (p >= 1 ? p : 0));
+  };
+  useEffect(() => {
+    if (!visible) {
+      cancelHold();
+      setHoldProgress(0);
+    }
+    return cancelHold;
+  }, [visible]);
 
   return (
     <Modal
@@ -1057,7 +1090,7 @@ function DeleteAccountModal({
             ))}
           </View>
 
-          {/* Type-to-confirm */}
+          {/* Hold-to-delete instruction */}
           <Text
             style={{
               fontFamily: 'Unbounded_700Bold',
@@ -1066,66 +1099,55 @@ function DeleteAccountModal({
               letterSpacing: 1.2,
               textTransform: 'uppercase',
               marginTop: 18,
-              marginBottom: 8,
+              marginBottom: 10,
+              textAlign: 'center',
             }}
           >
-            onaylamak için "HOŞÇAKAL" yaz
+            silmek için basılı tut
           </Text>
-          <TextInput
-            value={confirmText}
-            onChangeText={setConfirmText}
-            placeholder="HOŞÇAKAL"
-            placeholderTextColor={palette.muted}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            style={{
-              borderWidth: 1.5,
-              borderColor: matches ? palette.danger : palette.border,
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              fontFamily: 'Unbounded_800ExtraBold',
-              fontSize: 18,
-              color: palette.fg,
-              letterSpacing: 1.2,
-              backgroundColor: palette.surfaceAlt,
-            }}
-          />
 
-          {/* Destructive CTA */}
+          {/* Hold-to-delete CTA — a darker fill sweeps across as you hold; at
+              full hold it deletes. No typing required. */}
           <Pressable
-            onPress={matches ? onConfirm : undefined}
-            disabled={!matches}
+            onPressIn={startHold}
+            onPressOut={endHold}
             accessibilityRole="button"
-            accessibilityLabel="hesabımı sil"
-            style={({ pressed }) => ({
-              marginTop: 22,
-              opacity: !matches ? 0.45 : pressed ? 0.92 : 1,
-            })}
+            accessibilityLabel="hesabımı sil — silmek için basılı tut"
           >
             <View
               style={{
-                backgroundColor: matches ? palette.danger : palette.surfaceAlt,
-                borderWidth: matches ? 0 : 1,
-                borderColor: palette.border,
+                backgroundColor: palette.danger,
                 borderRadius: 999,
                 paddingVertical: 18,
                 alignItems: 'center',
-                flexDirection: 'row',
                 justifyContent: 'center',
+                flexDirection: 'row',
+                overflow: 'hidden',
               }}
             >
-              <Feather name="trash-2" size={20} color={matches ? palette.fg : palette.muted} style={{ marginRight: 10 }} />
+              {/* Fill grows with the hold. */}
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: `${Math.round(holdProgress * 100)}%`,
+                  backgroundColor: '#00000038',
+                }}
+              />
+              <Feather name="trash-2" size={20} color={palette.fg} style={{ marginRight: 10 }} />
               <Text
                 style={{
                   fontFamily: 'Unbounded_800ExtraBold',
-                  color: matches ? palette.fg : palette.muted,
+                  color: palette.fg,
                   fontSize: 16,
                   letterSpacing: 0.4,
                   textTransform: 'uppercase',
                 }}
               >
-                hesabımı sil
+                {holdProgress > 0 ? 'bırakma…' : 'hesabımı sil'}
               </Text>
             </View>
           </Pressable>

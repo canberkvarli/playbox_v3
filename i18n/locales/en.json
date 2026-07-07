@@ -62,7 +62,7 @@
       "title": "what should we call you?",
       "sub": "you can skip this and edit it later in settings.",
       "name_label": "name",
-      "name_placeholder": "mert",
+      "name_placeholder": "",
       "handle_label": "username",
       "cta": "continue",
       "skip": "skip for now",
