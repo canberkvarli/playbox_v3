@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
 import { hx } from '@/lib/haptics';
+import { openLegal } from '@/lib/legal';
 import { palette } from '@/constants/theme';
 import { Surface } from '@/components/ui';
 
@@ -164,6 +165,37 @@ export default function Terms() {
             </Text>
           </Surface>
         ))}
+
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            await openLegal('terms');
+          }}
+          hitSlop={8}
+          accessibilityRole="link"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 20,
+            }}
+          >
+            <Feather name="external-link" size={14} color={palette.voltText} style={{ marginRight: 6 }} />
+            <Text
+              style={{
+                fontFamily: 'Unbounded_700Bold',
+                color: palette.voltText,
+                fontSize: 13,
+                textDecorationLine: 'underline',
+              }}
+            >
+              güncel tam metni web&apos;de gör
+            </Text>
+          </View>
+        </Pressable>
       </ScrollView>
     </View>
   );

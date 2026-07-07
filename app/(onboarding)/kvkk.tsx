@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { getDriver } from '@/lib/hardware';
+import { openLegal } from '@/lib/legal';
 
 const RULES = [
   {
@@ -36,8 +37,6 @@ const RULES = [
     body: 'haftalık şehir sıralaması ve seri sayacı için kullanılır. profil ekranında sen de görürsün.',
   },
 ];
-
-const PRIVACY_URL = 'https://playbox.app/gizlilik';
 
 export default function Kvkk() {
   const router = useRouter();
@@ -73,7 +72,7 @@ export default function Kvkk() {
 
   const onOpenPrivacy = useGuardedPress(async () => {
     await hx.tap();
-    Linking.openURL(PRIVACY_URL).catch(() => {});
+    await openLegal('kvkk');
   });
 
   const onBack = useGuardedPress(async () => {
