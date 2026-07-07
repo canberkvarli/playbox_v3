@@ -146,10 +146,13 @@ function LeaderRow({ index, rank, name, handle, minutes, isYou }: RowProps) {
   );
 }
 
+// Illustrative preview of the leaderboard feature (onboarding teaser) — example
+// players only. No fake "you" row (the old data marked "Mert" as isYou, which
+// falsely read as the real user's stats). Real ranking comes from get_play_stats.
 const ROWS: Array<Omit<RowProps, 'index'>> = [
-  { rank: 1, name: 'Mert',   handle: '@mert', minutes: 247, isYou: true },
-  { rank: 2, name: 'Zeynep', handle: '@zey',  minutes: 231 },
-  { rank: 3, name: 'Burak',  handle: '@brk',  minutes: 198 },
+  { rank: 1, name: 'Zeynep', handle: '@zeynep', minutes: 231 },
+  { rank: 2, name: 'Burak',  handle: '@burak',  minutes: 198 },
+  { rank: 3, name: 'Deniz',  handle: '@deniz',  minutes: 176 },
 ];
 
 export default function IntroSocial() {

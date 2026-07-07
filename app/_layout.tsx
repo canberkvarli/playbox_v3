@@ -19,6 +19,10 @@ import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { DemoBadge } from '@/components/DemoBadge';
 import { initTelemetry } from '@/lib/telemetry';
 import { useColdLaunchReattach } from '@/lib/hardware/useColdLaunchReattach';
+// Side-effect: statically loads lib/liveActivity → the widget files, so
+// createLiveActivity/createWidget RUN at bundle load. The widget extension runs
+// this same bundle; without this the components stay unregistered → empty box.
+import '@/lib/liveActivity';
 
 export { ErrorBoundary } from 'expo-router';
 

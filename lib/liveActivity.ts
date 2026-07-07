@@ -14,8 +14,14 @@ import type { LiveActivityDismissalPolicy } from 'expo-widgets';
 
 import { SPORT_LABELS } from '@/data/stations.seed';
 import type { ActiveSession } from '@/stores/sessionStore';
-import type { SessionActivityProps } from '@/widgets/SessionActivity';
-import type { PlayboxWidgetProps } from '@/widgets/PlayboxWidget';
+// STATIC (not lazy) imports so createLiveActivity/createWidget RUN when the JS
+// bundle loads. The widget extension runs this same bundle top-to-bottom in its
+// own process; a lazy require() inside a function is never executed there, so
+// the widget/LA components would be unregistered → render EMPTY. Registering at
+// module load is what makes them appear. (These modules are import-safe on all
+// platforms — they only define layout builders + register into a JS map.)
+import SessionActivity, { type SessionActivityProps } from '@/widgets/SessionActivity';
+import PlayboxWidget, { type PlayboxWidgetProps } from '@/widgets/PlayboxWidget';
 
 // Live Activities require iOS 16.2+. Home-screen widgets require iOS 16+.
 // A single gate covers both — below 16.2 we simply skip everything native.
@@ -40,26 +46,6 @@ type LiveActivityHandle = {
 };
 
 let currentActivity: LiveActivityHandle | null = null;
-
-// Lazily require the native modules so importing this file on Android/web (or in
-// tests) never touches the iOS-only native side.
-function loadWidgets():
-  | {
-      SessionActivity: typeof import('@/widgets/SessionActivity').default;
-      PlayboxWidget: typeof import('@/widgets/PlayboxWidget').default;
-    }
-  | null {
-  if (!SUPPORTED) return null;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const SessionActivity = require('@/widgets/SessionActivity').default;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const PlayboxWidget = require('@/widgets/PlayboxWidget').default;
-    return { SessionActivity, PlayboxWidget };
-  } catch {
-    return null;
-  }
-}
 
 /** planned end = startedAt + durationMinutes*60000 */
 export function plannedEndOf(active: ActiveSession): number {
@@ -102,10 +88,9 @@ function widgetPropsFor(active: ActiveSession | null): PlayboxWidgetProps {
 
 /** Push the home-screen widget snapshot for the given (or idle) session. */
 function reloadHomeWidget(active: ActiveSession | null): void {
-  const mods = loadWidgets();
-  if (!mods) return;
+  if (!SUPPORTED) return;
   try {
-    mods.PlayboxWidget.updateSnapshot(widgetPropsFor(active));
+    PlayboxWidget.updateSnapshot(widgetPropsFor(active));
   } catch {
     // best-effort
   }
@@ -116,8 +101,7 @@ function reloadHomeWidget(active: ActiveSession | null): void {
  * the home widget. Safe to call unconditionally; no-op off iOS-16.2+.
  */
 export function startSessionActivity(active: ActiveSession): void {
-  const mods = loadWidgets();
-  if (!mods) return;
+  if (!SUPPORTED) return;
   try {
     // If one is somehow already running, tear it down first so we don't stack
     // duplicate activities for the same rental.
@@ -125,7 +109,7 @@ export function startSessionActivity(active: ActiveSession): void {
       void currentActivity.end('immediate').catch(() => {});
       currentActivity = null;
     }
-    currentActivity = mods.SessionActivity.start(activityPropsFor(active));
+    currentActivity = SessionActivity.start(activityPropsFor(active));
   } catch {
     currentActivity = null;
   }
