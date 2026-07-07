@@ -145,8 +145,14 @@
       "label": "seri",
       "days_suffix": "gün üst üste"
     },
+    "empty": {
+      "title": "İlk oyununa hazır mısın?",
+      "subtitle": "İstasyonunu bul, ilk maçını oyna.",
+      "cta": "haritayı aç"
+    },
     "stats": {
       "total_minutes_label": "toplam dakika",
+      "games_label": "toplam oyun",
       "this_week_label": "bu hafta",
       "sessions_unit": "seans",
       "fav_label": "favori",

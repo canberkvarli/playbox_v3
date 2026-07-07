@@ -30,23 +30,19 @@ try {
 
 import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
+import { useProfileStats } from '@/hooks/useProfileStats';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
+import { EmptyState } from '@/components/EmptyState';
 import { Surface } from '@/components/ui';
-import { type Sport } from '@/data/stations.seed';
-import { SPORT_EMOJI } from '@/data/sports';
 
-// --- Fake data (v1) ---------------------------------------------------------
-
-const ME = {
+// Non-stat profile metadata (identity chrome, not play stats). The city/month
+// here just decorate the "joined since" line under the name — the real play
+// numbers (games, minutes, streak, city rank) come from useProfileStats().
+const PROFILE_META = {
   city: 'İstanbul',
   joinedMonth: 'Mart 2026',
-  streakDays: 7,
-  streakBest: 21,
-  totalMinutes: 247,
-  sessionsThisWeek: 4,
-  favoriteSport: 'football' as Sport,
 };
 
 // --- Sub-components ---------------------------------------------------------
@@ -124,6 +120,11 @@ export default function Profile() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { username, initial } = useDisplayUser();
+  const stats = useProfileStats();
+  // First-time vs played is decided purely on games count. While the stats RPC
+  // is still loading (or errored, or in demo mode) games === 0, so we default
+  // to the warm first-time state rather than flashing dummy numbers.
+  const isFirstTime = stats.games === 0;
   const [capturing, setCapturing] = useState(false);
   const flexCardRef = useRef<any>(null);
 
@@ -297,82 +298,103 @@ export default function Profile() {
                 }}
               >
                 {t('profile.joined_since', {
-                  city: ME.city,
-                  month: ME.joinedMonth,
+                  city: PROFILE_META.city,
+                  month: PROFILE_META.joinedMonth,
                 })}
               </Text>
             </View>
           </Pressable>
         </RiseIn>
 
-        {/* Streak hero — full-width coral→orange gradient. The gradient stops
-            are the only hardcoded hex (per design comp); everything else keys
-            off the palette. Falls back to a solid coral when the gradient
-            package isn't installed. */}
-        <RiseIn delay={80}>
-          <StreakHeroBg style={{ borderRadius: 24, padding: 28, marginTop: 16 }}>
-            <Text
-              style={{
-                fontFamily: 'Unbounded_800ExtraBold',
-                color: palette.voltInk,
-                fontSize: 110,
-                lineHeight: 116,
-              }}
-            >
-              {ME.streakDays}
-            </Text>
-            <Text
-              style={{
-                fontFamily: 'Inter_700Bold',
-                color: palette.voltInk,
-                fontSize: 18,
-                marginTop: 4,
-              }}
-            >
-              {t('profile.streak.days_suffix')} 🔥
-            </Text>
-          </StreakHeroBg>
-        </RiseIn>
-
-        {/* Stat grid — 2×2 dark cards, volt values over muted labels. */}
-        <RiseIn delay={160}>
-          <View style={{ marginTop: 16 }}>
-            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <StatCard
-                  value={String(ME.totalMinutes)}
-                  label={t('profile.stats.total_minutes_label')}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <StatCard
-                  value="#12"
-                  label={t('profile.stats.city_rank_label')}
-                />
-              </View>
+        {isFirstTime ? (
+          /* First-time state — no plays yet (also the demo/loading/error
+             fallback). Warm empty state that routes to the map; replaces the
+             streak hero + stat grid + flex card entirely. */
+          <RiseIn delay={80}>
+            <View style={{ marginTop: 12 }}>
+              <EmptyState
+                icon="map-pin"
+                title={t('profile.empty.title')}
+                subtitle={t('profile.empty.subtitle')}
+                cta={{
+                  label: t('profile.empty.cta'),
+                  onPress: async () => {
+                    await hx.tap();
+                    router.replace('/(tabs)/map');
+                  },
+                }}
+              />
             </View>
-            <View style={{ flexDirection: 'row' }}>
-              <View style={{ flex: 1, marginRight: 12 }}>
-                <StatCard
-                  value={String(ME.sessionsThisWeek)}
-                  label={`${t('profile.stats.this_week_label')} · ${t('profile.stats.sessions_unit')}`}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <StatCard
-                  value={SPORT_EMOJI[ME.favoriteSport]}
-                  valueSize={34}
-                  label={t('profile.stats.fav_label')}
-                />
-              </View>
-            </View>
-          </View>
-        </RiseIn>
+          </RiseIn>
+        ) : (
+          <>
+            {/* Streak hero — full-width coral→orange gradient. The gradient stops
+                are the only hardcoded hex (per design comp); everything else keys
+                off the palette. Falls back to a solid coral when the gradient
+                package isn't installed. */}
+            <RiseIn delay={80}>
+              <StreakHeroBg style={{ borderRadius: 24, padding: 28, marginTop: 16 }}>
+                <Text
+                  style={{
+                    fontFamily: 'Unbounded_800ExtraBold',
+                    color: palette.voltInk,
+                    fontSize: 110,
+                    lineHeight: 116,
+                  }}
+                >
+                  {stats.streakDays}
+                </Text>
+                <Text
+                  style={{
+                    fontFamily: 'Inter_700Bold',
+                    color: palette.voltInk,
+                    fontSize: 18,
+                    marginTop: 4,
+                  }}
+                >
+                  {t('profile.streak.days_suffix')} 🔥
+                </Text>
+              </StreakHeroBg>
+            </RiseIn>
 
-        {/* Flex card — keeps the dark surface intentionally; it's a shareable
-            asset, not part of the page chrome. Inner copy is white-on-ink so
-            it reads cleanly when exported as a PNG. */}
-        <RiseIn delay={240}>
+            {/* Stat grid — 2×2 dark cards, volt values over muted labels. */}
+            <RiseIn delay={160}>
+              <View style={{ marginTop: 16 }}>
+                <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <StatCard
+                      value={String(stats.totalMinutes)}
+                      label={t('profile.stats.total_minutes_label')}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <StatCard
+                      value={stats.cityRank != null ? `#${stats.cityRank}` : '—'}
+                      label={t('profile.stats.city_rank_label')}
+                    />
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row' }}>
+                  <View style={{ flex: 1, marginRight: 12 }}>
+                    <StatCard
+                      value={String(stats.games)}
+                      label={t('profile.stats.games_label')}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <StatCard
+                      value={String(stats.streakDays)}
+                      label={t('profile.streak.label')}
+                    />
+                  </View>
+                </View>
+              </View>
+            </RiseIn>
+
+            {/* Flex card — keeps the dark surface intentionally; it's a shareable
+                asset, not part of the page chrome. Inner copy is white-on-ink so
+                it reads cleanly when exported as a PNG. */}
+            <RiseIn delay={240}>
           <ViewShot
             ref={flexCardRef}
             options={{ format: 'png', quality: 1, result: 'tmpfile' }}
@@ -423,7 +445,7 @@ export default function Profile() {
                   paddingRight: 56, // reserved for the absolute share button
                 }}
               >
-                {t('profile.flex.header', { city: ME.city })}
+                {t('profile.flex.header', { city: PROFILE_META.city })}
               </Text>
               <Text
                 style={{
@@ -434,7 +456,7 @@ export default function Profile() {
                   marginTop: 6,
                 }}
               >
-                {ME.sessionsThisWeek}
+                {stats.games}
               </Text>
               <Text
                 style={{
@@ -462,8 +484,8 @@ export default function Profile() {
                 }}
               >
                 {t('profile.flex.summary', {
-                  minutes: ME.totalMinutes,
-                  streak: ME.streakDays,
+                  minutes: stats.totalMinutes,
+                  streak: stats.streakDays,
                 })}
               </Text>
               <View style={{ marginTop: 12, alignItems: 'center' }}>
@@ -480,7 +502,9 @@ export default function Profile() {
               </View>
             </View>
           </ViewShot>
-        </RiseIn>
+            </RiseIn>
+          </>
+        )}
       </ScrollView>
     </View>
   );

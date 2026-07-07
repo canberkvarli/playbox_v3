@@ -22,6 +22,7 @@ import { costForMs, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { cancelSessionEndAlerts, fireDoneAlertNow } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
+import { recordPlaySession } from '@/lib/playSessions';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
@@ -312,6 +313,11 @@ export default function Play() {
     // (gate_closed) finish paths fire it exactly once (finalizingRef guards).
     hx.alertDone();
     fireDoneAlertNow(active?.stationName ?? '');
+    // Record the completed REAL session for profile stats BEFORE we clear it
+    // from the store. Best-effort + a no-op in demo mode; never throws, so a
+    // stats failure can't block the session-end flow. finalizingRef guards this
+    // to exactly once per completed session (both manual + auto-close paths).
+    if (active) recordPlaySession(active);
     endSession();
     router.replace('/session-review');
   };

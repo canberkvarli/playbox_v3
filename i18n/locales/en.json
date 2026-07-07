@@ -133,8 +133,14 @@
       "label": "streak",
       "days_suffix": "days in a row"
     },
+    "empty": {
+      "title": "İlk oyununa hazır mısın?",
+      "subtitle": "İstasyonunu bul, ilk maçını oyna.",
+      "cta": "haritayı aç"
+    },
     "stats": {
       "total_minutes_label": "total minutes",
+      "games_label": "total games",
       "this_week_label": "this week",
       "sessions_unit": "sessions",
       "fav_label": "favorite",
