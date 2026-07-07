@@ -453,6 +453,11 @@ export default function Settings() {
           // the real onboarding, not stuck in Demo Mode.
           useDevStore.getState().setDemoSession(false);
           useDevStore.getState().setDemoMode(false);
+          // Clear name/username overrides so the next account doesn't inherit the
+          // previous one — e.g. the demo login's "appstore" showing as the real
+          // user's username after logging back in with their phone.
+          useSettingsStore.getState().setNameOverride(null);
+          useSettingsStore.getState().setUsernameOverride(null);
           await supabase.auth.signOut();
           router.replace('/(onboarding)/welcome');
         },
@@ -497,6 +502,8 @@ export default function Settings() {
         } catch {
           /* ignore — teardown is best-effort */
         }
+        useSettingsStore.getState().setNameOverride(null);
+        useSettingsStore.getState().setUsernameOverride(null);
         await supabase.auth.signOut();
       }
     })();

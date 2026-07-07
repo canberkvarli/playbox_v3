@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -647,15 +647,17 @@ export default function Play() {
   }
 
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: palette.paper,
-        paddingTop: insets.top + 12,
-        paddingBottom: insets.bottom + 20,
-        paddingHorizontal: 20,
-      }}
-    >
+    <View style={{ flex: 1, backgroundColor: palette.paper }}>
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingTop: insets.top + 12,
+          paddingBottom: insets.bottom + 20,
+          paddingHorizontal: 20,
+        }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* Header row: back pill + centered eyebrow (switches to overtime) */}
       <View
         style={{
@@ -906,6 +908,7 @@ export default function Play() {
           {t('gear.report.title')}
         </Text>
       </Pressable>
+      </ScrollView>
 
       {/* End-session confirmation modal — phase-aware sheet that walks the
           user through "open the door → put gear back → close it". */}

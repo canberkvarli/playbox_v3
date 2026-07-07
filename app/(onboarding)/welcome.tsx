@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Image, Text, View, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image, Text, View, TextInput, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -101,15 +101,17 @@ export default function Welcome() {
   }));
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{
-        flex: 1,
-        backgroundColor: palette.bg,
+    <ScrollView
+      style={{ flex: 1, backgroundColor: palette.bg }}
+      contentContainerStyle={{
+        flexGrow: 1,
         paddingHorizontal: 24,
         paddingTop: insets.top + 32,
         paddingBottom: insets.bottom + 16,
       }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+      showsVerticalScrollIndicator={false}
     >
       <View style={{ alignItems: 'center', marginTop: 8, marginBottom: 24 }}>
         <Animated.View
@@ -231,6 +233,6 @@ export default function Welcome() {
           </Pressable>
         )}
       </RiseIn>
-    </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
