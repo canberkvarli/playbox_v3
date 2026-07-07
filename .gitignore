@@ -50,3 +50,6 @@ supabase/.branches/
 
 # Firmware per-station HMAC secrets — real values never in git
 firmware/*/station_secret.h
+
+# Claude Code local worktrees / session data
+.claude/
