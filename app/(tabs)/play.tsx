@@ -28,6 +28,7 @@ import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
+import { compressReturnPhoto } from '@/lib/gear/compressPhoto';
 import { Button, CircularTimer } from '@/components/ui';
 
 // Safe-import expo-image-picker the same way GearReportSheet does — keeps the
@@ -509,7 +510,8 @@ export default function Play() {
       setPhotoState('saved');
 
       const sid = active.bleSessionId ?? `return-${active.startedAt}`;
-      const photoBody = asset.base64 ?? asset.uri;
+      const rawBody = asset.base64 ?? asset.uri;
+      const srcUri = asset.uri ?? null;
       void (async () => {
         try {
           const {
@@ -520,7 +522,15 @@ export default function Play() {
             console.warn('[return-photo] skipped — no authenticated user');
             return;
           }
-          const up = await uploadReturnPhoto(supabase, userId, sid, photoBody);
+          // Shrink before upload (resize + recompress) so the stored evidence is
+          // ~10x smaller. Best-effort: if the manipulator isn't in this binary
+          // (OTA) or it fails, fall back to the original capture bytes.
+          let body = rawBody;
+          if (srcUri) {
+            const shrunk = await compressReturnPhoto(srcUri);
+            if (shrunk?.base64) body = shrunk.base64;
+          }
+          const up = await uploadReturnPhoto(supabase, userId, sid, body);
           if (!up.ok) console.warn('[return-photo] upload failed:', up.error);
         } catch (e: any) {
           console.warn('[return-photo] background upload threw:', String(e?.message ?? e));
