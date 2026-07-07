@@ -224,6 +224,19 @@ export default function Play() {
     return () => clearInterval(id);
   }, [active]);
 
+  // Overrun warning modal — a loud, one-time heads-up shown when the user opens
+  // the active screen and the session is ALREADY past its planned time. The slim
+  // inline pill stays as the persistent indicator.
+  const [overrunModalOpen, setOverrunModalOpen] = useState(false);
+  const overrunWarnedRef = useRef(false);
+  useEffect(() => {
+    if (overrunWarnedRef.current || !active) return;
+    if (Date.now() > active.startedAt + active.durationMinutes * 60_000) {
+      overrunWarnedRef.current = true;
+      setOverrunModalOpen(true);
+    }
+  }, [active, isOvertime]);
+
   useEffect(() => {
     // Dev-only fake-session simulator. Hard-gated on __DEV__ so a stale
     // store value can never trigger this in a production build.
@@ -909,6 +922,83 @@ export default function Play() {
         </Text>
       </Pressable>
       </ScrollView>
+
+      {/* Overrun heads-up — one-time modal on arrival when time's already up. */}
+      <Modal
+        visible={overrunModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOverrunModalOpen(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#00000088',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 32,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: palette.surface,
+              borderRadius: 24,
+              padding: 24,
+              width: '100%',
+              maxWidth: 380,
+              alignItems: 'center',
+            }}
+          >
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                backgroundColor: palette.danger + '1f',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <Feather name="alert-triangle" size={26} color={palette.danger} />
+            </View>
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.ink,
+                fontSize: 20,
+                textAlign: 'center',
+              }}
+            >
+              planlanan süre doldu
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Inter_500Medium',
+                color: palette.ink + 'aa',
+                fontSize: 15,
+                lineHeight: 22,
+                textAlign: 'center',
+                marginTop: 10,
+              }}
+            >
+              {demoMode
+                ? 'demo seansı ücretsiz — dilediğinde bitirebilirsin.'
+                : 'her ek dakika için ücretlendirileceksin. bitirmek için kapıyı kapat & seansı bitir.'}
+            </Text>
+            <View style={{ marginTop: 20, width: '100%' }}>
+              <Button
+                label="anladım"
+                onPress={async () => {
+                  await hx.tap();
+                  setOverrunModalOpen(false);
+                }}
+                full
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* End-session confirmation modal — phase-aware sheet that walks the
           user through "open the door → put gear back → close it". */}
