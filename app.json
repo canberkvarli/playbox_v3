@@ -80,6 +80,14 @@
           "cameraPermission": "Playbox istasyonlardaki QR kodları okumak için kamera kullanır."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Playbox, dolabı kapatırken çektiğiniz iade fotoğrafını galeriden eklemek için fotoğraflarınıza erişir. / Playbox accesses your photos so you can attach a return photo when closing the locker.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store",
       "expo-web-browser",
       [
