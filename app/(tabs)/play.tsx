@@ -151,7 +151,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
     transform: [{ scale: 0.94 + pulse.value * 0.08 }],
   }));
 
-  const HERO = 300;
+  const HERO = 260;
 
   return (
     <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 8 }}>
@@ -668,10 +668,10 @@ export default function Play() {
   return (
     <View style={{ flex: 1, backgroundColor: palette.paper }}>
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={{
-          flexGrow: 1,
           paddingTop: insets.top + 12,
-          paddingBottom: insets.bottom + 20,
+          paddingBottom: 8,
           paddingHorizontal: 20,
         }}
         showsVerticalScrollIndicator={false}
@@ -780,7 +780,7 @@ export default function Play() {
       {isOvertime ? (
         <View
           style={{
-            alignSelf: 'flex-start',
+            alignSelf: 'center',
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: palette.danger + '14',
@@ -891,43 +891,42 @@ export default function Play() {
         </View>
       </View>
 
-      <View style={{ flex: 1 }} />
-
-      {/* Re-open the door — available anytime during the session in case the user
-          closed it by mistake or needs back in. Volt primary. */}
-      <View style={{ marginBottom: 10 }}>
-        <Button label={reopening ? 'açılıyor…' : 'kapıyı aç'} onPress={onReopen} full />
-      </View>
-
-      {/* Primary CTA — comp coral-OUTLINE pill (transparent fill, coral border
-          + coral label). Same onPress; the Button primitive owns the styling. */}
-      <Button variant="danger" label="seansı bitir" onPress={onFinishSession} />
-
-      {/* Report-a-problem — subtle text link under the primary CTA. Opens the
-          gear report sheet with the active session context. Best-effort: never
-          disturbs the return flow above. */}
-      <Pressable
-        onPress={async () => {
-          await hx.tap();
-          setReportOpen(true);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={t('gear.report.title')}
-        hitSlop={8}
-        style={{ marginTop: 14, alignSelf: 'center' }}
-      >
-        <Text
-          style={{
-            fontFamily: 'Inter_500Medium',
-            color: palette.muted,
-            fontSize: 13,
-            textDecorationLine: 'underline',
-          }}
-        >
-          {t('gear.report.title')}
-        </Text>
-      </Pressable>
       </ScrollView>
+
+      {/* Pinned bottom actions — always visible, so you never have to scroll to
+          reach "seansı bitir". */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: insets.bottom + 8 }}>
+        {/* Re-open the door — available anytime during the session. Volt primary. */}
+        <View style={{ marginBottom: 10 }}>
+          <Button label={reopening ? 'açılıyor…' : 'kapıyı aç'} onPress={onReopen} full />
+        </View>
+
+        {/* Primary CTA — coral-outline "seansı bitir". */}
+        <Button variant="danger" label="seansı bitir" onPress={onFinishSession} />
+
+        {/* Report-a-problem — subtle link under the CTA. */}
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            setReportOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={t('gear.report.title')}
+          hitSlop={8}
+          style={{ marginTop: 12, alignSelf: 'center' }}
+        >
+          <Text
+            style={{
+              fontFamily: 'Inter_500Medium',
+              color: palette.muted,
+              fontSize: 13,
+              textDecorationLine: 'underline',
+            }}
+          >
+            {t('gear.report.title')}
+          </Text>
+        </Pressable>
+      </View>
 
       {/* Overrun heads-up — one-time modal on arrival when time's already up. */}
       <Modal
