@@ -301,6 +301,13 @@ export default function Play() {
     }
   }, [endModalOpen]);
 
+  // Demo Mode (App Store review): treat the closing photo as already satisfied so
+  // reviewers are never prompted for — or blocked by — a photo. Keeping photoState
+  // out of 'idle' makes every gate (auto-open, finish-block, modal CTA) pass.
+  useEffect(() => {
+    if (demoMode && photoState === 'idle') setPhotoState('saved');
+  }, [demoMode, photoState]);
+
   const finalizeReturn = () => {
     if (finalizingRef.current) return;
     finalizingRef.current = true;
@@ -332,8 +339,10 @@ export default function Play() {
   useEffect(() => {
     if (returnPhase !== 'awaiting_close') return;
     if (!active?.returnConfirmed) return;
+    // Demo Mode (App Store review): never require a closing photo — reviewers
+    // have nothing to photograph and shouldn't be blocked from finishing.
     const photoSatisfied =
-      !ImagePicker || photoState === 'saved' || photoState === 'failed';
+      demoMode || !ImagePicker || photoState === 'saved' || photoState === 'failed';
     if (!photoSatisfied) return;
     finalizeReturn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -539,6 +548,7 @@ export default function Play() {
   // re-opens it (it never becomes a dead button).
   useEffect(() => {
     if (returnPhase !== 'awaiting_close') return;
+    if (demoMode) return; // App Store review: never auto-open the camera
     if (!ImagePicker) return;
     if (photoState !== 'idle') return;
     if (autoPhotoFiredRef.current) return;
