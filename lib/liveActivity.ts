@@ -36,7 +36,14 @@ function iosVersionAtLeast(major: number, minor: number): boolean {
   return minN >= minor;
 }
 
-const SUPPORTED = iosVersionAtLeast(16, 2);
+// TEMP (launch): Live Activity + home widget are DISABLED. The widget-extension
+// bundle renders empty (a deep expo-widgets build-time bundling issue), and an
+// empty black Live Activity looks broken — worse than none. Flipping this to
+// true (after the widget bundling is fixed + a new build) re-enables everything;
+// every exported fn below already no-ops when !SUPPORTED.
+const WIDGETS_ENABLED = false;
+
+const SUPPORTED = WIDGETS_ENABLED && iosVersionAtLeast(16, 2);
 
 // A single live activity handle for the current session. We keep it here rather
 // than in the store so the store stays a pure state container.
