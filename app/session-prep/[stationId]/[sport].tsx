@@ -6,7 +6,8 @@ import { Feather } from '@expo/vector-icons';
 
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
-import { palette } from '@/constants/theme';
+import { palette, brand } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import {
   STATIONS,
   SPORT_LABELS,
@@ -51,10 +52,29 @@ const STEPS: StepConfig[] = [
   { key: 'return', icon: 'rotate-ccw', bg: palette.ink },
 ];
 
+// Per-sport ball tint for the "hazır mısın?" hero. Dark theme uses vivid
+// on-brand colors; light theme swaps to darker equivalents that stay legible
+// on a light background.
+function sportBallColor(sport: Sport, isDark: boolean): string {
+  switch (sport) {
+    case 'basketball':
+      return brand.coral; // coral on both themes
+    case 'football':
+      return isDark ? '#F4F3EE' : '#17181C'; // white on dark, ink on light
+    case 'volleyball':
+      return isDark ? '#9A9AA6' : '#6B6B72'; // gray on both themes
+    case 'tennis':
+      return isDark ? '#D6FB3C' : '#5E7E00'; // lime on dark, deep green on light
+    default:
+      return brand.coral;
+  }
+}
+
 export default function SessionPrep() {
   const { t } = useT();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isDark = useColorScheme() === 'dark';
 
   const { stationId, sport, mode, duration, gateId: reservedGateId } =
     useLocalSearchParams<{
@@ -635,8 +655,8 @@ export default function SessionPrep() {
           >
             <RiseIn delay={0}>
               <View style={{ alignItems: 'center' }}>
-                {/* Brand ball mark (app-icon mark) instead of a play triangle. */}
-                <SportBall sport="basketball" color={palette.coral} size={132} />
+                {/* The session's own sport ball, tinted per sport + theme. */}
+                <SportBall sport={sport} color={sportBallColor(sport, isDark)} size={132} />
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
@@ -706,9 +726,10 @@ export default function SessionPrep() {
           }}
         >
           {!unlocking && !softenForProximity && isLast && !isHowto ? (
-            // Start-mode "oyna" CTA — brand ball mark, not a play triangle.
+            // Start-mode "oyna" CTA — the sport ball (paper-tinted for contrast
+            // on the coral button), not a play triangle.
             <View style={{ marginRight: 10 }}>
-              <SportBall sport="basketball" color={palette.paper} size={22} />
+              <SportBall sport={sport} color={palette.paper} size={22} />
             </View>
           ) : (
             <Feather
