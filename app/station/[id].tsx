@@ -338,6 +338,11 @@ export default function StationDetail() {
 
         {/* Support — always reachable from the station screen so a user stuck
             at a station (no connection, jammed door, etc.) can get help fast. */}
+        {/* Demoted to a quiet underlined link (was a bordered pill). Keeps
+            destek reachable without stacking a second heavy button under OYNA +
+            rezerve, which is what made the CTA cluster feel crowded. Layout on
+            a STATIC inner View — function-form Pressable style is dropped on
+            this RN build. */}
         <Pressable
           onPress={async () => {
             await hx.tap();
@@ -345,32 +350,19 @@ export default function StationDetail() {
           }}
           accessibilityRole="button"
           accessibilityLabel="destek"
-          style={({ pressed }) => ({ marginTop: 28, alignSelf: 'center', opacity: pressed ? 0.6 : 1 })}
+          hitSlop={10}
+          style={({ pressed }) => ({ marginTop: 20, alignSelf: 'center', opacity: pressed ? 0.55 : 1 })}
         >
-          {/* Layout on a STATIC inner View — function-form Pressable style is
-              dropped on this RN build, which was collapsing the row to a
-              vertical stack (icon over text). */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 8,
-              paddingVertical: 11,
-              paddingHorizontal: 18,
-              borderRadius: 999,
-              backgroundColor: palette.surface + '08',
-              borderWidth: 1,
-              borderColor: palette.ink + '12',
-            }}
-          >
-            <Feather name="help-circle" size={16} color={palette.ink + '99'} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Feather name="help-circle" size={14} color={palette.ink + '80'} />
             <Text
               numberOfLines={1}
               style={{
-                fontFamily: 'Inter_500Medium',
-                color: palette.ink + 'b3',
-                fontSize: 13.5,
+                fontFamily: 'Inter_600SemiBold',
+                color: palette.ink + '99',
+                fontSize: 13,
                 letterSpacing: 0.2,
+                textDecorationLine: 'underline',
               }}
             >
               sorun mu var? destek al

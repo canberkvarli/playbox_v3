@@ -47,7 +47,7 @@ const SECTIONS: Array<{ heading: string; body: string }> = [
   },
   {
     heading: '10. iletişim',
-    body: 'sorular için destek@playbox.app — uygulama içinden de destek ekranından ulaşabilirsin.',
+    body: 'sorular için canberkvarli@gmail.com — uygulama içinden de destek ekranından ulaşabilirsin.',
   },
 ];
 

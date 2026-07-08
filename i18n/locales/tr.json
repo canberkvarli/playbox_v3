@@ -244,7 +244,9 @@
       "username": "kullanıcı adı",
       "city": "şehir",
       "edit_name": "ismini değiştir",
-      "edit_username": "kullanıcı adını değiştir"
+      "edit_username": "kullanıcı adını değiştir",
+      "edit_name_hint": "haritada ve profilinde görünen adın.",
+      "edit_username_hint": "arkadaşların seni bununla bulur."
     },
     "city": {
       "pick_title": "şehrini seç"

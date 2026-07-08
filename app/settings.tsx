@@ -122,6 +122,8 @@ function EditModal({
   title,
   initial,
   placeholder,
+  hint,
+  affix,
   onSave,
   onClose,
 }: {
@@ -129,6 +131,8 @@ function EditModal({
   title: string;
   initial: string;
   placeholder?: string;
+  hint?: string;
+  affix?: string;
   onSave: (v: string) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -153,6 +157,8 @@ function EditModal({
     }
   };
 
+  const canSave = !!value.trim() && !saving;
+
   return (
     <Modal
       visible={visible}
@@ -160,120 +166,168 @@ function EditModal({
       animationType="fade"
       onShow={() => setValue(initial)}
       onRequestClose={onClose}
+      statusBarTranslucent
     >
-      <Pressable
-        onPress={onClose}
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(0,0,0,0.45)',
-          justifyContent: 'center',
-          paddingHorizontal: 28,
-        }}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={onClose}
           style={{
-            backgroundColor: palette.surface,
-            borderWidth: 1,
-            borderColor: palette.border,
-            borderRadius: 22,
-            padding: 22,
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            justifyContent: 'center',
+            paddingHorizontal: 24,
           }}
         >
-          <Text
+          <Pressable
+            onPress={() => {}}
             style={{
-              fontFamily: 'Unbounded_800ExtraBold',
-              color: palette.fg,
-              fontSize: 22,
-              lineHeight: 26,
-              textTransform: 'uppercase',
+              backgroundColor: palette.surface,
+              borderWidth: 1,
+              borderColor: palette.border,
+              borderRadius: 26,
+              paddingHorizontal: 22,
+              paddingTop: 24,
+              paddingBottom: 20,
             }}
           >
-            {title}
-          </Text>
-          <TextInput
-            value={value}
-            onChangeText={setValue}
-            placeholder={placeholder}
-            placeholderTextColor={palette.muted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoFocus
-            style={{
-              marginTop: 16,
-              borderWidth: 1.5,
-              borderColor: palette.border,
-              borderRadius: 14,
-              paddingHorizontal: 14,
-              paddingVertical: 14,
-              color: palette.fg,
-              fontFamily: 'Inter_600SemiBold',
-              fontSize: 17,
-              backgroundColor: palette.surfaceAlt,
-            }}
-          />
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => ({
-                flex: 1,
-                opacity: pressed ? 0.6 : 1,
-              })}
+            <Text
+              style={{
+                fontFamily: 'Unbounded_800ExtraBold',
+                color: palette.fg,
+                fontSize: 19,
+                lineHeight: 24,
+                letterSpacing: 0.3,
+                textTransform: 'uppercase',
+              }}
             >
-              <View
+              {title}
+            </Text>
+            {hint ? (
+              <Text
                 style={{
-                  paddingVertical: 15,
-                  borderRadius: 999,
-                  borderWidth: 1.5,
-                  borderColor: palette.border,
-                  backgroundColor: palette.surfaceAlt,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontFamily: 'Inter_400Regular',
+                  color: palette.muted,
+                  fontSize: 13,
+                  lineHeight: 18,
+                  marginTop: 6,
                 }}
               >
+                {hint}
+              </Text>
+            ) : null}
+
+            {/* Input — the affix (@ for usernames) shares the bordered field
+                so it reads as one control rather than a floating prefix. */}
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: 18,
+                borderWidth: 1.5,
+                borderColor: palette.border,
+                borderRadius: 14,
+                backgroundColor: palette.surfaceAlt,
+                paddingHorizontal: 14,
+              }}
+            >
+              {affix ? (
                 <Text
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
+                    fontFamily: 'Inter_600SemiBold',
                     color: palette.muted,
-                    fontSize: 14,
+                    fontSize: 17,
+                    marginRight: 1,
                   }}
                 >
-                  {t('common.cancel')}
+                  {affix}
                 </Text>
-              </View>
-            </Pressable>
-            <Pressable
-              onPress={save}
-              disabled={saving || !value.trim()}
-              style={({ pressed }) => ({
-                flex: 1.4,
-                opacity: saving || !value.trim() ? 0.5 : pressed ? 0.92 : 1,
-              })}
-            >
-              <View
+              ) : null}
+              <TextInput
+                value={value}
+                onChangeText={setValue}
+                placeholder={placeholder}
+                placeholderTextColor={palette.muted}
+                autoCapitalize={affix ? 'none' : 'words'}
+                autoCorrect={false}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={save}
                 style={{
-                  backgroundColor: palette.volt,
-                  borderRadius: 999,
-                  paddingVertical: 15,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  flex: 1,
+                  paddingVertical: 14,
+                  color: palette.fg,
+                  fontFamily: 'Inter_600SemiBold',
+                  fontSize: 17,
                 }}
+              />
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  opacity: pressed ? 0.6 : 1,
+                })}
               >
-                <Text
+                <View
                   style={{
-                    fontFamily: 'Unbounded_800ExtraBold',
-                    color: palette.voltInk,
-                    fontSize: 14,
-                    textTransform: 'uppercase',
+                    paddingVertical: 15,
+                    borderRadius: 999,
+                    borderWidth: 1.5,
+                    borderColor: palette.border,
+                    backgroundColor: palette.surfaceAlt,
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {t('common.done')}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_700Bold',
+                      color: palette.muted,
+                      fontSize: 13,
+                    }}
+                  >
+                    {t('common.cancel')}
+                  </Text>
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={save}
+                disabled={!canSave}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  opacity: !canSave ? 0.45 : pressed ? 0.92 : 1,
+                })}
+              >
+                <View
+                  style={{
+                    backgroundColor: palette.volt,
+                    borderRadius: 999,
+                    paddingVertical: 15,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_800ExtraBold',
+                      color: palette.voltInk,
+                      fontSize: 13,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {t('common.done')}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -427,7 +481,7 @@ export default function Settings() {
         {
           text: t('settings.account.phone_change_cta'),
           onPress: () =>
-            Linking.openURL('mailto:destek@playbox.app?subject=Telefon numarası değişikliği').catch(() => {}),
+            Linking.openURL('mailto:canberkvarli@gmail.com?subject=Telefon numarası değişikliği').catch(() => {}),
         },
       ]
     );
@@ -533,7 +587,7 @@ export default function Settings() {
           onPress={() => router.back()}
           hitSlop={14}
           accessibilityLabel={t('common.back')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 16 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 20 })}
         >
           <View
             style={{
@@ -826,6 +880,7 @@ export default function Settings() {
         visible={editField === 'name'}
         title={t('settings.profile.edit_name')}
         initial={displayName}
+        hint={t('settings.profile.edit_name_hint')}
         onSave={saveName}
         onClose={() => setEditField(null)}
       />
@@ -834,6 +889,8 @@ export default function Settings() {
         title={t('settings.profile.edit_username')}
         initial={username}
         placeholder="mert_42"
+        affix="@"
+        hint={t('settings.profile.edit_username_hint')}
         onSave={saveUsername}
         onClose={() => setEditField(null)}
       />

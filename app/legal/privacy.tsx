@@ -35,7 +35,7 @@ const SECTIONS: Array<{ heading: string; body: string }> = [
   },
   {
     heading: '7. iletişim',
-    body: 'soruların için destek@playbox.app adresine yazabilirsin. kvkk başvuruları aynı adrese yapılabilir; 30 gün içinde yanıtlanır.',
+    body: 'soruların için canberkvarli@gmail.com adresine yazabilirsin. kvkk başvuruları aynı adrese yapılabilir; 30 gün içinde yanıtlanır.',
   },
 ];
 

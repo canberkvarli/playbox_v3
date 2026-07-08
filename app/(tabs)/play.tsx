@@ -877,38 +877,51 @@ export default function Play() {
         </View>
       </View>
 
-      {/* Two-up secondary actions — vivid tinted cards with an icon badge
-          on the left and a label on the right. Reads as actionable cards,
-          not faint outlined buttons. */}
-      {/* Outer wrapper Views own the flex:1 + margin, so the row really
-          splits 50/50 even on RN builds where Pressable function-style props
-          get dropped. */}
-      <View style={{ flexDirection: 'row', marginTop: 16 }}>
-        <View style={{ flex: 1, marginRight: 10 }}>
-          <ActionCard
-            icon="help-circle"
-            label="nasıl bitirilir"
-            sub="kapıyı kapat & bitir"
-            tint={palette.surface}
-            iconBg={palette.volt}
-            iconColor={palette.voltInk}
-            onPress={onHowToFinish}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <ActionCard
-            icon="phone"
-            label="destek"
-            sub="hemen yardım al"
-            tint={palette.surface}
-            iconBg={palette.surfaceAlt}
-            iconColor={palette.fg}
-            onPress={async () => {
-              await hx.tap();
-              router.push('/support');
-            }}
-          />
-        </View>
+      {/* Quiet utility line — replaces the two heavy info cards. Keeps
+          "nasıl bitirilir?" + destek reachable without eating the vertical
+          space that was forcing a scroll. */}
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginTop: 22,
+        }}
+      >
+        <Pressable
+          onPress={onHowToFinish}
+          hitSlop={8}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Feather name="help-circle" size={15} color={palette.muted} style={{ marginRight: 6 }} />
+          <Text style={{ fontFamily: 'Inter_600SemiBold', color: palette.muted, fontSize: 13.5 }}>
+            nasıl bitirilir?
+          </Text>
+        </Pressable>
+        <View style={{ width: 1, height: 14, backgroundColor: palette.border, marginHorizontal: 16 }} />
+        <Pressable
+          onPress={async () => {
+            await hx.tap();
+            router.push('/support');
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            flexDirection: 'row',
+            alignItems: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}
+        >
+          <Feather name="phone" size={14} color={palette.muted} style={{ marginRight: 6 }} />
+          <Text style={{ fontFamily: 'Inter_600SemiBold', color: palette.muted, fontSize: 13.5 }}>
+            destek
+          </Text>
+        </Pressable>
       </View>
 
       </ScrollView>
@@ -1915,91 +1928,5 @@ function FirmwareBanner({
         </Pressable>
       </View>
     </View>
-  );
-}
-
-/**
- * Tinted-card secondary action with an icon badge on the left and a label
- * on the right. Used for the "nasıl bitirilir" / "destek" pair under the
- * active-session card so they read as inviting cards instead of faint
- * outlined buttons.
- */
-function ActionCard({
-  icon,
-  label,
-  sub,
-  tint,
-  iconBg,
-  iconColor,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Feather>['name'];
-  label: string;
-  sub: string;
-  tint: string;
-  iconBg: string;
-  iconColor: string;
-  onPress: () => void | Promise<void>;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      hitSlop={6}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-    >
-      {/* Stacked layout — icon badge on top, label + sub below. Stacking
-          frees up the full card width for text so "nasıl bitirilir" /
-          "kapıyı kapat & bitir" don't get truncated by ellipsis. */}
-      <View
-        style={{
-          backgroundColor: tint,
-          borderRadius: 18,
-          borderWidth: 1,
-          borderColor: palette.border,
-          paddingVertical: 14,
-          paddingHorizontal: 14,
-          width: '100%',
-        }}
-      >
-        <View
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: iconBg,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 10,
-          }}
-        >
-          <Feather name={icon} size={20} color={iconColor} />
-        </View>
-        <Text
-          style={{
-            fontFamily: 'Unbounded_800ExtraBold',
-            color: palette.fg,
-            fontSize: 14,
-            letterSpacing: 0.3,
-            lineHeight: 18,
-            textTransform: 'uppercase',
-          }}
-        >
-          {label}
-        </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter_500Medium',
-            color: palette.muted,
-            fontSize: 12,
-            lineHeight: 16,
-            marginTop: 3,
-          }}
-        >
-          {sub}
-        </Text>
-      </View>
-    </Pressable>
   );
 }

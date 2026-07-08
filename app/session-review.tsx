@@ -13,12 +13,11 @@ import { useIyzico } from '@/lib/iyzico';
 import { SPORT_EMOJI } from '@/data/sports';
 import { PostSessionCardPrompt } from '@/components/PostSessionCardPrompt';
 import { BadFeedbackModal } from '@/components/BadFeedbackModal';
+import { AppRatingSheet } from '@/components/AppRatingSheet';
 import { GearReportSheet } from '@/components/GearReportSheet';
 import { costForMinutes } from '@/lib/pricing';
-import { isBadRating, submitFeedback } from '@/lib/feedback';
+import { isBadRating } from '@/lib/feedback';
 import { useT } from '@/hooks/useT';
-
-const FACES = ['😡', '😕', '😐', '🙂', '🤩'] as const;
 
 export default function SessionReview() {
   const insets = useSafeAreaInsets();
@@ -34,7 +33,9 @@ export default function SessionReview() {
   const { captureHold, releaseHold } = useIyzico();
 
   const [rating, setRating] = useState<number | null>(null);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false); // bad-rating reasons modal
+  const [ratingOpen, setRatingOpen] = useState(false); // emoji rating modal
+  const ratingDoneRef = useRef(false);
   const [cardPromptDismissed, setCardPromptDismissed] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const sideEffectsRan = useRef(false);
@@ -68,6 +69,28 @@ export default function SessionReview() {
     acknowledgeEnded();
     router.dismissAll();
     setTimeout(() => router.replace('/(tabs)/map'), 50);
+  };
+
+  // Leaving the review (card "sonra" or "haritaya dön") offers the emoji rating
+  // once, as a modal. Skipping it (backdrop/close) still returns to the map.
+  const openRatingOrLeave = () => {
+    if (ratingDoneRef.current) {
+      goHome();
+      return;
+    }
+    setRatingOpen(true);
+  };
+
+  const onRatingClose = (r: number | null) => {
+    ratingDoneRef.current = true;
+    setRatingOpen(false);
+    // Bad rating → chain the reasons modal, then leave from there.
+    if (isBadRating(r)) {
+      setRating(r);
+      setTimeout(() => setFeedbackOpen(true), 240);
+      return;
+    }
+    goHome();
   };
 
   if (!lastEnded) {
@@ -204,74 +227,15 @@ export default function SessionReview() {
         </Text>
       </RiseIn>
 
-      {/* Quick rating */}
-      <RiseIn delay={220}>
-        <View style={{ marginTop: 28 }}>
-          <Text
-            style={{
-              fontFamily: 'Unbounded_700Bold',
-              color: palette.ink,
-              fontSize: 17,
-              textAlign: 'center',
-            }}
-          >
-            nasıldı?
-          </Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 14,
-              marginTop: 16,
-            }}
-          >
-            {FACES.map((face, i) => {
-              const active = rating === i;
-              return (
-                <Pressable
-                  key={face}
-                  onPress={async () => {
-                    await hx.tap();
-                    setRating(i);
-                    // Save the rating immediately — fire and forget so the
-                    // UI never waits on the network.
-                    submitFeedback({ kind: 'session', rating: i }).catch(() => {});
-                    // For 😡 / 😕, open the bad-feedback modal so we can
-                    // capture WHY. The modal posts a separate row with
-                    // reasons + message.
-                    if (isBadRating(i)) {
-                      setTimeout(() => setFeedbackOpen(true), 240);
-                    }
-                  }}
-                  style={({ pressed }) => ({
-                    opacity: pressed ? 0.8 : 1,
-                    transform: [{ scale: active ? 1.1 : 1 }],
-                    marginHorizontal: 4,
-                  })}
-                >
-                  <View
-                    style={{
-                      width: 52,
-                      height: 52,
-                      borderRadius: 26,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: active ? palette.coral + '22' : palette.ink + '08',
-                      borderWidth: 1.5,
-                      borderColor: active ? palette.coral : palette.ink + '33',
-                    }}
-                  >
-                    <Text style={{ fontSize: 24 }}>{face}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </RiseIn>
 
       {showCardPrompt ? (
-        <PostSessionCardPrompt onSkip={() => setCardPromptDismissed(true)} />
+        <PostSessionCardPrompt
+          onSkip={() => {
+            setCardPromptDismissed(true);
+            // "sonra" no longer just vanishes — pop the rating modal.
+            openRatingOrLeave();
+          }}
+        />
       ) : null}
 
       {/* Report-a-problem. Skippable — the screen finishes via
@@ -306,7 +270,7 @@ export default function SessionReview() {
       {/* CTA */}
       <RiseIn delay={300}>
         <Pressable
-          onPress={goHome}
+          onPress={openRatingOrLeave}
           style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}
         >
           <View
@@ -340,11 +304,24 @@ export default function SessionReview() {
         </Pressable>
       </RiseIn>
 
+      {/* Emoji rating — now a modal, popped when the user leaves the review
+          (card "sonra" or "haritaya dön"). Closing/skipping returns to the map. */}
+      <AppRatingSheet
+        visible={ratingOpen}
+        kind="session"
+        title="nasıldı?"
+        sub="bu seans nasıl geçti?"
+        onClose={onRatingClose}
+      />
+
       <BadFeedbackModal
         visible={feedbackOpen}
         rating={rating ?? 0}
         kind="session"
-        onClose={() => setFeedbackOpen(false)}
+        onClose={() => {
+          setFeedbackOpen(false);
+          goHome();
+        }}
       />
 
       <GearReportSheet

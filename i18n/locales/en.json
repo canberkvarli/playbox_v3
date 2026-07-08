@@ -232,7 +232,9 @@
       "username": "username",
       "city": "city",
       "edit_name": "edit name",
-      "edit_username": "edit username"
+      "edit_username": "edit username",
+      "edit_name_hint": "shown on the map and your profile.",
+      "edit_username_hint": "friends find you with this."
     },
     "city": {
       "pick_title": "pick your city"

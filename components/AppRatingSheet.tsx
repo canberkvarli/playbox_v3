@@ -4,15 +4,21 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useT } from '@/hooks/useT';
 import { palette } from '@/constants/theme';
 import { hx } from '@/lib/haptics';
-import { isBadRating, submitFeedback } from '@/lib/feedback';
+import { isBadRating, submitFeedback, type FeedbackKind } from '@/lib/feedback';
 
 const FACES = ['😡', '😕', '😐', '🙂', '🤩'] as const;
 
 type Props = {
   visible: boolean;
+  /** Which feedback row this writes. Defaults to 'app' (the settings prompt);
+   *  pass 'session' for the post-session rating. */
+  kind?: FeedbackKind;
+  /** Optional copy overrides — defaults to the app-prompt strings. */
+  title?: string;
+  sub?: string;
   /** Called with the chosen rating, or `null` if the user dismissed.
    *  When the rating is "bad" (<= 1) the parent should open
-   *  <BadFeedbackModal kind="app" rating={...} /> next. */
+   *  <BadFeedbackModal rating={...} /> next. */
   onClose: (rating: number | null) => void;
 };
 
@@ -23,7 +29,7 @@ type Props = {
  *
  * For ratings >= 2 we briefly show a "thanks" beat then auto-close.
  */
-export function AppRatingSheet({ visible, onClose }: Props) {
+export function AppRatingSheet({ visible, kind = 'app', title, sub, onClose }: Props) {
   const { t } = useT();
   const [rating, setRating] = useState<number | null>(null);
   const [thanksVisible, setThanksVisible] = useState(false);
@@ -48,7 +54,7 @@ export function AppRatingSheet({ visible, onClose }: Props) {
     if (closingRef.current) return;
     await hx.tap();
     setRating(i);
-    submitFeedback({ kind: 'app', rating: i }).catch(() => {});
+    submitFeedback({ kind, rating: i }).catch(() => {});
 
     if (isBadRating(i)) {
       // Hand back so the parent can open the bad-feedback modal.
@@ -109,7 +115,7 @@ export function AppRatingSheet({ visible, onClose }: Props) {
                   textAlign: 'center',
                 }}
               >
-                {t('feedback.app_prompt.title')}
+                {title ?? t('feedback.app_prompt.title')}
               </Text>
               <Text
                 style={{
@@ -121,7 +127,7 @@ export function AppRatingSheet({ visible, onClose }: Props) {
                   textAlign: 'center',
                 }}
               >
-                {t('feedback.app_prompt.sub')}
+                {sub ?? t('feedback.app_prompt.sub')}
               </Text>
 
               <View

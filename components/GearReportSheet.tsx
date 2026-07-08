@@ -273,32 +273,39 @@ export function GearReportSheet({
                     }}
                     accessibilityRole="radio"
                     accessibilityState={{ selected }}
-                    style={({ pressed }) => ({
-                      paddingHorizontal: 14,
-                      paddingVertical: 10,
-                      borderRadius: 12,
-                      backgroundColor: selected ? palette.volt : palette.surfaceAlt,
-                      borderWidth: 1,
-                      borderColor: selected ? palette.volt : palette.border,
-                      opacity: pressed ? 0.7 : 1,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                    })}
+                    style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
                   >
-                    {selected ? (
-                      <Feather name="check" size={13} color={palette.voltInk} />
-                    ) : null}
-                    <Text
+                    {/* Visuals live on this STATIC inner View. Function-form
+                        Pressable styles are dropped on this RN build, which was
+                        erasing every chip's background + border and making the
+                        options read as plain bold text instead of buttons. */}
+                    <View
                       style={{
-                        fontFamily: 'Unbounded_700Bold',
-                        color: selected ? palette.voltInk : palette.fg,
-                        fontSize: 12,
-                        letterSpacing: 0.2,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 6,
+                        paddingHorizontal: 15,
+                        paddingVertical: 11,
+                        borderRadius: 999,
+                        backgroundColor: selected ? palette.volt : palette.surfaceAlt,
+                        borderWidth: 1.5,
+                        borderColor: selected ? palette.volt : palette.border,
                       }}
                     >
-                      {t(`gear.kind.${k}`)}
-                    </Text>
+                      {selected ? (
+                        <Feather name="check" size={13} color={palette.voltInk} />
+                      ) : null}
+                      <Text
+                        style={{
+                          fontFamily: 'Inter_600SemiBold',
+                          color: selected ? palette.voltInk : palette.fg,
+                          fontSize: 13.5,
+                          letterSpacing: 0.2,
+                        }}
+                      >
+                        {t(`gear.kind.${k}`)}
+                      </Text>
+                    </View>
                   </Pressable>
                 );
               })}
@@ -358,34 +365,38 @@ export function GearReportSheet({
                 onPress={pickPhoto}
                 accessibilityRole="button"
                 accessibilityLabel={t('gear.report.add_photo')}
-                style={({ pressed }) => ({
-                  marginTop: 16,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  borderRadius: 14,
-                  backgroundColor: palette.surfaceAlt,
-                  borderWidth: 1,
-                  borderColor: palette.border,
-                  opacity: pressed ? 0.7 : 1,
-                })}
+                style={({ pressed }) => ({ marginTop: 16, opacity: pressed ? 0.7 : 1 })}
               >
-                <Feather
-                  name={photoUri ? 'check-circle' : 'camera'}
-                  size={16}
-                  color={photoUri ? palette.volt : palette.fg}
-                />
-                <Text
+                {/* Static inner View so the bordered pill actually renders
+                    (function-form Pressable styles are dropped on this build). */}
+                <View
                   style={{
-                    fontFamily: 'Unbounded_700Bold',
-                    color: palette.fg,
-                    fontSize: 12,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                    paddingHorizontal: 14,
+                    paddingVertical: 13,
+                    borderRadius: 14,
+                    backgroundColor: palette.surfaceAlt,
+                    borderWidth: 1.5,
+                    borderColor: photoUri ? palette.volt : palette.border,
                   }}
                 >
-                  {photoUri ? t('gear.report.photo_added') : t('gear.report.add_photo')}
-                </Text>
+                  <Feather
+                    name={photoUri ? 'check-circle' : 'camera'}
+                    size={16}
+                    color={photoUri ? palette.volt : palette.fg}
+                  />
+                  <Text
+                    style={{
+                      fontFamily: 'Inter_600SemiBold',
+                      color: palette.fg,
+                      fontSize: 13.5,
+                    }}
+                  >
+                    {photoUri ? t('gear.report.photo_added') : t('gear.report.add_photo')}
+                  </Text>
+                </View>
               </Pressable>
             ) : null}
 
@@ -428,70 +439,79 @@ export function GearReportSheet({
             ) : null}
           </ScrollView>
 
-          {/* Actions */}
+          {/* Actions — flex lives on the static outer wrappers and the pill
+              visuals on static inner Views, because function-form Pressable
+              styles (flex + background + border) are dropped on this RN build.
+              That drop was why İPTAL/GÖNDER rendered as bare text, not buttons. */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 18 }}>
-            <Pressable
-              onPress={dismiss}
-              accessibilityRole="button"
-              accessibilityLabel={t('common.cancel')}
-              style={({ pressed }) => ({
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 999,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'transparent',
-                borderWidth: 1.5,
-                borderColor: palette.border,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.fg,
-                  fontSize: 13,
-                  letterSpacing: 1.2,
-                  textTransform: 'uppercase',
-                }}
+            <View style={{ flex: 1 }}>
+              <Pressable
+                onPress={dismiss}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.cancel')}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                {t('common.cancel')}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={submit}
-              disabled={status === 'submitting' || status === 'ok'}
-              accessibilityRole="button"
-              accessibilityLabel={t('gear.report.submit')}
-              style={({ pressed }) => ({
-                flex: 1,
-                paddingVertical: 14,
-                borderRadius: 999,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: palette.volt,
-                opacity:
-                  status === 'submitting' || status === 'ok'
-                    ? 0.4
-                    : pressed
-                    ? 0.85
-                    : 1,
-              })}
-            >
-              <Text
-                style={{
-                  fontFamily: 'Inter_600SemiBold',
-                  color: palette.voltInk,
-                  fontSize: 13,
-                  letterSpacing: 1.2,
-                  textTransform: 'uppercase',
-                }}
+                <View
+                  style={{
+                    paddingVertical: 15,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: palette.surfaceAlt,
+                    borderWidth: 1.5,
+                    borderColor: palette.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_700Bold',
+                      color: palette.muted,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {t('common.cancel')}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Pressable
+                onPress={submit}
+                disabled={status === 'submitting' || status === 'ok'}
+                accessibilityRole="button"
+                accessibilityLabel={t('gear.report.submit')}
+                style={({ pressed }) => ({
+                  opacity:
+                    status === 'submitting' || status === 'ok' ? 0.5 : pressed ? 0.9 : 1,
+                })}
               >
-                {status === 'submitting'
-                  ? t('gear.report.submitting')
-                  : t('gear.report.submit')}
-              </Text>
-            </Pressable>
+                <View
+                  style={{
+                    paddingVertical: 15,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: palette.volt,
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_800ExtraBold',
+                      color: palette.voltInk,
+                      fontSize: 13,
+                      letterSpacing: 0.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {status === 'submitting'
+                      ? t('gear.report.submitting')
+                      : t('gear.report.submit')}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>

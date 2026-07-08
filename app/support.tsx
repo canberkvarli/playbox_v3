@@ -34,29 +34,30 @@ if (
 
 const PHONES = ['+90 538 540 21 61', '+90 553 024 26 25'];
 const WHATSAPP_NUMBER = '905385402161';
-const SUPPORT_EMAIL = 'destek@playbox.app';
+// Primary support inbox (CTO). Secondary/escalation: ukayapinar32@gmail.com (CEO).
+const SUPPORT_EMAIL = 'canberkvarli@gmail.com';
 
 type Faq = { q: string; a: string };
 const FAQ_ITEMS: Faq[] = [
   {
-    q: 'kapı açılmıyor, ne yapmalıyım?',
-    a: 'önce uygulamada seansın aktif olduğunu doğrula. yakındaysan "tekrar dene"ye bas. sorun devam ederse whatsapp ile bize yaz.',
+    q: 'kapı açılmıyor',
+    a: 'dolabın hemen yanına geç (bluetooth açık olsun) ve "kapıyı aç"a tekrar bas. birkaç saniye içinde açılmazsa whatsapp\'tan yaz — uzaktan açabiliriz.',
   },
   {
-    q: 'iade ettim ama seans bitmiyor?',
-    a: 'ekipmanı kapattığından emin ol ve uygulamadan "seansı bitir" ile onayla. eğer ekipman yerindeyse ve kilit kapalıysa "evet, kapattım" tuşuna bas.',
+    q: 'ekipmanı bıraktım ama seans bitmiyor',
+    a: 'ekipmanı dolaba koyup kapağı ittir, sonra uygulamadan "seansı bitir"e bas. kilit kapandığında sayaç durur ve ücret kesinleşir.',
   },
   {
     q: 'ücret nasıl hesaplanıyor?',
-    a: 'dakika başı ücretlendirme. planladığın sürenin üstüne geçersen her ek dakika otomatik eklenir. kartın bittiğinde toplam tutar tek seferde tahsil edilir.',
+    a: 'dakika başına. planladığın süreyi aşarsan her ek dakika otomatik eklenir; seans bitince toplam tutar kartından tek seferde çekilir.',
   },
   {
-    q: 'ekipman bozuk/eksik, ne yapmam lazım?',
-    a: 'hemen whatsapp veya telefon ile bize ulaş. mağdur kalmaman için hızlıca çözüyoruz.',
+    q: 'ekipman hasarlı ya da eksik',
+    a: 'seans ekranındaki "bir sorun bildir"den fotoğrafıyla ilet, ya da whatsapp\'tan yaz. o parça için ücret almayız, hemen ilgileniriz.',
   },
   {
     q: 'rezervasyonumu iptal edebilir miyim?',
-    a: 'evet. rezervasyonlar sekmesinden istediğin zaman iptal edebilirsin. ilk 2 dakika içinde iptal ücretsizdir.',
+    a: 'evet, rezervasyonlar sekmesinden. ilk 2 dakika içinde iptal ücretsiz.',
   },
 ];
 
