@@ -3,6 +3,7 @@ import { Feather } from '@expo/vector-icons';
 import { Platform, View } from 'react-native';
 
 import { palette } from '@/constants/theme';
+import { SportBall } from '@/components/ui/SportBall';
 import { useT } from '@/hooks/useT';
 import { ActiveSessionBanner } from '@/components/ActiveSessionBanner';
 import { MenuDrawer } from '@/components/MenuDrawer';
@@ -41,7 +42,9 @@ export default function TabLayout() {
           name="play"
           options={{
             title: t('tabs.play'),
-            tabBarIcon: ({ color, size }) => <Feather name="play" size={size} color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <SportBall sport="basketball" color={color as string} size={size + 2} />
+            ),
           }}
         />
         <Tabs.Screen

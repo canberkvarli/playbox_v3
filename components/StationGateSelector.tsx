@@ -932,28 +932,30 @@ export function StationGateSelector({
       {!!selected && stockOk && !!selectedGate && !sessionAtThisStation && !sessionAtOtherStation ? (
         <Pressable
           onPress={onReservePress}
-          style={({ pressed }) => ({ marginTop: 18, alignSelf: 'center', opacity: pressed ? 0.6 : 1 })}
+          style={({ pressed }) => ({ marginTop: 16, opacity: pressed ? 0.7 : 1 })}
         >
+          {/* Full-width outlined secondary that mirrors the OYNA pill (999 radius)
+              so the two read as a clean pair — was a tiny cramped pill jammed
+              right under the CTA. */}
           <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              paddingVertical: 7,
-              paddingHorizontal: 12,
-              borderRadius: 10,
+              paddingVertical: 16,
+              borderRadius: 999,
               borderWidth: 1.5,
               borderColor: palette.ink + '2e',
-              backgroundColor: palette.paper,
+              backgroundColor: 'transparent',
             }}
           >
-            <Feather name="clock" size={12} color={palette.ink + 'aa'} style={{ marginRight: 6 }} />
+            <Feather name="clock" size={16} color={palette.ink} style={{ marginRight: 8 }} />
             <Text
               style={{
                 fontFamily: 'Unbounded_700Bold',
-                color: palette.ink + 'aa',
-                fontSize: 11.5,
-                letterSpacing: 0.2,
+                color: palette.ink,
+                fontSize: 14,
+                letterSpacing: 0.3,
               }}
             >
               rezerve et

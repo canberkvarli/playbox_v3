@@ -1,5 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { SportBall } from '@/components/ui/SportBall';
 
 import { useT } from '@/hooks/useT';
 import { palette } from '@/constants/theme';
@@ -275,7 +276,9 @@ export function StationDetailPanel({ station, onSportTap, onReserveTap, headerSl
                               elevation: 6,
                             }}
                           >
-                            <Feather name="play" size={14} color={palette.voltInk} style={{ marginRight: 8 }} />
+                            <View style={{ marginRight: 8 }}>
+                              <SportBall sport="basketball" color={palette.voltInk} size={16} />
+                            </View>
                             <Text
                               style={{
                                 fontFamily: 'Unbounded_800ExtraBold',

@@ -336,40 +336,52 @@ export default function StationDetail() {
             dev build (real BLE) for hardware bring-up. */}
         {__DEV__ ? <DevServoButtons stationId={station.id} /> : null}
 
-        {/* Support — always reachable from the station screen so a user stuck
-            at a station (no connection, jammed door, etc.) can get help fast. */}
-        {/* Demoted to a quiet underlined link (was a bordered pill). Keeps
-            destek reachable without stacking a second heavy button under OYNA +
-            rezerve, which is what made the CTA cluster feel crowded. Layout on
-            a STATIC inner View — function-form Pressable style is dropped on
-            this RN build. */}
-        <Pressable
-          onPress={async () => {
-            await hx.tap();
-            router.push('/support');
-          }}
-          accessibilityRole="button"
-          accessibilityLabel="destek"
-          hitSlop={10}
-          style={({ pressed }) => ({ marginTop: 20, alignSelf: 'center', opacity: pressed ? 0.55 : 1 })}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Feather name="help-circle" size={14} color={palette.ink + '80'} />
+      </Animated.ScrollView>
+
+      {/* Support — pinned to the bottom-right corner as a subtle floating link
+          so a user stuck at a station can always reach help without it crowding
+          the OYNA cluster. Positioning lives on the STATIC Pressable style
+          (function-form styles are dropped on this RN build); the pressed
+          opacity uses the function-child instead. */}
+      <Pressable
+        onPress={async () => {
+          await hx.tap();
+          router.push('/support');
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="sorun mu var? destek al"
+        hitSlop={10}
+        style={{ position: 'absolute', right: 16, bottom: insets.bottom + 12 }}
+      >
+        {({ pressed }) => (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              paddingVertical: 9,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: palette.surface + 'e6',
+              borderWidth: 1,
+              borderColor: palette.ink + '1f',
+              opacity: pressed ? 0.55 : 1,
+            }}
+          >
+            <Feather name="help-circle" size={14} color={palette.ink + '99'} />
             <Text
-              numberOfLines={1}
               style={{
                 fontFamily: 'Inter_600SemiBold',
-                color: palette.ink + '99',
-                fontSize: 13,
+                color: palette.ink + 'b3',
+                fontSize: 12.5,
                 letterSpacing: 0.2,
-                textDecorationLine: 'underline',
               }}
             >
-              sorun mu var? destek al
+              destek
             </Text>
           </View>
-        </Pressable>
-      </Animated.ScrollView>
+        )}
+      </Pressable>
 
       <DirectionsSheet
         dest={station ? { name: station.name, lat: station.lat, lng: station.lng } : null}

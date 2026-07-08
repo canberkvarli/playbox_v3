@@ -21,6 +21,7 @@ import { useDevStore } from '@/stores/devStore';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
+import { SportBall } from '@/components/ui/SportBall';
 import { CardRequiredSheet } from '@/components/CardRequiredSheet';
 import { RiseIn } from '@/components/RiseIn';
 import { scheduleSessionEndAlerts } from '@/lib/sessionNotifications';
@@ -634,28 +635,8 @@ export default function SessionPrep() {
           >
             <RiseIn delay={0}>
               <View style={{ alignItems: 'center' }}>
-                <View
-                  style={{
-                    width: 132,
-                    height: 132,
-                    borderRadius: 66,
-                    backgroundColor: palette.coral,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: palette.coral,
-                    shadowOffset: { width: 0, height: 10 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 20,
-                    elevation: 10,
-                  }}
-                >
-                  <Feather
-                    name="play"
-                    size={58}
-                    color={palette.ink}
-                    style={{ marginLeft: 6 }}
-                  />
-                </View>
+                {/* Brand ball mark (app-icon mark) instead of a play triangle. */}
+                <SportBall sport="basketball" color={palette.coral} size={132} />
                 <Text
                   style={{
                     fontFamily: 'Unbounded_800ExtraBold',
@@ -724,22 +705,27 @@ export default function SessionPrep() {
             elevation: 10,
           }}
         >
-          <Feather
-            name={
-              unlocking
-                ? 'unlock'
-                : softenForProximity
-                ? 'map-pin'
-                : isLast && isHowto
-                ? 'check'
-                : isLast
-                ? 'play'
-                : 'arrow-right'
-            }
-            size={22}
-            color={unlocking ? palette.ink : palette.paper}
-            style={{ marginRight: 10 }}
-          />
+          {!unlocking && !softenForProximity && isLast && !isHowto ? (
+            // Start-mode "oyna" CTA — brand ball mark, not a play triangle.
+            <View style={{ marginRight: 10 }}>
+              <SportBall sport="basketball" color={palette.paper} size={22} />
+            </View>
+          ) : (
+            <Feather
+              name={
+                unlocking
+                  ? 'unlock'
+                  : softenForProximity
+                  ? 'map-pin'
+                  : isLast && isHowto
+                  ? 'check'
+                  : 'arrow-right'
+              }
+              size={22}
+              color={unlocking ? palette.ink : palette.paper}
+              style={{ marginRight: 10 }}
+            />
+          )}
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
