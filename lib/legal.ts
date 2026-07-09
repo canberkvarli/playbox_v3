@@ -1,8 +1,7 @@
 import * as WebBrowser from 'expo-web-browser';
 
-// Hosted legal pages (playbox-web repo). Temporary Vercel alias —
-// TODO: swap to https://playboxsport.com once the domain is purchased and attached.
-export const LEGAL_BASE_URL = 'https://playbox-web-iota.vercel.app';
+// Hosted legal pages (playbox-web repo), served from the production domain.
+export const LEGAL_BASE_URL = 'https://playboxsport.com';
 
 export const LEGAL_URLS = {
   kvkk: `${LEGAL_BASE_URL}/kvkk`,
