@@ -47,43 +47,6 @@ const PROFILE_META = {
 
 // --- Sub-components ---------------------------------------------------------
 
-// One numbered "how it works" row for the first-time empty state.
-function StepRow({ n, text }: { n: string; text: string }) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        backgroundColor: palette.surface + '0d',
-        borderWidth: 1,
-        borderColor: palette.border,
-        borderRadius: 16,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-      }}
-    >
-      <View
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: 16,
-          backgroundColor: palette.volt,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Text style={{ fontFamily: 'Unbounded_800ExtraBold', color: palette.voltInk, fontSize: 14 }}>
-          {n}
-        </Text>
-      </View>
-      <Text style={{ flex: 1, fontFamily: 'Inter_600SemiBold', color: palette.fg, fontSize: 14, lineHeight: 19 }}>
-        {text}
-      </Text>
-    </View>
-  );
-}
-
 function StatCard({
   label,
   value,
@@ -279,13 +242,13 @@ export default function Profile() {
             }}
             accessibilityRole="button"
             accessibilityLabel="adı düzenle"
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginTop: 20,
-              opacity: pressed ? 0.65 : 1,
-            })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
           >
+            {/* Layout on a STATIC inner View — function-form Pressable styles are
+                dropped on this RN build, which was killing flexDirection:'row'
+                and stacking the avatar ON TOP of the username (the "crowded"
+                header). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 20 }}>
             <View
               style={{
                 width: 56,
@@ -294,7 +257,7 @@ export default function Profile() {
                 backgroundColor: palette.volt,
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginRight: 20,
+                marginRight: 16,
               }}
             >
               <Text
@@ -339,6 +302,7 @@ export default function Profile() {
                   month: PROFILE_META.joinedMonth,
                 })}
               </Text>
+            </View>
             </View>
           </Pressable>
         </RiseIn>
@@ -395,15 +359,7 @@ export default function Profile() {
                 {t('profile.empty.subtitle')}
               </Text>
 
-              {/* 3-step how-it-works — gives the empty screen purpose and teaches
-                  the flow to a first-timer. */}
-              <View style={{ width: '100%', marginTop: 26, gap: 10 }}>
-                <StepRow n="1" text="haritadan sana en yakın istasyonu bul" />
-                <StepRow n="2" text="oyna'ya bas, kapı senin için açılsın" />
-                <StepRow n="3" text="ekipmanı al, oyna, işin bitince iade et" />
-              </View>
-
-              <View style={{ width: '100%', marginTop: 24 }}>
+              <View style={{ width: '100%', marginTop: 30 }}>
                 <Button
                   label={t('profile.empty.cta')}
                   onPress={async () => {
