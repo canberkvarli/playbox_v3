@@ -38,10 +38,13 @@ export function SportBall({ sport, color, size = 56 }: Props) {
         </>
       )}
       {sport === 'volleyball' && (
+        // Seams kept inside the r=40 rim: every start/control/end point sits
+        // within ~r=34 of centre, so (a quadratic Bézier stays in its points'
+        // convex hull) the 6px stroke can't cross the circle edge.
         <>
-          <Path d="M50 11 Q26 40 32 89" {...common} />
-          <Path d="M50 11 Q74 40 68 89" {...common} />
-          <Path d="M13 56 Q50 44 87 60" {...common} />
+          <Path d="M50 16 Q27 44 40 80" {...common} />
+          <Path d="M50 16 Q73 44 60 80" {...common} />
+          <Path d="M18 52 Q50 39 82 58" {...common} />
         </>
       )}
       {sport === 'tennis' && (
