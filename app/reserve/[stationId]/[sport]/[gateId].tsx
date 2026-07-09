@@ -11,7 +11,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 
-import { palette } from '@/constants/theme';
+import { palette, brand } from '@/constants/theme';
+import { Button } from '@/components/ui';
+import { SportBall } from '@/components/ui/SportBall';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { hx } from '@/lib/haptics';
 import { useT } from '@/hooks/useT';
 import { STATIONS, SPORT_LABELS, type Sport } from '@/data/stations.seed';
@@ -36,6 +39,23 @@ function gateLabel(gateId: string): string {
   return `K${gateId.slice(-1)}`;
 }
 
+// Per-sport ball tint (mirrors the session-prep hero). Dark = vivid, light =
+// darker equivalents that stay legible on a light background.
+function sportBallColor(sport: Sport, isDark: boolean): string {
+  switch (sport) {
+    case 'basketball':
+      return brand.coral;
+    case 'football':
+      return isDark ? '#F4F3EE' : '#17181C';
+    case 'volleyball':
+      return isDark ? '#9A9AA6' : '#6B6B72';
+    case 'tennis':
+      return isDark ? '#D6FB3C' : '#5E7E00';
+    default:
+      return brand.coral;
+  }
+}
+
 type SlideSpec = {
   iconName: keyof typeof Feather.glyphMap;
   iconBg: string;
@@ -54,6 +74,7 @@ export default function ReserveFlow() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useT();
+  const isDark = useColorScheme() === 'dark';
   const params = useLocalSearchParams<{ stationId: string; sport: string; gateId: string }>();
 
   const stationId = String(params.stationId);
@@ -169,51 +190,94 @@ export default function ReserveFlow() {
     return (
       <View style={{ flex: 1, backgroundColor: palette.paper }}>
         <Header onBack={onClose} />
-        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingHorizontal: 24,
+            paddingBottom: 12,
+          }}
+        >
+          {/* Hero — the sport's own ball, tinted per sport + theme. */}
+          <View style={{ alignItems: 'center', marginBottom: 22 }}>
+            <SportBall sport={sport} color={sportBallColor(sport, isDark)} size={104} />
+          </View>
+
+          <Text
+            style={{
+              fontFamily: 'JetBrainsMono_700Bold',
+              color: palette.ink + '80',
+              fontSize: 12,
+              letterSpacing: 3,
+              textTransform: 'uppercase',
+              textAlign: 'center',
+            }}
+          >
+            rezervasyon
+          </Text>
           <Text
             style={{
               fontFamily: 'Unbounded_800ExtraBold',
               color: palette.ink,
-              fontSize: 32,
-              lineHeight: 38,
+              fontSize: 30,
+              lineHeight: 36,
+              textAlign: 'center',
+              marginTop: 8,
             }}
           >
             {station?.name ?? stationId}
           </Text>
-          <Text
-            style={{
-              fontFamily: 'Inter_600SemiBold',
-              color: palette.ink + 'aa',
-              fontSize: 15,
-              marginTop: 6,
-            }}
-          >
-            {SPORT_LABELS[sport] ?? sport} · {gateLabel(gateId)}
-          </Text>
 
+          {/* sport · gate chip */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 14 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 999,
+                backgroundColor: palette.surface + '1a',
+                borderWidth: 1,
+                borderColor: palette.ink + '1a',
+              }}
+            >
+              <Text style={{ fontFamily: 'Unbounded_700Bold', color: palette.ink, fontSize: 12, letterSpacing: 0.3 }}>
+                {SPORT_LABELS[sport] ?? sport}
+              </Text>
+              <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: palette.ink + '55' }} />
+              <Text style={{ fontFamily: 'Unbounded_700Bold', color: palette.voltText, fontSize: 12, letterSpacing: 0.3 }}>
+                {gateLabel(gateId)}
+              </Text>
+            </View>
+          </View>
+
+          {/* What reserving means — two clear rows instead of one gray line. */}
           <View
             style={{
               marginTop: 28,
-              backgroundColor: palette.surface + '08',
-              borderRadius: 16,
-              padding: 18,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: palette.ink + '14',
+              backgroundColor: palette.surface + '0d',
+              overflow: 'hidden',
             }}
           >
-            <Text
-              style={{
-                fontFamily: 'Inter_600SemiBold',
-                color: palette.ink,
-                fontSize: 14,
-                lineHeight: 20,
-              }}
-            >
-              {t('reservations.mini_confirm.summary', {
-                amount: holdAmount,
-                min: lockMin,
-              })}
-            </Text>
+            <InfoRow
+              icon="credit-card"
+              title={`₺${holdAmount} geçici bloke`}
+              sub="onaylayınca kartından bloke edilir, süre bitince çözülür"
+            />
+            <View style={{ height: 1, backgroundColor: palette.ink + '12', marginLeft: 70 }} />
+            <InfoRow
+              icon="clock"
+              title={`${lockMin} dk senin için kilitli`}
+              sub="kapı bu süre boyunca başkasına açılmaz"
+            />
           </View>
-        </View>
+        </ScrollView>
 
         <Footer
           insets={insets}
@@ -225,10 +289,11 @@ export default function ReserveFlow() {
             />
           }
           right={
-            <PrimaryButton
+            <Button
               label={t('reservations.mini_confirm.confirm')}
               onPress={onConfirm}
               loading={submitting}
+              size="md"
             />
           }
         />
@@ -457,6 +522,50 @@ function Slide({
       >
         {body}
       </Text>
+    </View>
+  );
+}
+
+function InfoRow({
+  icon,
+  title,
+  sub,
+}: {
+  icon: keyof typeof Feather.glyphMap;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16 }}>
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: palette.volt + '1f',
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 14,
+        }}
+      >
+        <Feather name={icon} size={18} color={palette.voltText} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: 'Unbounded_700Bold', color: palette.ink, fontSize: 14, letterSpacing: 0.2 }}>
+          {title}
+        </Text>
+        <Text
+          style={{
+            fontFamily: 'Inter_500Medium',
+            color: palette.ink + '99',
+            fontSize: 12.5,
+            lineHeight: 17,
+            marginTop: 3,
+          }}
+        >
+          {sub}
+        </Text>
+      </View>
     </View>
   );
 }
