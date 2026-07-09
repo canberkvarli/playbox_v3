@@ -53,3 +53,6 @@ firmware/*/station_secret.h
 
 # Claude Code local worktrees / session data
 .claude/
+
+# Google Play submit service account key (never commit)
+google-play-key.json
