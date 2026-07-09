@@ -275,6 +275,8 @@ export default function Profile() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text
                   numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.55}
                   style={{
                     flexShrink: 1,
                     fontFamily: 'Unbounded_800ExtraBold',
@@ -324,11 +326,11 @@ export default function Profile() {
                 }}
               >
                 <View style={{ transform: [{ rotate: '-12deg' }], marginRight: -6 }}>
-                  <SportBall sport="football" color={palette.fg} size={52} />
+                  <SportBall sport="football" size={52} />
                 </View>
                 <SportBall sport="basketball" color={brand.coral} size={80} />
                 <View style={{ transform: [{ rotate: '12deg' }], marginLeft: -6 }}>
-                  <SportBall sport="tennis" color={palette.volt} size={52} />
+                  <SportBall sport="tennis" size={52} />
                 </View>
               </View>
 

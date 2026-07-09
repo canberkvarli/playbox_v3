@@ -904,6 +904,14 @@ function HomeBottomSheet({
     );
   }, [stations, userLoc]);
 
+  // Sport filter HARD-filters the drawer list (was only a soft 0.25 dim on the
+  // rows, which read as "filtering isn't working"). Tapping a sport chip now
+  // actually narrows the list + count to stations offering that sport.
+  const visibleStations = useMemo(
+    () => (filter === 'all' ? sorted : sorted.filter((s) => s.sports.includes(filter as Sport))),
+    [sorted, filter],
+  );
+
   // Live open/closed for the drawer rows — driven by real BLE sightings, not
   // the static `availableNow` seed (which falsely showed dummy stations "açık").
   const nearbyIds = useNearbyIds();
@@ -1136,7 +1144,7 @@ function HomeBottomSheet({
                 textTransform: 'uppercase',
               }}
             >
-              {sorted.length} {t('map.section.station_count')}
+              {visibleStations.length} {t('map.section.station_count')}
             </Text>
           </View>
         ) : null}
@@ -1150,10 +1158,10 @@ function HomeBottomSheet({
         }}
       >
         {segment === 'stations' ? (
-          sorted.length === 0 ? (
+          visibleStations.length === 0 ? (
             <EmptyState icon="map-pin" title={t('map.empty.no_stations')} />
           ) : (
-            sorted.map((s) => {
+            visibleStations.map((s) => {
               const km = userLoc
                 ? haversineKm(userLoc, { lat: s.lat, lng: s.lng })
                 : null;

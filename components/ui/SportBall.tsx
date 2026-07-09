@@ -1,16 +1,42 @@
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import type { Sport } from '@/data/stations.seed';
+import { brand } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
-type Props = { sport: Sport; color: string; size?: number };
+type Props = { sport: Sport; color?: string; size?: number };
 
 /**
- * Abstract volt line-art ball per sport (monochrome, single stroke color).
- * Basketball reuses the app-icon mark. Drawn on a 100×100 viewBox.
+ * Per-sport real-world ball colour. Dark theme uses the vivid on-brand tint;
+ * light theme swaps to a darker equivalent that stays legible on a light
+ * surface. Mirrors the hero tint used in session-prep / reserve so every ball
+ * across the app matches.
+ */
+function defaultSportColor(sport: Sport, isDark: boolean): string {
+  switch (sport) {
+    case 'basketball':
+      return brand.coral; // basketball orange/coral, both themes
+    case 'football':
+      return isDark ? '#F4F3EE' : '#17181C'; // white on dark, ink on light
+    case 'volleyball':
+      return isDark ? '#9A9AA6' : '#6B6B72'; // classic white ball → neutral gray
+    case 'tennis':
+      return isDark ? '#D6FB3C' : '#5E7E00'; // optic lime on dark, deep green on light
+    default:
+      return brand.coral;
+  }
+}
+
+/**
+ * Abstract line-art ball per sport, drawn on a 100×100 viewBox. When `color`
+ * is omitted each ball renders in its real-world colour (theme-aware). Pass
+ * `color` to override — e.g. muted for a sold-out row, or voltInk on a volt chip.
  */
 export function SportBall({ sport, color, size = 56 }: Props) {
+  const isDark = useColorScheme() === 'dark';
+  const stroke = color ?? defaultSportColor(sport, isDark);
   const common = {
-    stroke: color,
+    stroke,
     strokeWidth: 6,
     fill: 'none',
     strokeLinecap: 'round' as const,

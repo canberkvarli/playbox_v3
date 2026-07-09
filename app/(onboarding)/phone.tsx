@@ -228,19 +228,7 @@ export default function Phone() {
         >
           {t('onb.phone.invalid')}
         </Text>
-      ) : (
-        <Text
-          style={{
-            color: palette.muted,
-            fontSize: 12,
-            marginTop: 8,
-            marginLeft: 4,
-            fontFamily: 'Inter_600SemiBold',
-          }}
-        >
-          türkiye mobil numarası
-        </Text>
-      )}
+      ) : null}
 
       <View style={{ flex: 1 }} />
 

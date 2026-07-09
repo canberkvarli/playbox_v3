@@ -21,11 +21,6 @@
       "sub": "ball, racket, net — all within walking distance.",
       "cta": "continue"
     },
-    "intro_social": {
-      "title": "keep a streak\nwith friends",
-      "sub": "weekly city leaderboards. follow, beat, flex.",
-      "cta": "let's go"
-    },
     "perms": {
       "title": "a few permissions",
       "location": { "title": "location", "why": "to show nearby stations and unlock the gate" },

@@ -82,7 +82,7 @@ export default function IntroMap() {
   });
   const onContinue = useGuardedPress(async () => {
     await hx.press();
-    router.push('/(onboarding)/intro-social');
+    router.push('/(onboarding)/permissions');
   });
 
   return (
@@ -118,7 +118,7 @@ export default function IntroMap() {
             <Feather name="arrow-left" size={20} color={palette.fg} />
           </View>
         </Pressable>
-        <OnboardingProgress total={3} active={1} />
+        <OnboardingProgress total={2} active={1} />
       </View>
 
       <RiseIn delay={0}>

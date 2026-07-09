@@ -12,10 +12,7 @@ import { Button } from '@/components/ui';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
-
-function defaultUsername(userId: string): string {
-  return `oyuncu_${userId.slice(-6)}`;
-}
+import { defaultUsername } from '@/lib/randomName';
 
 export default function Handle() {
   const { t } = useT();

@@ -282,13 +282,16 @@ function ActiveReservationCard({
         </View>
       </View>
 
-      {/* Action row */}
-      <View style={{ flexDirection: 'row', marginTop: 18 }}>
+      {/* Action row. gap (not marginRight) + minWidth:0 on the primary and
+          flexShrink:0 on cancel so the wide Unbounded label can't overflow its
+          slot and paint over the cancel button. Both share paddingVertical so
+          they're the same height and vertically aligned. */}
+      <View style={{ flexDirection: 'row', alignItems: 'stretch', marginTop: 18, gap: 10 }}>
         <Pressable
           onPress={onOpenStation}
           style={({ pressed }) => ({
             flex: 1,
-            marginRight: 10,
+            minWidth: 0,
             opacity: pressed ? 0.85 : 1,
           })}
         >
@@ -297,6 +300,7 @@ function ActiveReservationCard({
               backgroundColor: palette.volt,
               borderRadius: 999,
               paddingVertical: 14,
+              paddingHorizontal: 16,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
@@ -304,6 +308,7 @@ function ActiveReservationCard({
           >
             <Feather name="navigation" size={14} color={palette.voltInk} style={{ marginRight: 8 }} />
             <Text
+              numberOfLines={1}
               style={{
                 fontFamily: 'Unbounded_800ExtraBold',
                 color: palette.voltInk,
@@ -319,7 +324,9 @@ function ActiveReservationCard({
           onPress={onCancel}
           disabled={cancelling}
           style={({ pressed }) => ({
-            paddingHorizontal: 18,
+            flexShrink: 0,
+            paddingHorizontal: 20,
+            paddingVertical: 14,
             borderRadius: 999,
             borderWidth: 1.5,
             borderColor: palette.border,
@@ -672,7 +679,7 @@ export default function Reservations() {
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="geri"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 16 })}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 24 })}
         >
           <View
             style={{

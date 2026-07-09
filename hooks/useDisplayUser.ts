@@ -2,6 +2,7 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js';
 
 import { useAuthSession } from './useAuthSession';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { defaultDisplayName, defaultUsername } from '@/lib/randomName';
 
 export type DisplayUser = {
   displayName: string;
@@ -51,11 +52,11 @@ export function useDisplayUser(): DisplayUser {
   const displayName =
     nonEmpty(nameOverride) ??
     metaName ??
-    'Oyuncu';
+    (user ? defaultDisplayName(user.id) : 'Oyuncu');
   const username =
     nonEmpty(usernameOverride) ??
     metaUsername ??
-    (user ? `oyuncu_${user.id.slice(-6)}` : 'oyuncu');
+    (user ? defaultUsername(user.id) : 'oyuncu');
 
   return {
     displayName,

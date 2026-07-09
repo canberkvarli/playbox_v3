@@ -210,9 +210,15 @@ export default function StationDetail() {
       <View
         style={{
           paddingTop: insets.top + 12,
+          paddingBottom: 10,
           paddingHorizontal: 16,
           flexDirection: 'row',
           alignItems: 'center',
+          // Opaque + above the scroll content so the big title fades away
+          // *behind* the bar instead of bleeding through it (was transparent,
+          // which let "PLAYBOX DEV WORKSHOP" overlap the city line + demo badge).
+          backgroundColor: palette.paper,
+          zIndex: 10,
         }}
       >
         <Pressable

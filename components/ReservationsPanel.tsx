@@ -210,10 +210,29 @@ export function ReservationsPanel() {
       >
         <Feather name="calendar" size={24} color={palette.voltText} />
       </View>
-      <Text className="font-display text-ink dark:text-fg text-base">
+      {/* Explicit palette colors (not `text-ink`, whose Tailwind value is the
+          dark ink and disappears on this dark sheet when the dark: variant
+          doesn't apply) so the copy is always legible. */}
+      <Text
+        style={{
+          color: palette.fg,
+          fontFamily: 'Unbounded_800ExtraBold',
+          fontSize: 16,
+          textAlign: 'center',
+        }}
+      >
         {t('map.empty.no_reservations_title')}
       </Text>
-      <Text className="font-sans text-ink/55 dark:text-fg/55 text-xs text-center mt-2">
+      <Text
+        style={{
+          color: palette.muted,
+          fontFamily: 'Inter_400Regular',
+          fontSize: 12,
+          textAlign: 'center',
+          marginTop: 8,
+          lineHeight: 17,
+        }}
+      >
         {t('map.empty.no_reservations_sub')}
       </Text>
     </View>

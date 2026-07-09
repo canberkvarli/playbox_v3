@@ -167,7 +167,7 @@ function Compartment({
           ]}
         />
 
-        <SportBall sport={sport} color={out ? palette.muted : palette.volt} size={46} />
+        <SportBall sport={sport} color={out ? palette.muted : undefined} size={46} />
 
         <View style={{ flex: 1 }}>
           <Text
