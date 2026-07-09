@@ -32,10 +32,10 @@ import { useT } from '@/hooks/useT';
 import { useDisplayUser } from '@/hooks/useDisplayUser';
 import { useProfileStats } from '@/hooks/useProfileStats';
 import { hx } from '@/lib/haptics';
-import { palette } from '@/constants/theme';
+import { palette, brand } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
-import { EmptyState } from '@/components/EmptyState';
-import { Surface } from '@/components/ui';
+import { Surface, Button } from '@/components/ui';
+import { SportBall } from '@/components/ui/SportBall';
 
 // Non-stat profile metadata (identity chrome, not play stats). The city/month
 // here just decorate the "joined since" line under the name — the real play
@@ -46,6 +46,43 @@ const PROFILE_META = {
 };
 
 // --- Sub-components ---------------------------------------------------------
+
+// One numbered "how it works" row for the first-time empty state.
+function StepRow({ n, text }: { n: string; text: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        backgroundColor: palette.surface + '0d',
+        borderWidth: 1,
+        borderColor: palette.border,
+        borderRadius: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+      }}
+    >
+      <View
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: palette.volt,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontFamily: 'Unbounded_800ExtraBold', color: palette.voltInk, fontSize: 14 }}>
+          {n}
+        </Text>
+      </View>
+      <Text style={{ flex: 1, fontFamily: 'Inter_600SemiBold', color: palette.fg, fontSize: 14, lineHeight: 19 }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 function StatCard({
   label,
@@ -311,19 +348,70 @@ export default function Profile() {
              fallback). Warm empty state that routes to the map; replaces the
              streak hero + stat grid + flex card entirely. */
           <RiseIn delay={80}>
-            <View style={{ marginTop: 12 }}>
-              <EmptyState
-                icon="map-pin"
-                title={t('profile.empty.title')}
-                subtitle={t('profile.empty.subtitle')}
-                cta={{
-                  label: t('profile.empty.cta'),
-                  onPress: async () => {
+            <View style={{ marginTop: 8, alignItems: 'center' }}>
+              {/* Overlapping sport-ball cluster — playful, on-brand, and far
+                  more inviting than the old gray map-pin circle. */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: 20,
+                }}
+              >
+                <View style={{ transform: [{ rotate: '-12deg' }], marginRight: -6 }}>
+                  <SportBall sport="football" color={palette.fg} size={52} />
+                </View>
+                <SportBall sport="basketball" color={brand.coral} size={80} />
+                <View style={{ transform: [{ rotate: '12deg' }], marginLeft: -6 }}>
+                  <SportBall sport="tennis" color={palette.volt} size={52} />
+                </View>
+              </View>
+
+              <Text
+                style={{
+                  fontFamily: 'Unbounded_800ExtraBold',
+                  color: palette.fg,
+                  fontSize: 26,
+                  lineHeight: 32,
+                  letterSpacing: 0.3,
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  marginTop: 22,
+                }}
+              >
+                {t('profile.empty.title')}
+              </Text>
+              <Text
+                style={{
+                  fontFamily: 'Inter_500Medium',
+                  color: palette.muted,
+                  fontSize: 15,
+                  lineHeight: 21,
+                  textAlign: 'center',
+                  marginTop: 8,
+                }}
+              >
+                {t('profile.empty.subtitle')}
+              </Text>
+
+              {/* 3-step how-it-works — gives the empty screen purpose and teaches
+                  the flow to a first-timer. */}
+              <View style={{ width: '100%', marginTop: 26, gap: 10 }}>
+                <StepRow n="1" text="haritadan sana en yakın istasyonu bul" />
+                <StepRow n="2" text="oyna'ya bas, kapı senin için açılsın" />
+                <StepRow n="3" text="ekipmanı al, oyna, işin bitince iade et" />
+              </View>
+
+              <View style={{ width: '100%', marginTop: 24 }}>
+                <Button
+                  label={t('profile.empty.cta')}
+                  onPress={async () => {
                     await hx.tap();
                     router.replace('/(tabs)/map');
-                  },
-                }}
-              />
+                  }}
+                />
+              </View>
             </View>
           </RiseIn>
         ) : (
