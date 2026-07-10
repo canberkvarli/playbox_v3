@@ -33,15 +33,15 @@
       },
       "camera": {
         "title": "kamera",
-        "why": "qr ile hızlı başlamak için — haritadan da bulabilirsin"
+        "why": "qr ile hızlı başlamak için, haritadan da bulabilirsin"
       },
       "bt": {
         "title": "bluetooth",
-        "why": "istasyondaki kapıyı açmak için — playbox bunsuz çalışmıyor"
+        "why": "istasyondaki kapıyı açmak için kullanılır"
       },
       "denied": "izin verilmedi",
-      "denied_required": "izin verilmedi — devam etmek için gerekli",
-      "denied_optional": "izin verilmedi — sorun değil, sonra değiştirebilirsin",
+      "denied_required": "izin verilmedi, devam etmek için gerekli",
+      "denied_optional": "izin verilmedi, sorun değil, sonra değiştirebilirsin",
       "retry": "tekrar dene",
       "open_settings": "ayarlardan aç",
       "required": "zorunlu",

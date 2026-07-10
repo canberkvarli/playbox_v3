@@ -39,11 +39,16 @@ const ICONS: Record<PermKey, keyof typeof Feather.glyphMap> = {
   bt: 'bluetooth',
 };
 
+// Nothing hard-blocks onboarding. Location and Bluetooth are strongly
+// encouraged (we still proactively prompt for them below), but a user who
+// declines can continue and is re-prompted at point of use. This also lets an
+// App Store reviewer with no locker / no BLE reach the whole app (Guideline
+// 2.1(a)) instead of being trapped on this screen.
 const REQUIRED: Record<PermKey, boolean> = {
-  location: true,
+  location: false,
   notif: false,
   camera: false,
-  bt: true,
+  bt: false,
 };
 
 async function readInitial(): Promise<PermsState> {
@@ -276,10 +281,11 @@ export default function Permissions() {
     if (next === 'granted') await hx.yes();
   };
 
-  const ctaEnabled = perms.location === 'granted' && perms.bt === 'granted';
+  // Never gate the CTA on a granted permission. Declining any permission must
+  // not trap the user (or an App Store reviewer) on this screen.
+  const ctaEnabled = true;
 
   const onContinue = useGuardedPress(async () => {
-    if (!ctaEnabled) return;
     await hx.press();
     router.push('/(onboarding)/phone');
   });
