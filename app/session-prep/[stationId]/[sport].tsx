@@ -17,6 +17,7 @@ import {
 import { useMapStore } from '@/stores/mapStore';
 import { useFreshPresence } from '@/stores/nearbyStore';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
+import { stationClient } from '@/lib/ble/stationClient';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
 import { usePaymentStore } from '@/stores/paymentStore';
@@ -177,6 +178,46 @@ export default function SessionPrep() {
   // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
   // mock unlock succeeds.
   const freshlyPresent = passivelyPresent || activelyPresent || demoMode;
+
+  // Warm the GATT link while the user reads the prep slides, so onOyna fires on
+  // an ALREADY-LIVE connection instead of racing sign+connect+write at tap time
+  // — that race is what surfaced as "kapı yanıt vermedi". One attempt once the
+  // station is in range; on failure onOyna still connects on tap. scanAndConnect
+  // stops the scan before connecting (no radio wedge), and the app-wide
+  // useConnectionPresence poller owns the "açık" badge + drop detection.
+  const [linkWarming, setLinkWarming] = useState(false);
+  const warmAttempted = useRef(false);
+  useEffect(() => {
+    if (!station || demoMode) return;
+    if (!freshlyPresent) return;
+    if (warmAttempted.current || stationClient.isConnected()) return;
+    warmAttempted.current = true;
+    let cancelled = false;
+    setLinkWarming(true);
+    stationClient
+      .scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000)
+      .catch(() => {
+        // best-effort — onOyna connects on tap if this didn't land
+      })
+      .finally(() => {
+        if (!cancelled) setLinkWarming(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [freshlyPresent, station, demoMode, stationId]);
+
+  // Release the warm link on unmount UNLESS a session started (the play screen
+  // owns it then). useConnectionPresence clears the badge within ~3s.
+  useEffect(() => {
+    return () => {
+      if (useSessionStore.getState().active) return;
+      const targetName = `Playbox-${stationId.toUpperCase()}`;
+      if (stationClient.connectedName() === targetName) {
+        stationClient.disconnect();
+      }
+    };
+  }, [stationId]);
 
   if (!station) {
     return (
@@ -683,6 +724,21 @@ export default function SessionPrep() {
                 >
                   {durationMinutes} dakika planlandı · kapı açılınca sayaç başlar
                 </Text>
+                {linkWarming ? (
+                  <Text
+                    style={{
+                      fontFamily: 'JetBrainsMono_500Medium',
+                      color: palette.voltText,
+                      fontSize: 12,
+                      letterSpacing: 1,
+                      marginTop: 14,
+                      textAlign: 'center',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    bağlanılıyor…
+                  </Text>
+                ) : null}
               </View>
             </RiseIn>
           </View>
