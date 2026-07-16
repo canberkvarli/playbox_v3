@@ -29,6 +29,7 @@ import { useSettingsStore } from '@/stores/settingsStore';
 import { useDevStore } from '@/stores/devStore';
 import { supabase } from '@/lib/supabase';
 import { useAuthSession } from '@/hooks/useAuthSession';
+import { useIsDeveloper } from '@/hooks/useIsDeveloper';
 import { getDriver } from '@/lib/hardware';
 import { reloadWithBleTeardown } from '@/lib/ble/safeReload';
 import { stationClient } from '@/lib/ble/stationClient';
@@ -434,6 +435,7 @@ export default function Settings() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuthSession();
+  const isDeveloper = useIsDeveloper();
   const { displayName, username, phone } = useDisplayUser();
 
   const [editField, setEditField] = useState<'name' | 'username' | null>(null);
@@ -725,6 +727,12 @@ export default function Settings() {
               setRatingSheetOpen(true);
             }}
           />
+          {/* Developer-only plumbing (OTA status/check/apply, BLE reset + test
+              screen). Gated on the DEVELOPER account so it's hidden from real
+              users AND App Store / demo reviewers — they only exercise the
+              clean flow, never these internals. See useIsDeveloper. */}
+          {isDeveloper ? (
+          <>
           <OtaStatusRow />
           <SettingRow
             label="Güncellemeyi kontrol et"
@@ -791,8 +799,6 @@ export default function Settings() {
               }
             }}
           />
-          {/* dev: reachable in TestFlight (sibling of the OTA/Sürüm dev rows,
-              deliberately NOT gated on __DEV__ which is false in release). */}
           <SettingRow
             label="dev: BLE test ekranı"
             onPress={async () => {
@@ -800,6 +806,8 @@ export default function Settings() {
               router.push('/dev/ble');
             }}
           />
+          </>
+          ) : null}
         </RiseIn>
 
         {/* Footer — lives at the natural bottom of the scroll content so it

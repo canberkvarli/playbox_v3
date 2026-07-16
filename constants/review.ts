@@ -26,3 +26,23 @@ export function isDemoUsername(input: string): boolean {
   const u = input.trim().toLowerCase().replace(/^@/, '');
   return DEMO_USERNAMES.some((d) => d.toLowerCase() === u);
 }
+
+/**
+ * DEVELOPER phone numbers (E.164). When one of these is the logged-in user, the
+ * app reveals developer-only controls (e.g. the bench servo / UNLOCK / RETURN
+ * buttons on the station screen) even in a RELEASE build — see useIsDeveloper().
+ *
+ * This is intentionally distinct from REVIEW_PHONE: App Store reviewers get
+ * Demo Mode (clean flow, mock hardware) but must NOT see the raw dev buttons.
+ * Regular users match neither list, so they never see them either.
+ */
+export const DEVELOPER_PHONES = ['+905530242625'];
+
+const digits = (s?: string | null) => (s ?? '').replace(/\D/g, '');
+
+/** True when `phone` (any format; leading + optional) is a developer number. */
+export function isDeveloperPhone(phone?: string | null): boolean {
+  const p = digits(phone);
+  if (!p) return false;
+  return DEVELOPER_PHONES.some((d) => digits(d) === p);
+}

@@ -20,6 +20,7 @@ import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { getDriver } from '@/lib/hardware';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
+import { useIsDeveloper } from '@/hooks/useIsDeveloper';
 import { StationGateSelector } from '@/components/StationGateSelector';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
 import { stationClient } from '@/lib/ble/stationClient';
@@ -31,6 +32,8 @@ export default function StationDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Developer account? Reveals the bench servo controls even in release builds.
+  const isDeveloper = useIsDeveloper();
 
   const lastSelected = useMapStore((s) => s.lastSelectedStation);
   const startSession = useSessionStore((s) => s.startSession);
@@ -57,6 +60,13 @@ export default function StationDetail() {
 
   const bigTitleStyle = useAnimatedStyle(() => ({
     opacity: interpolate(scrollY.value, [40, 90], [1, 0], Extrapolation.CLAMP),
+  }));
+
+  // The location line and the mini title share the same centered header slot
+  // (mini title is absolutely positioned over the location line). Fade the
+  // location OUT exactly as the mini title fades IN so the two never overlap.
+  const locationStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(scrollY.value, [60, 100], [1, 0], Extrapolation.CLAMP),
   }));
 
   const station: Station | null = useMemo(() => {
@@ -240,18 +250,21 @@ export default function StationDetail() {
 
         {/* Centered location line + scroll-driven mini title stacked on top. */}
         <View style={{ flex: 1, marginHorizontal: 12, alignItems: 'center', justifyContent: 'center' }}>
-          <Text
+          <Animated.Text
             numberOfLines={1}
-            style={{
-              fontFamily: 'JetBrainsMono_500Medium',
-              fontSize: 13,
-              color: palette.fg,
-              letterSpacing: 0.3,
-              textAlign: 'center',
-            }}
+            style={[
+              {
+                fontFamily: 'JetBrainsMono_500Medium',
+                fontSize: 13,
+                color: palette.fg,
+                letterSpacing: 0.3,
+                textAlign: 'center',
+              },
+              locationStyle,
+            ]}
           >
             {CITY_LABELS[station.city]}
-          </Text>
+          </Animated.Text>
           {/* Mini title — appears once the big title has scrolled away.
               Fades + slides in via miniTitleStyle. */}
           <Animated.Text
@@ -336,11 +349,12 @@ export default function StationDetail() {
           />
         </View>
 
-        {/* Bench servo controls — DEV BUILDS ONLY. Never shipped to a release
-            build, so App Store reviewers / prod users get the clean flow
-            (locker → OYNA → unlock → session → return). You still get them on a
-            dev build (real BLE) for hardware bring-up. */}
-        {__DEV__ ? <DevServoButtons stationId={station.id} /> : null}
+        {/* Bench servo controls — DEV BUILDS or the DEVELOPER account (see
+            useIsDeveloper / DEVELOPER_PHONES). App Store reviewers (Demo Mode /
+            REVIEW_PHONE) and real prod users match neither, so they still get
+            the clean flow (locker → OYNA → unlock → session → return). The
+            developer sees them in release for on-site hardware bring-up. */}
+        {(__DEV__ || isDeveloper) ? <DevServoButtons stationId={station.id} /> : null}
 
       </Animated.ScrollView>
 
