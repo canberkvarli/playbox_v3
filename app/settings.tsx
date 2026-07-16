@@ -589,7 +589,7 @@ export default function Settings() {
           onPress={() => router.back()}
           hitSlop={14}
           accessibilityLabel={t('common.back')}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 24 })}
+          style={{ marginRight: 24 }}
         >
           <View
             style={{

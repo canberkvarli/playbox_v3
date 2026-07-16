@@ -679,7 +679,7 @@ export default function Reservations() {
           hitSlop={14}
           accessibilityRole="button"
           accessibilityLabel="geri"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 24 })}
+          style={{ marginRight: 24 }}
         >
           <View
             style={{
