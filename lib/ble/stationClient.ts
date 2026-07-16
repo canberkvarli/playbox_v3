@@ -38,6 +38,11 @@ class StationClient {
     onError?: (err: Error) => void;
   } | null = null;
   private passiveScanActive = false;
+  // Watches the BLE adapter power state. Without it, a passive scan started
+  // while the adapter is off (user opens the map, THEN enables Bluetooth)
+  // errors out and never retries — the station stays grayed until a fresh scan
+  // from another screen. The watcher restarts the passive scan on PoweredOn.
+  private stateSub: Subscription | null = null;
 
   private get manager(): BleManager {
     if (!this._manager) this._manager = new BleManager();
@@ -139,11 +144,37 @@ class StationClient {
     onError?: (err: Error) => void,
   ): void {
     this.passiveScan = { onSeen, onError };
+    this.armStateWatcher();
     this.runPassiveScan();
+  }
+
+  /**
+   * Restart the passive scan whenever the BLE adapter (re)enters PoweredOn —
+   * covers "enabled Bluetooth while already on the map" and iOS dropping the
+   * scan during a state handoff. Idempotent; torn down in stopPassiveScan /
+   * destroy. `emitCurrentState=true` kicks a scan the moment the adapter is
+   * ready even if it was off at mount.
+   */
+  private armStateWatcher(): void {
+    if (this.stateSub) return;
+    this.stateSub = this.manager.onStateChange((state) => {
+      if (state === State.PoweredOn) {
+        // Only resume passive scanning when we DON'T already hold a live GATT
+        // link — scanning while connected can wedge the radio.
+        if (this.passiveScan && !this.device) this.runPassiveScan();
+      } else {
+        // Adapter unusable → mark inactive so the next PoweredOn restarts it.
+        this.passiveScanActive = false;
+      }
+    }, true);
   }
 
   stopPassiveScan(): void {
     this.passiveScan = null;
+    if (this.stateSub) {
+      this.stateSub.remove();
+      this.stateSub = null;
+    }
     if (this.passiveScanActive) {
       this.passiveScanActive = false;
       try {
@@ -169,6 +200,10 @@ class StationClient {
   destroy(): void {
     this.passiveScan = null;
     this.passiveScanActive = false;
+    if (this.stateSub) {
+      this.stateSub.remove();
+      this.stateSub = null;
+    }
     this.device = null;
     this.lastSeenDevice = null;
     if (this._manager) {
@@ -193,6 +228,10 @@ class StationClient {
         { allowDuplicates: true },
         (err, scanned) => {
           if (err) {
+            // Reset the active flag so the state watcher / next call can
+            // restart — otherwise a transient scan error wedges it "active"
+            // forever and presence never recovers while the screen stays open.
+            this.passiveScanActive = false;
             onError?.(err);
             return;
           }
@@ -215,7 +254,16 @@ class StationClient {
     // connected to the DEV-001 breadboard would falsely report in_range
     // for ist-taksim too.
     if (this.device && this.device.name === stationName) {
-      return this.device;
+      // Verify the cached handle is actually still connected. If the ESP32
+      // rebooted or the link dropped without onDisconnected firing, this handle
+      // is dead — returning it makes the caller think it's connected while
+      // every write fails. Re-scan instead of trusting a stale handle.
+      try {
+        if (await this.device.isConnected()) return this.device;
+      } catch {
+        // isConnected threw → treat as dead
+      }
+      this.device = null;
     }
 
     // Fast path: if the proximity watcher recently saw this device, just
@@ -223,7 +271,12 @@ class StationClient {
     // for the next advert packet — should be under a second.
     if (this.lastSeenDevice && this.lastSeenDevice.name === stationName) {
       try {
-        const connected = await this.lastSeenDevice.connect();
+        // Bound the connect: a stale lastSeenDevice (previous session, or an
+        // ESP32 that rebooted since we saw its advert) can hang connect()
+        // indefinitely with no timeout, freezing the caller (e.g. the BLE
+        // debug screen stuck on "scanning"). On timeout we fall through to a
+        // fresh scan below.
+        const connected = await this.lastSeenDevice.connect({ timeout: 6000 });
         await connected.discoverAllServicesAndCharacteristics();
         this.device = connected;
         connected.onDisconnected(() => {
@@ -284,7 +337,15 @@ class StationClient {
         timeoutMs,
       );
 
-      this.manager.startDeviceScan(null, null, async (err, scanned) => {
+      // allowDuplicates is REQUIRED here, same as the passive/proximity scans
+      // (see the comment at runPassiveScan): on iOS an un-duplicated scan
+      // dedupes to a single callback carrying only the PRIMARY advert — which
+      // holds the service UUID but NOT the name (NimBLE pushes the name into
+      // the scan-response packet, since both don't fit in 31 bytes). Without
+      // this flag `scanned.name` is empty, `scanned.name === stationName` never
+      // matches, and every slow-path connect (e.g. the BLE debug screen, or any
+      // connect after an ESP32 reboot) times out at `timeoutMs`.
+      this.manager.startDeviceScan(null, { allowDuplicates: true }, async (err, scanned) => {
         if (err) {
           finish(() => reject(err));
           return;
