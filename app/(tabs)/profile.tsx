@@ -133,6 +133,11 @@ export default function Profile() {
     router.push('/settings');
   };
 
+  const onPayments = async () => {
+    await hx.tap();
+    router.push('/payments');
+  };
+
   const onShareFlex = async () => {
     await hx.press();
     setCapturing(true);
@@ -435,6 +440,65 @@ export default function Profile() {
                   </View>
                 </View>
               </View>
+            </RiseIn>
+
+            {/* Kartlarım — top-level entrance to the card-on-file hub (manage
+                the saved card + see session history). iyzico holds the card;
+                PlayBox charges per unlock and never stores a balance. Gives the
+                card screen a real home instead of only surfacing at the end of a
+                flow. */}
+            <RiseIn delay={200}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="kartlarım ve ödeme"
+                onPress={onPayments}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: palette.surface,
+                  borderRadius: 16,
+                  padding: 18,
+                  marginTop: 16,
+                }}
+              >
+                <View
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 12,
+                    backgroundColor: palette.surfaceAlt,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 14,
+                  }}
+                >
+                  <Feather name="credit-card" size={20} color={palette.volt} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontFamily: 'Unbounded_700Bold',
+                      color: palette.fg,
+                      fontSize: 15,
+                      letterSpacing: 0.3,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    kartlarım
+                  </Text>
+                  <Text
+                    style={{
+                      fontFamily: 'Inter_400Regular',
+                      color: palette.muted,
+                      fontSize: 13,
+                      marginTop: 2,
+                    }}
+                  >
+                    ödeme yöntemin ve seans geçmişi
+                  </Text>
+                </View>
+                <Feather name="chevron-right" size={22} color={palette.muted} />
+              </Pressable>
             </RiseIn>
 
             {/* Flex card — keeps the dark surface intentionally; it's a shareable
