@@ -89,8 +89,13 @@ export default function BleDebugScreen() {
         (err) => log("error", `notify error: ${err.message}`),
       );
     } catch (e: unknown) {
+      // Surface the BleError code (e.g. OperationCancelled=2) so a failed
+      // connect is diagnosable from the on-screen log alone.
+      const err = e as { message?: string; errorCode?: number; reason?: string };
+      const code = err?.errorCode != null ? ` [code ${err.errorCode}]` : "";
+      const reason = err?.reason ? ` (${err.reason})` : "";
       const msg = e instanceof Error ? e.message : String(e);
-      log("error", msg);
+      log("error", `connect failed${code}: ${msg}${reason}`);
       setStatus("error");
     }
   }

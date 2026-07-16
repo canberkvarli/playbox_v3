@@ -266,6 +266,19 @@ class StationClient {
       this.device = null;
     }
 
+    // Stop any active scan UP FRONT — iOS cancels a connect that begins while a
+    // scan is still running ("operation was cancelled"). This started biting
+    // once the passive scan actually worked (a live scan now collides with the
+    // connect). Remember whether it was on so we can resume it if we don't end
+    // up holding a link.
+    const passiveWasActive = this.passiveScanActive;
+    this.passiveScanActive = false;
+    try {
+      this.manager.stopDeviceScan();
+    } catch {
+      // already stopped — ignore
+    }
+
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
     // for the next advert packet — should be under a second.
@@ -295,17 +308,8 @@ class StationClient {
       }
     }
 
-    // Slow path: stop whatever scan was running (the proximity watcher
-    // will restart on the next screen mount) and run a fresh scan
-    // targeted at this device name.
-    const passiveWasActive = this.passiveScanActive;
-    this.passiveScanActive = false;
-    try {
-      this.manager.stopDeviceScan();
-    } catch {
-      // already stopped — ignore
-    }
-
+    // Slow path: run a fresh scan targeted at this device name. (Any prior scan
+    // was already stopped up front, above.)
     return new Promise<Device>((resolve, reject) => {
       let settled = false;
       const finish = (fn: () => void) => {
@@ -317,9 +321,10 @@ class StationClient {
         } catch {
           // ignore
         }
-        // Resume the passive scan if it was paused — keeps the map's
-        // nearby badges accurate without the caller knowing it happened.
-        if (passiveWasActive && this.passiveScan) {
+        // Resume the passive scan if it was paused AND we didn't end up holding
+        // a link — keeps the map's badges live without scanning while connected
+        // (which can wedge the radio).
+        if (passiveWasActive && this.passiveScan && !this.device) {
           this.runPassiveScan();
         }
         fn();
@@ -345,14 +350,25 @@ class StationClient {
       // this flag `scanned.name` is empty, `scanned.name === stationName` never
       // matches, and every slow-path connect (e.g. the BLE debug screen, or any
       // connect after an ESP32 reboot) times out at `timeoutMs`.
+      let connecting = false;
       this.manager.startDeviceScan(null, { allowDuplicates: true }, async (err, scanned) => {
+        if (settled || connecting) return;
         if (err) {
           finish(() => reject(err));
           return;
         }
         if (scanned?.name === stationName) {
+          // Stop the scan BEFORE connecting — iOS cancels an in-flight connect
+          // if a scan is still active ("operation was cancelled"). `connecting`
+          // guards the allowDuplicates callback from firing again mid-connect.
+          connecting = true;
           try {
-            const connected = await scanned.connect();
+            this.manager.stopDeviceScan();
+          } catch {
+            // ignore
+          }
+          try {
+            const connected = await scanned.connect({ timeout: 8000 });
             await connected.discoverAllServicesAndCharacteristics();
             this.device = connected;
             this.lastSeenDevice = scanned;

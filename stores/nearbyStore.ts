@@ -28,7 +28,10 @@ import {
 // connection keeps a station well inside this window even though it stops
 // advertising. The real unlock still does a live scanAndConnect, so a slightly
 // stale "açık" never lets someone act on a truly-gone station.
-const STALE_MS = 25_000;
+// Now that the passive scan is reliable, a station that powers off shows
+// offline within this window. Kept comfortably above the advert interval so a
+// couple of missed packets don't flicker a live station.
+const STALE_MS = 10_000;
 
 type NearbyStore = {
   seen: Record<string, NearbyStation>;
