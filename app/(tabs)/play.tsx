@@ -27,6 +27,7 @@ import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
+import { StepRail, type Step as StepRailStep } from '@/components/StepRail';
 import { uploadReturnPhoto } from '@/lib/gear/uploadReturnPhoto';
 import { compressReturnPhoto } from '@/lib/gear/compressPhoto';
 import { Button, CircularTimer } from '@/components/ui';
@@ -1284,10 +1285,10 @@ function ConfirmPhase({
   onConfirmOpen: () => void | Promise<void>;
   onCancel: () => void;
 }) {
-  const steps: Array<{ icon: keyof typeof Feather.glyphMap; text: string }> = [
-    { icon: 'unlock', text: 'kapıyı açacağız' },
-    { icon: 'package', text: 'ekipmanı yerine koy' },
-    { icon: 'corner-down-left', text: 'kapıyı kapat' },
+  const steps: StepRailStep[] = [
+    { text: 'kapıyı açacağız', sub: 'kutunun kapağı açılır' },
+    { text: 'ekipmanı yerine koy', sub: 'aldığın yuvaya' },
+    { text: 'kapıyı kapat', sub: 'kapanınca kilitlenir' },
   ];
 
   return (
@@ -1330,61 +1331,7 @@ function ConfirmPhase({
       </Text>
 
       <View style={{ marginTop: 18 }}>
-        {steps.map((step, idx) => (
-          <View
-            key={step.text}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: palette.surfaceAlt,
-              borderWidth: 1,
-              borderColor: palette.border,
-              borderRadius: 14,
-              paddingVertical: 14,
-              paddingHorizontal: 14,
-              marginBottom: 10,
-            }}
-          >
-            <View
-              style={{
-                width: 26,
-                height: 26,
-                borderRadius: 13,
-                backgroundColor: palette.volt,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: 12,
-              }}
-            >
-              <Text
-                style={{
-                  fontFamily: 'JetBrainsMono_700Bold',
-                  color: palette.voltInk,
-                  fontSize: 13,
-                }}
-              >
-                {idx + 1}
-              </Text>
-            </View>
-            <Feather
-              name={step.icon}
-              size={18}
-              color={palette.fg}
-              style={{ marginRight: 10 }}
-            />
-            <Text
-              style={{
-                flex: 1,
-                fontFamily: 'Unbounded_700Bold',
-                color: palette.fg,
-                fontSize: 14,
-                letterSpacing: 0.2,
-              }}
-            >
-              {step.text}
-            </Text>
-          </View>
-        ))}
+        <StepRail steps={steps} />
       </View>
 
       <View
@@ -1596,75 +1543,17 @@ function AwaitingClosePhase({
       {/* Return steps — calm, evenly-spaced numbered list. The closing photo
           is step 3 and is REQUIRED to finish (gating handled on the CTA). */}
       <View style={{ marginTop: 18 }}>
-        {(
-          [
-            { icon: 'package', text: 'ekipmanı kutuya geri koy' },
-            { icon: 'corner-down-left', text: 'kapıyı kapat' },
-            { icon: 'camera', text: 'kapanış fotoğrafı çek' },
-          ] as const
-        ).map((step, idx) => {
-          const isPhotoStep = idx === 2;
-          const done = isPhotoStep && (photoState === 'saved' || photoState === 'failed');
-          return (
-            <View
-              key={step.text}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                backgroundColor: palette.surfaceAlt,
-                borderWidth: 1,
-                borderColor: palette.border,
-                borderRadius: 14,
-                paddingVertical: 14,
-                paddingHorizontal: 14,
-                marginBottom: idx === 2 ? 0 : 10,
-              }}
-            >
-              <View
-                style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: 13,
-                  backgroundColor: palette.volt,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 12,
-                }}
-              >
-                {done ? (
-                  <Feather name="check" size={14} color={palette.voltInk} />
-                ) : (
-                  <Text
-                    style={{
-                      fontFamily: 'JetBrainsMono_700Bold',
-                      color: palette.voltInk,
-                      fontSize: 13,
-                    }}
-                  >
-                    {idx + 1}
-                  </Text>
-                )}
-              </View>
-              <Feather
-                name={step.icon}
-                size={18}
-                color={palette.fg}
-                style={{ marginRight: 10 }}
-              />
-              <Text
-                style={{
-                  flex: 1,
-                  fontFamily: 'Unbounded_700Bold',
-                  color: palette.fg,
-                  fontSize: 14,
-                  letterSpacing: 0.2,
-                }}
-              >
-                {step.text}
-              </Text>
-            </View>
-          );
-        })}
+        <StepRail
+          steps={[
+            { text: 'ekipmanı kutuya geri koy', sub: 'açık yuvaya' },
+            { text: 'kapıyı kapat', sub: 'kapanınca kilitlenir' },
+            {
+              text: 'kapanış fotoğrafı çek',
+              sub: 'iadeyi onaylamak için',
+              done: photoState === 'saved' || photoState === 'failed',
+            },
+          ]}
+        />
       </View>
 
       {/* Price — given its own breathing room and clear label so the amount
