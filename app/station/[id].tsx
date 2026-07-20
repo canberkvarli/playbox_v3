@@ -99,11 +99,12 @@ export default function StationDetail() {
   // Live BLE presence for the header chip — advert-based (fed by the passive
   // scan above), so the header reflects real reachability instead of a static
   // "24/7 açık" label that meant nothing to the user.
-  // Match the map marker's 15s freshness window (useIsNearby / nearbyStore
-  // STALE_MS) exactly, so a station that's green on the map is never
-  // simultaneously "kapalı" here. The 10s default caused that inconsistency —
-  // a sighting 10–15s old read present on the map but absent on this screen.
-  const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 25_000 });
+  // Match the map marker's freshness window (nearbyStore STALE_MS, now 10s)
+  // EXACTLY, so a station that's offline on the map is never simultaneously
+  // "açık" here. A mismatch (this screen at 25s vs the map at 10s) let the user
+  // open a powered-off station and still pick a sport for ~15s after the map
+  // had already greyed it out.
+  const proximity = useFreshPresence(station?.id ?? '', { maxAgeMs: 10_000 });
   // Demo Mode (App Store review): there's no hardware advertising, so treat the
   // station as in-range/open — otherwise OYNA never lights up and a reviewer
   // can't run the unlock. The mock driver simulates the rest.
