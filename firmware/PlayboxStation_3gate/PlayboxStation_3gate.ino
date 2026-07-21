@@ -887,10 +887,23 @@ void setup() {
 
   service->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-  adv->addServiceUUID(SERVICE_UUID);
+  // Advertise the NAME in the PRIMARY packet and push the 128-bit service UUID
+  // into the SCAN RESPONSE. Both do NOT fit in one 31-byte advertisement — with
+  // addServiceUUID() in the primary (16 bytes + overhead) there was no room left
+  // for the 15-char name, so NimBLE silently DROPPED the name. Result: iOS never
+  // saw "Playbox-DEV-001", scanned.name never matched, and every app scan timed
+  // out ("scanning… not found" — the app finds stations by EXACT name, see
+  // lib/ble/stationClient.ts). Name alone in the primary (flags + name ≈ 20
+  // bytes) fits with room to spare. NimBLE 2.x also no longer enables scan
+  // response by default (see 1.x→2.x migration guide), so enable it explicitly
+  // to carry the UUID for standard UUID-based scanners.
   adv->setName("Playbox-" STATION_ID);
+  NimBLEAdvertisementData scanData;
+  scanData.addServiceUUID(SERVICE_UUID);
+  adv->setScanResponseData(scanData);
+  adv->enableScanResponse(true);
   adv->start();
-  Serial.println("[BLE] advertising as 'Playbox-" STATION_ID "'");
+  Serial.println("[BLE] advertising as 'Playbox-" STATION_ID "' (name in primary, UUID in scan-rsp)");
 
   // Prime a battery read so INFO is populated before the first sample window.
   batteryMv  = readBatteryMvOnce();
