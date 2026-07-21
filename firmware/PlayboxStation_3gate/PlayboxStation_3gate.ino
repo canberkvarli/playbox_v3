@@ -663,9 +663,22 @@ static bool runSignSelfTest() {
 // BLE callbacks
 // =============================================================================
 class ServerCallbacks : public NimBLEServerCallbacks {
-  void onConnect(NimBLEServer*, NimBLEConnInfo&) override {
+  void onConnect(NimBLEServer* pServer, NimBLEConnInfo& connInfo) override {
     bleConnected = true;
     Serial.println("[BLE] phone connected");
+    // Ask the phone for a STICKY link immediately. Without this we inherit the
+    // central's (iOS's) aggressive defaults and the connection drops with
+    // reason=520 (supervision timeout) the moment a few connection events are
+    // missed — even with the ESP32 fully powered. We request a 30–50ms interval,
+    // ZERO slave latency (never skip a listen window — our flow is notify-heavy),
+    // and a long 5s supervision timeout so a brief RF hiccup no longer tears the
+    // link down. Units: interval = 1.25ms steps, timeout = 10ms steps. These are
+    // Apple-compliant (interval >= 15ms, max >= min+15ms, timeout <= 6s).
+    pServer->updateConnParams(connInfo.getConnHandle(),
+                              /*minInterval=*/24,   // 30 ms
+                              /*maxInterval=*/40,   // 50 ms
+                              /*latency=*/0,
+                              /*timeout=*/500);     // 5000 ms supervision
     // Replay unacked events on connect: refresh BUFFER_CHAR so the app's first
     // read drains the pending ring, then the app writes back an ack.
     refreshBufferChar();
