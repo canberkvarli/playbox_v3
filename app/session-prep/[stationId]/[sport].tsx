@@ -127,7 +127,13 @@ export default function SessionPrep() {
   // unlock use the SAME value (the pre-fetch cache is keyed on it).
   const correlationIdRef = useRef<string | null>(null);
   if (correlationIdRef.current === null) {
-    correlationIdRef.current = `unlock:${stationId}:${sport}:${Date.now()}`;
+    // Separators MUST be hyphens, not colons: this value is sent verbatim as
+    // the BLE `session_id`, and the sign-unlock server restricts it to
+    // /^[A-Za-z0-9-]{1,128}$/ (the HMAC string is pipe-delimited, so the charset
+    // is locked down before signing). A colon here → server rejects with
+    // `bad_session_id` → every OYNA fails with "kapı yanıt vermedi". stationId
+    // ("DEV-001") and sport are already hyphen/alnum, so this stays valid.
+    correlationIdRef.current = `unlock-${stationId}-${sport}-${Date.now()}`;
   }
   const correlationId = correlationIdRef.current;
 

@@ -374,7 +374,10 @@ export default function Play() {
           stationId: active.stationId,
           gate: active.gate!,
           sessionToken,
-          correlationId: `reopen:${active.stationId}:${active.bleSessionId ?? active.startedAt}:${Date.now()}`,
+          // Hyphens, not colons — this is signed as the BLE session_id and the
+          // server enforces /^[A-Za-z0-9-]{1,128}$/ (see session-prep). A colon
+          // → `bad_session_id`.
+          correlationId: `reopen-${active.stationId}-${active.bleSessionId ?? active.startedAt}-${Date.now()}`,
           durationMin: active.durationMinutes,
         });
         if (!res.ok) {
@@ -426,7 +429,10 @@ export default function Play() {
       const { data: { session: authSession } } = await supabase.auth.getSession();
       const sessionToken = authSession?.access_token ?? '';
       const driver = getDriver();
-      const correlationId = `return:${active.stationId}:${active.bleSessionId}:${Date.now()}`;
+      // Hyphens for consistency with the unlock/reopen session_ids (the return
+      // itself replays the stored bleSessionId as session_id, but keep the
+      // correlation token in the same server-safe charset).
+      const correlationId = `return-${active.stationId}-${active.bleSessionId}-${Date.now()}`;
       const res = await driver.returnGate({
         stationId: active.stationId,
         gate: active.gate!,
