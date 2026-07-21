@@ -902,6 +902,14 @@ void setup() {
   scanData.addServiceUUID(SERVICE_UUID);
   adv->setScanResponseData(scanData);
   adv->enableScanResponse(true);
+  // Advertise FAST (20-40ms) so a cold iPhone discovers us on the FIRST OYNA
+  // tap. NimBLE's default interval is ~1.28s — far too slow: iOS often doesn't
+  // hear the first advert inside the app's 8s scan window, so the first tap
+  // fails with "not in range" and only the second (now-cached) tap connects.
+  // Units are 0.625ms: 0x20=32→20ms, 0x40=64→40ms. The station is USB/mains
+  // powered, so the extra radio duty cost is irrelevant.
+  adv->setMinInterval(0x20);
+  adv->setMaxInterval(0x40);
   adv->start();
   Serial.println("[BLE] advertising as 'Playbox-" STATION_ID "' (name in primary, UUID in scan-rsp)");
 
