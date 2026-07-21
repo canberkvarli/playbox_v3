@@ -49,7 +49,20 @@ export type HardwareDriver = {
    * subscription handle — call `stop()` on unmount to avoid keeping the
    * radio hot.
    */
-  watchStation(stationId: string, onChange: (s: ProximityState) => void): {
+  watchStation(
+    stationId: string,
+    onChange: (s: ProximityState) => void,
+    opts?: {
+      /**
+       * Eagerly ESTABLISH the GATT link instead of resting on a passive
+       * advertisement sighting. The unlock screen sets this so the connection
+       * is already open by the time the user taps OYNA (otherwise OYNA pays the
+       * full cold connect + collides with this watcher's own scan). watchStation
+       * keeps the link alive on stop() for the unlock to reuse.
+       */
+      eager?: boolean;
+    },
+  ): {
     stop: () => void;
   };
 

@@ -45,7 +45,18 @@ const UNREACHABLE_MS = 60_000;
  * hardware driver — mock by default in dev, real BLE in production (or in
  * dev when `useDevStore.bleHardware` is true).
  */
-export function useStationInRange(stationId: string | null): ProximityResult {
+export function useStationInRange(
+  stationId: string | null,
+  opts?: {
+    /**
+     * Eagerly open the GATT link rather than resting on a passive sighting, so
+     * the connection is warm before an unlock. The unlock/prep screen sets this;
+     * the map leaves it off. See {@link HardwareDriver.watchStation}.
+     */
+    eager?: boolean;
+  },
+): ProximityResult {
+  const eager = opts?.eager === true;
   const [state, setState] = useState<ProximityState>({ kind: 'idle' });
   const [unreachable, setUnreachable] = useState(false);
   // Bumping this re-runs the effect, re-arming the watch after a give-up.
@@ -118,7 +129,7 @@ export function useStationInRange(stationId: string | null): ProximityResult {
       // immediately so the user sees the true state without delay.
       clearTimer();
       apply(next);
-    });
+    }, { eager });
 
     // Give-up timer: never connected in the window → terminal + stop scanning.
     giveUpTimer = setTimeout(() => {
@@ -139,7 +150,7 @@ export function useStationInRange(stationId: string | null): ProximityResult {
       clearTimer();
       sub.stop();
     };
-  }, [stationId, retryNonce]);
+  }, [stationId, retryNonce, eager]);
 
   const inRange = state.kind === 'in_range';
   const needsPermission = state.kind === 'permission_denied';

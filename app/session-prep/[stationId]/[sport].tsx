@@ -180,7 +180,12 @@ export default function SessionPrep() {
   // which reports in_range on a live connection OR a fresh passive sighting.
   // Either signal counts as genuinely present, so the "yaklaş" nudge only
   // shows when the station truly isn't reachable.
-  const { inRange: activelyPresent } = useStationInRange(stationId);
+  // EAGER: open the GATT link as soon as this prep screen mounts (not just rest
+  // on a passive advert), so the connection is already warm when the user taps
+  // OYNA — the unlock reuses it instead of paying a cold 3×8s connect (the
+  // "kapı açılıyor… → not_in_range → offline" hang). watchStation holds the link
+  // on unmount for the unlock to reuse; now-fixed sticky conn-params keep it up.
+  const { inRange: activelyPresent } = useStationInRange(stationId, { eager: true });
   // Demo Mode (App Store review): no hardware advertises, so count as present —
   // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
   // mock unlock succeeds.

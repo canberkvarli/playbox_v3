@@ -475,8 +475,9 @@ async function runReturnRecovery(target: ReturnInFlight): Promise<void> {
 
 export function createBleDriver(): HardwareDriver {
   return {
-    watchStation(stationId, onChange) {
+    watchStation(stationId, onChange, opts) {
       const targetName = nameFromStationId(stationId);
+      const eager = opts?.eager === true;
       let cancelled = false;
       let retryTimer: ReturnType<typeof setTimeout> | null = null;
       let disconnectSub: { remove: () => void } | null = null;
@@ -562,9 +563,14 @@ export function createBleDriver(): HardwareDriver {
         // fall through to the real scanAndConnect, which decays to out_of_range
         // exactly as before. The unlock/return still does scanAndConnect as the
         // source of truth — this only affects the presence banner.
+        // EAGER mode (the unlock screen) intentionally skips this passive-sighting
+        // short-circuit: a fresh advert proves the station is HERE, but it does
+        // NOT open a link. We want the link actually established before OYNA, so
+        // fall through to scanAndConnect below and hold it. Non-eager watchers
+        // (map, etc.) keep resting on the sighting to avoid needless connects.
         const sighting =
           useNearbyStore.getState().seen[stationId.toUpperCase()] ?? null;
-        if (isFreshlyPresent(sighting, Date.now())) {
+        if (!eager && isFreshlyPresent(sighting, Date.now())) {
           onChange({
             kind: 'in_range',
             rssi: sighting!.rssi,
