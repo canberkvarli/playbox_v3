@@ -339,6 +339,12 @@ class StationClient {
           // re-using it for the fast path will just fail again. Force a
           // fresh scan on the next attempt.
           this.lastSeenDevice = null;
+          // A held link dropping (e.g. after the eager prep-screen connect or an
+          // idle timeout) must NOT leave the map blind. Resume the passive scan
+          // so presence recovers on its own — otherwise the station shows
+          // "kapalı" until the user toggles Bluetooth. No-op if the map isn't
+          // scanning; skipped while a reconnect owns the radio.
+          if (!this.connectInFlight) this.runPassiveScan();
         });
         await this.syncTimeBestEffort();
         return connected;
@@ -420,6 +426,9 @@ class StationClient {
             connected.onDisconnected(() => {
               this.device = null;
               this.lastSeenDevice = null;
+              // Resume the passive scan so map/station presence recovers without
+              // a Bluetooth toggle (see fast-path note). Skipped mid-reconnect.
+              if (!this.connectInFlight) this.runPassiveScan();
             });
             await this.syncTimeBestEffort();
             finish(() => resolve(connected));
