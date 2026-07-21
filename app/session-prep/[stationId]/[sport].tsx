@@ -19,6 +19,7 @@ import { useFreshPresence } from '@/stores/nearbyStore';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
+import { useIsDeveloper } from '@/hooks/useIsDeveloper';
 import { usePaymentStore } from '@/stores/paymentStore';
 import { useIyzico } from '@/lib/iyzico';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
@@ -116,6 +117,7 @@ export default function SessionPrep() {
   // Demo Mode (App Store review) also never requires a card — the whole rent
   // flow runs on the mock driver with no iyzico hold.
   const demoMode = useDevStore((s) => s.demoMode);
+  const isDeveloper = useIsDeveloper();
   const mustAddCardFirst =
     !demoMode && cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
 
@@ -431,9 +433,17 @@ export default function SessionPrep() {
       const settingsRecoverable =
         unlockRes.error === 'permission_denied' ||
         unlockRes.error === 'bluetooth_off';
+      // Developer phone only: append the RAW driver error/message so a bench
+      // failure is diagnosable on-device instead of hiding behind the generic
+      // copy. Never shown to real users / App Store reviewers.
+      const devDetail = isDeveloper
+        ? `\n\n[dev] ${unlockRes.error}${
+            unlockRes.message ? `: ${unlockRes.message}` : ''
+          }`
+        : '';
       Alert.alert(
         t('common.error_generic'),
-        reasonMap[unlockRes.error] ?? reasonMap.unknown,
+        (reasonMap[unlockRes.error] ?? reasonMap.unknown) + devDetail,
         settingsRecoverable
           ? [
               { text: 'iptal', style: 'cancel' },
