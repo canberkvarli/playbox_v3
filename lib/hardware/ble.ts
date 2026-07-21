@@ -813,53 +813,97 @@ export function createBleDriver(): HardwareDriver {
         // payload is identical to a fresh sign.
         const cached = prefetchedUnlocks.get(correlationId);
         prefetchedUnlocks.delete(correlationId);
-        const signed =
-          cached && cached.expiresAt > Date.now()
-            ? cached.payload
-            : await fetchSignedUnlock({
-                stationId,
-                gate,
-                sessionId: correlationId,
-                durationMin,
-                devBypass: stationId === 'DEV-001',
-                // The reservation-linkage slug (e.g. DEV-001-football-1). The
-                // server only links the unlock to a reservation when this is
-                // present; the numeric `gate` above stays as-is for the BLE HMAC.
-                gateId,
-              });
+        // Sign helper. Attempt 1 reuses the pre-signed payload if session-prep
+        // cached one; every RETRY signs fresh so it carries a new (monotonic)
+        // ts — the firmware rejects a replayed ts, so a stale payload could
+        // never succeed on a second attempt.
+        const signUnlock = () =>
+          fetchSignedUnlock({
+            stationId,
+            gate,
+            sessionId: correlationId,
+            durationMin,
+            devBypass: stationId === 'DEV-001',
+            // The reservation-linkage slug (e.g. DEV-001-football-1). The
+            // server only links the unlock to a reservation when this is
+            // present; the numeric `gate` above stays as-is for the BLE HMAC.
+            gateId,
+          });
 
-        if (!stationClient.isConnected()) {
-          await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
+        // Connect → write → await gate_opened, with a small retry. The link now
+        // drops as a plain BLE supervision timeout (HCI 0x08 / reason 520) or a
+        // remote-terminate (0x13 / 531) and the ESP32 stays UP and re-advertises
+        // within ~1s — so a single-shot attempt that happens to catch a drop
+        // fails the whole rental, while a human on the debug screen just
+        // reconnects and taps again. This loop IS that human. Re-unlocking an
+        // already-open gate is a firmware no-op (it only pulses a LOCKED gate),
+        // so a retry never double-fires the solenoid.
+        const MAX_UNLOCK_ATTEMPTS = 3;
+        let lastErr: unknown = new Error('unlock: no attempt made');
+        for (let attempt = 1; attempt <= MAX_UNLOCK_ATTEMPTS; attempt++) {
+          try {
+            const signed =
+              attempt === 1 && cached && cached.expiresAt > Date.now()
+                ? cached.payload
+                : await signUnlock();
+
+            if (!stationClient.isConnected()) {
+              await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
+            }
+            // Arm the gate_opened confirmation BEFORE the write so a fast event
+            // is never missed. A BLE write only ACKs that the ESP32 RECEIVED the
+            // bytes — the firmware still silently no-ops (emitting nothing) on a
+            // bad signature, a replayed ts, battery_critical, or a wrong gate
+            // state. gate_opened is the only positive proof the solenoid fired;
+            // without it we'd report success and start billing / hold the
+            // deposit on a gate that never opened. The firmware echoes our
+            // correlationId as the event's session_id (see emitGateOpened).
+            const confirmed = awaitGateOpened(
+              correlationId,
+              (onEvent) => stationClient.subscribeToEvents(onEvent, () => {}),
+              GATE_OPEN_CONFIRM_MS,
+            );
+            // Thread the station's BLE name so a mid-write reconnect can
+            // re-target it by name (else the retry falls back to lastSeenDevice).
+            await stationClient.unlock(signed, targetName);
+            if (await confirmed) {
+              return { ok: true, openedAt: Date.now() };
+            }
+            // Wrote but no gate_opened inside the window — a mid-write drop may
+            // have swallowed the command or its event. Retry with a fresh sign.
+            lastErr = new Error('unlock: gate_opened not received');
+          } catch (e) {
+            lastErr = e;
+            // Drop the (likely dead) handle so the next attempt does a clean
+            // scan+connect against the freshly re-advertising peripheral.
+            try {
+              await stationClient.disconnect();
+            } catch {
+              /* already gone — nothing to release */
+            }
+          }
+          if (attempt < MAX_UNLOCK_ATTEMPTS) {
+            // Brief pause to let the ESP32 finish re-advertising after a drop.
+            await new Promise((r) => setTimeout(r, 400));
+          }
         }
-        // Arm the gate_opened confirmation BEFORE the write so a fast event is
-        // never missed. A BLE write only ACKs that the ESP32 RECEIVED the bytes
-        // — the firmware still silently no-ops (emitting nothing) on a bad
-        // signature, a replayed ts, battery_critical, or a wrong gate state.
-        // gate_opened is the only positive proof the solenoid actually fired;
-        // without it we'd report success and start billing / hold the deposit on
-        // a gate that never opened. The firmware echoes our correlationId as the
-        // event's session_id (see emitGateOpened in the firmware).
-        const confirmed = awaitGateOpened(
-          correlationId,
-          (onEvent) => stationClient.subscribeToEvents(onEvent, () => {}),
-          GATE_OPEN_CONFIRM_MS,
-        );
-        // Thread the station's BLE name so a mid-write reconnect can re-target
-        // it by name (otherwise the retry falls back to lastSeenDevice?.name).
-        await stationClient.unlock(signed, targetName);
-        if (!(await confirmed)) {
-          // Write landed but no gate_opened arrived — firmware rejected the
-          // command or the solenoid never fired. Report as a timeout so the
-          // caller releases the payment hold and the user can retry, instead of
-          // silently billing for a gate that stayed shut.
-          reportError(new Error('unlock: gate_opened not received'), {
+
+        // Every attempt exhausted. A clean "wrote but no gate_opened" is a
+        // timeout (release the hold, let the user retry); anything else
+        // (connect/scan/write threw) rethrows into the catch below for the
+        // connection_failed / out_of_range / bluetooth classification.
+        if (
+          lastErr instanceof Error &&
+          lastErr.message === 'unlock: gate_opened not received'
+        ) {
+          reportError(lastErr, {
             source: 'ble.unlock.unconfirmed',
             stationId,
             gateId,
           });
           return { ok: false, error: 'timeout', message: 'gate_opened not received' };
         }
-        return { ok: true, openedAt: Date.now() };
+        throw lastErr;
       } catch (e) {
         const kind = classifyError(e);
         reportError(e as Error, { source: 'ble.unlock', stationId, gateId });
