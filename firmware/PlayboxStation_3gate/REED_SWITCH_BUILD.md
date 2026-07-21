@@ -26,19 +26,23 @@ step, checking my parts against photos before telling me to buy anything.
 - On my bench there are NO reeds yet, so I fake the "door closed" step with a
   debug button. I want to replace that with real reed switches now.
 
-## STEP 1 — identify my solenoid / latch type (do this FIRST, from my photo)
-Tell me which of these I have and whether it **self-relocks when I push the door
-shut** (I need re-locking to be automatic — the app only PULSES the lock open for
-400ms, it does NOT hold it):
-- **Beveled/angled-bolt latch** (cabinet-lock style): pushing the door shut cams
-  the bolt in and it springs back = self-relocks. This is what I want.
-- **Straight-bolt solenoid**: bolt is a flat pin, can't be pushed back in — this
-  will NOT self-relock by closing. If this is what I have, tell me my options
-  (add a spring push-catch, use a strike plate, or swap the lock) and which is
-  cheapest/simplest.
-Also tell me: does my door need a **push-catch/spring** to pop open, or is
-pulling it by hand fine for a locker? (I did NOT buy a separate spring — confirm
-whether I actually need one for my lock type.)
+## STEP 0 — confirm the lock ORIENTATION (my solenoid is already the right type)
+I have a **spring-loaded angled-tongue solenoid ("dilli solenoid"), tongue
+pointing DOWN**. This is the self-relocking type — good. I do NOT need a separate
+spring. The app only PULSES the coil open for 400ms and does NOT hold it, so the
+lock MUST re-lock on its own when the door is pushed shut. Verify orientation with
+me by hand, no power/code:
+1. Push the tongue in with my finger — it should retract and spring back out
+   (confirms it's spring-loaded).
+2. Mount it roughly, then push the door (or my hand) against it from the
+   direction the door CLOSES:
+   - If the **angled/beveled face cams the tongue in and it clicks shut** →
+     orientation is correct, it self-relocks. 
+   - If the **flat back of the tongue blocks the door / won't close** → tell me
+     to rotate the solenoid 180° so the beveled face points the way the door
+     swings, then retest.
+Confirm the door can be PULLED open by hand once unlocked (no push-catch needed
+for a locker) before we move on.
 
 ## STEP 2 — confirm my sensor parts (from my photo)
 I need, per gate (×3):
