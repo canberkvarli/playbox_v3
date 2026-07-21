@@ -95,7 +95,18 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen
               name="station/[id]"
-              options={{ headerShown: false, presentation: 'card', animation: 'slide_from_right' }}
+              // gestureEnabled:false — this screen has the horizontal DURATION
+              // SLIDER, and the native iOS swipe-back gesture was hijacking the
+              // slider drag ("sliding duration swipes the screen"). The JS
+              // PanResponder in DurationSlider can't out-prioritize the native
+              // back-swipe, so we disable swipe-back here; the header back button
+              // still navigates back. Vertical scroll is unaffected.
+              options={{
+                headerShown: false,
+                presentation: 'card',
+                animation: 'slide_from_right',
+                gestureEnabled: false,
+              }}
             />
             <Stack.Screen
               name="session-prep/[stationId]/[sport]"
