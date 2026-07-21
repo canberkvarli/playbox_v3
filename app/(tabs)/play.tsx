@@ -258,10 +258,12 @@ export default function Play() {
   const onHowToFinish = async () => {
     await hx.tap();
     if (!active) return;
-    router.push({
-      pathname: '/session-prep/[stationId]/[sport]',
-      params: { stationId: active.stationId, sport: active.sport, mode: 'howto' },
-    });
+    // Show the SAME bottom sheet as the real end-session flow, but in an
+    // informational 'howto' phase (StepRail + a plain "anladım" close, no door
+    // action). Was a full-screen route push to session-prep howto; the sheet is
+    // lighter and matches the kapı-steps redesign.
+    setReturnPhase('howto');
+    setEndModalOpen(true);
   };
 
   const { t } = useT();
@@ -275,7 +277,7 @@ export default function Play() {
   //                       confirmation. On bench without reeds, manual is
   //                       the only way out.
   const [returnPhase, setReturnPhase] = useState<
-    'confirm' | 'opening' | 'awaiting_close'
+    'howto' | 'confirm' | 'opening' | 'awaiting_close'
   >('confirm');
   const returningRef = useRef(false);
   const finalizingRef = useRef(false);
@@ -1051,6 +1053,13 @@ export default function Play() {
         visible={endModalOpen}
         phase={returnPhase}
         onCancel={() => {
+          // 'howto' is a pure info sheet — always dismissable; reset the phase
+          // so the next REAL end-session opens on 'confirm', not 'howto'.
+          if (returnPhase === 'howto') {
+            setEndModalOpen(false);
+            setReturnPhase('confirm');
+            return;
+          }
           // Dismissable only while still in the confirm step. After the BLE
           // write has fired the door is physically open — closing the modal
           // would orphan the flow.
@@ -1207,7 +1216,7 @@ function EndSessionModal({
   accruedTry,
 }: {
   visible: boolean;
-  phase: 'confirm' | 'opening' | 'awaiting_close';
+  phase: 'howto' | 'confirm' | 'opening' | 'awaiting_close';
   onCancel: () => void;
   onConfirmOpen: () => void | Promise<void>;
   onManualConfirmClosed: () => void | Promise<void>;
@@ -1215,7 +1224,7 @@ function EndSessionModal({
   photoState: 'idle' | 'busy' | 'saved' | 'failed';
   accruedTry: number;
 }) {
-  const dismissable = phase === 'confirm';
+  const dismissable = phase === 'confirm' || phase === 'howto';
 
   return (
     <Modal
@@ -1260,7 +1269,9 @@ function EndSessionModal({
             }}
           />
 
-          {phase === 'confirm' ? (
+          {phase === 'howto' ? (
+            <HowtoPhase onClose={onCancel} />
+          ) : phase === 'confirm' ? (
             <ConfirmPhase
               accruedTry={accruedTry}
               onConfirmOpen={onConfirmOpen}
@@ -1279,6 +1290,89 @@ function EndSessionModal({
         </Pressable>
       </Pressable>
     </Modal>
+  );
+}
+
+// Informational sheet reached from "nasıl bitirilir?" — the SAME StepRail the
+// real return flow shows, but read-only: no BLE, no door action, just a plain
+// "anladım" that closes. Mirrors the kapı-steps redesign.
+function HowtoPhase({ onClose }: { onClose: () => void }) {
+  const steps: StepRailStep[] = [
+    { text: 'kapıyı açacağız', sub: 'kutunun kapağı açılır' },
+    { text: 'ekipmanı yerine koy', sub: 'aldığın yuvaya' },
+    { text: 'kapıyı kapat', sub: 'kapanınca kilitlenir' },
+  ];
+
+  return (
+    <>
+      <View
+        style={{
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: palette.volt,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginBottom: 16,
+        }}
+      >
+        <Feather name="help-circle" size={30} color={palette.voltInk} />
+      </View>
+
+      <Text
+        style={{
+          fontFamily: 'Unbounded_800ExtraBold',
+          color: palette.fg,
+          fontSize: 28,
+          lineHeight: 33,
+          textTransform: 'uppercase',
+        }}
+      >
+        nasıl bitirilir?
+      </Text>
+      <Text
+        style={{
+          fontFamily: 'Inter_500Medium',
+          color: palette.muted,
+          fontSize: 15,
+          lineHeight: 21,
+          marginTop: 8,
+        }}
+      >
+        seansı bitirmek için kutunun yanına gel ve sırasıyla:
+      </Text>
+
+      <View style={{ marginTop: 18 }}>
+        <StepRail steps={steps} />
+      </View>
+
+      <Pressable
+        onPress={async () => {
+          await hx.tap();
+          onClose();
+        }}
+        accessibilityRole="button"
+        style={({ pressed }) => ({
+          marginTop: 22,
+          backgroundColor: palette.volt,
+          borderRadius: 16,
+          paddingVertical: 16,
+          alignItems: 'center',
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <Text
+          style={{
+            fontFamily: 'Unbounded_800ExtraBold',
+            color: palette.voltInk,
+            fontSize: 16,
+            textTransform: 'uppercase',
+          }}
+        >
+          anladım
+        </Text>
+      </Pressable>
+    </>
   );
 }
 
