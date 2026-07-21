@@ -278,6 +278,14 @@ class StationClient {
     } catch {
       // already stopped — ignore
     }
+    // iOS tears a scan down ASYNCHRONOUSLY. A connect() issued in the same tick
+    // as stopDeviceScan() routinely dies with "operation was cancelled"
+    // (BleError code 2) — this is the classic "first tap fails, second works"
+    // bug. A short settle lets CoreBluetooth finish stopping the scan before we
+    // connect. Only pay it when a scan was actually running.
+    if (passiveWasActive) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
 
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
@@ -367,6 +375,11 @@ class StationClient {
           } catch {
             // ignore
           }
+          // Settle before connecting: same iOS async-scan-teardown race as the
+          // fast path above — connecting in the same tick as the scan stop gets
+          // cancelled ("operation was cancelled", code 2). This is the single
+          // biggest cause of the slow-path first-try failure.
+          await new Promise((r) => setTimeout(r, 250));
           try {
             const connected = await scanned.connect({ timeout: 8000 });
             await connected.discoverAllServicesAndCharacteristics();
