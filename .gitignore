@@ -56,3 +56,7 @@ firmware/*/station_secret.h
 
 # Google Play submit service account key (never commit)
 google-play-key.json
+
+# build/test caches (never commit)
+jest_dx/
+v8-compile-cache-501/

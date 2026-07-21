@@ -298,6 +298,19 @@ class StationClient {
       this.device = null;
     }
 
+    // Connected to a DIFFERENT station than the one requested? Release that link
+    // first. We can't cleanly hold two GATT connections through this manager, and
+    // leaving the old one open makes the new connect die with "operation was
+    // cancelled". This is the "one screen holds station A, another asks for
+    // station B" case (e.g. debug screen vs. the user-facing flow).
+    if (this.device && this.device.name !== stationName) {
+      try {
+        await this.disconnect();
+      } catch {
+        // best-effort — fall through and try the fresh connect anyway
+      }
+    }
+
     // Stop any active scan UP FRONT — iOS cancels a connect that begins while a
     // scan is still running ("operation was cancelled"). This started biting
     // once the passive scan actually worked (a live scan now collides with the

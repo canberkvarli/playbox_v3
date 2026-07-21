@@ -4,6 +4,7 @@ import {
   PermissionsAndroid,
   Platform,
   ScrollView,
+  Share,
   Text,
   TouchableOpacity,
   View,
@@ -156,11 +157,52 @@ export default function BleDebugScreen() {
     }
   }
 
+  async function onCopyLog() {
+    if (logs.length === 0) return;
+    // logs are newest-first; reverse to chronological so the paste reads like
+    // a serial dump. Share sheet has a "Copy" action (and AirDrop/Messages),
+    // so this works without a native clipboard module.
+    const text = [...logs]
+      .reverse()
+      .map((l) => `[${new Date(l.ts).toLocaleTimeString()}] ${l.text}`)
+      .join("\n");
+    try {
+      await Share.share({ message: text });
+    } catch {
+      // share sheet dismissed — no-op
+    }
+  }
+
   useEffect(() => {
+    // Adopt an existing shared connection instead of fighting it. This screen
+    // and the user-facing flow share the same stationClient singleton; if a
+    // link to this station is already held (e.g. you were just testing OYNA),
+    // reflect that here and re-subscribe to events — otherwise we'd show "idle"
+    // and the Connect button would kick off a competing scan against a
+    // peripheral that (being connected) isn't advertising → "connect failed".
+    if (
+      stationClient.isConnected() &&
+      stationClient.connectedName() === STATION_NAME
+    ) {
+      setStatus("connected");
+      log("info", `adopted existing connection to ${STATION_NAME}`);
+      subRef.current = stationClient.subscribeToEvents(
+        (e) => log("event", JSON.stringify(e)),
+        (err) => log("error", `notify error: ${err.message}`),
+      );
+    }
+    // On unmount, only drop OUR event subscription — do NOT disconnect the
+    // shared link. This screen used to call stationClient.disconnect() here,
+    // which tore down a connection the user-facing flow was holding, causing
+    // the "switch screens → connect failed" churn. Use the Disconnect button
+    // to tear down on purpose.
     return () => {
-      if (subRef.current) subRef.current.remove();
-      stationClient.disconnect();
+      if (subRef.current) {
+        subRef.current.remove();
+        subRef.current = null;
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isConnected = status === "connected";
@@ -189,6 +231,7 @@ export default function BleDebugScreen() {
           primary
         />
         <Btn label="Disconnect" onPress={onDisconnect} disabled={!isConnected} />
+        <Btn label="Copy log" onPress={onCopyLog} disabled={logs.length === 0} />
         <Btn label="Clear log" onPress={() => setLogs([])} />
       </View>
 
@@ -226,6 +269,7 @@ export default function BleDebugScreen() {
         {logs.map((l) => (
           <View key={l.id} className="mb-1">
             <Text
+              selectable
               className={
                 l.kind === "error"
                   ? "text-red-400 font-mono text-xs"
