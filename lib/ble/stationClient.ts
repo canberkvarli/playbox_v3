@@ -38,6 +38,12 @@ class StationClient {
     onError?: (err: Error) => void;
   } | null = null;
   private passiveScanActive = false;
+  // Single-flight guard for scanAndConnect. When the eager prep-screen watcher
+  // is mid-connect and the user taps OYNA, both call scanAndConnect on this same
+  // singleton — two concurrent connects on iOS cancel each other ("operation was
+  // cancelled", code 2). We dedupe: a second connect to the SAME station awaits
+  // the in-flight one instead of racing it.
+  private connectInFlight: { name: string; promise: Promise<Device> } | null = null;
   // Watches the BLE adapter power state. Without it, a passive scan started
   // while the adapter is off (user opens the map, THEN enables Bluetooth)
   // errors out and never retries — the station stays grayed until a fresh scan
@@ -249,6 +255,32 @@ class StationClient {
   }
 
   async scanAndConnect(stationName: string, timeoutMs = 8000): Promise<Device> {
+    // Single-flight: if a connect to this SAME station is already running (the
+    // eager prep-screen watcher started one and the user just tapped OYNA),
+    // await THAT connection instead of starting a second, competing scan/connect
+    // — concurrent connects cancel each other on iOS ("operation was cancelled").
+    // A live-handle fast return is cheap, so only dedupe when nothing is
+    // connected yet; a different station name always runs fresh.
+    if (
+      this.connectInFlight &&
+      this.connectInFlight.name === stationName &&
+      !this.device
+    ) {
+      return this.connectInFlight.promise;
+    }
+    const promise = this._doScanAndConnect(stationName, timeoutMs);
+    this.connectInFlight = { name: stationName, promise };
+    try {
+      return await promise;
+    } finally {
+      if (this.connectInFlight?.promise === promise) this.connectInFlight = null;
+    }
+  }
+
+  private async _doScanAndConnect(
+    stationName: string,
+    timeoutMs = 8000,
+  ): Promise<Device> {
     // Already connected to the SAME device? Hand back the live handle.
     // The name check is critical — without it, opening ist-taksim while
     // connected to the DEV-001 breadboard would falsely report in_range
