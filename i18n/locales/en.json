@@ -475,8 +475,7 @@
     "gate_ready": "{{sport}} gate ready",
     "how_it_works": "quick reminder",
     "cta": "play!",
-    "opening": "opening gate...",
-    "connecting": "connecting to station…"
+    "opening": "opening gate..."
   },
   "scan": {
     "title": "scan the station's qr",
