@@ -946,7 +946,17 @@ unsigned long lastHeartbeat = 0;
 void loop() {
   esp_task_wdt_reset();
 
-  if (millis() - lastHeartbeat > 1000) {
+  // Onboard LED = BLE link indicator you can read on battery, no USB/serial:
+  //   SOLID ON  = a phone is connected (GATT link up)
+  //   SLOW BLINK (1 Hz) = advertising / idle, nobody connected
+  // This turns "did the connect reach the ESP32?" into a glance: tap connect
+  // and watch — if it never goes solid, the phone isn't reaching the board
+  // (app/RF); if it goes solid then blinks again, the link formed then dropped
+  // (supervision/RF/ESP32 side).
+  if (bleConnected) {
+    digitalWrite(LED_PIN, HIGH);
+    lastHeartbeat = millis();  // so the blink resumes cleanly on disconnect
+  } else if (millis() - lastHeartbeat > 1000) {
     digitalWrite(LED_PIN, !digitalRead(LED_PIN));
     lastHeartbeat = millis();
   }
