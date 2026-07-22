@@ -180,14 +180,17 @@ export default function SessionPrep() {
   // which reports in_range on a live connection OR a fresh passive sighting.
   // Either signal counts as genuinely present, so the "yaklaş" nudge only
   // shows when the station truly isn't reachable.
-  // Proximity watch (NON-eager). We tried eager warm-connect here to make OYNA
-  // instant, but holding a link from the prep screen created radio contention
-  // and lingering half-open connections that destabilized the FW-state read and
-  // map presence. Back to resting on the passive sighting; the OYNA connect is
-  // reliable now via single-flight + the scan-stop settle + the firmware
-  // name/conn-params reflash, so a clean ~2–3s connect-at-tap beats a flaky
-  // instant one. (eager plumbing stays in the driver, just unused.)
-  const { inRange: activelyPresent } = useStationInRange(stationId);
+  // Proximity watch — EAGER warm-connect. We start establishing the GATT link
+  // the moment this prep screen mounts (before the user finishes the "how it
+  // works" slides), so the unlock at the end is INSTANT instead of a cold
+  // ~2-3s connect that kept failing on the first tap. Eager was reverted once
+  // for "radio contention" — but that instability was really the ESP32 browning
+  // out on a raw 12V→VIN feed; with a clean 5V buck the warm link is stable.
+  // `unreachable` (UNREACHABLE_MS give-up) lets the CTA distinguish "still
+  // connecting…" from "gave up → yaklaş".
+  const { inRange: activelyPresent, unreachable } = useStationInRange(stationId, {
+    eager: true,
+  });
   // Demo Mode (App Store review): no hardware advertises, so count as present —
   // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
   // mock unlock succeeds.
@@ -285,8 +288,14 @@ export default function SessionPrep() {
   // the real scanAndConnect (source of truth), which will connect-or-fail. This
   // is honesty, not a security gate: never hard-block on a passive miss.
   const isUnlockCta = isLast && !isHowto;
-  const softenForProximity =
-    isUnlockCta && !unlocking && !freshlyPresent;
+  // Split "not freshly present" into two honest sub-states so the CTA reads
+  // right during the eager warm-connect:
+  //   connecting → actively establishing the link (show "bağlanılıyor…")
+  //   outOfRange → the eager watcher gave up (UNREACHABLE_MS) → show "yaklaş"
+  const connecting = isUnlockCta && !unlocking && !freshlyPresent && !unreachable;
+  const outOfRange = isUnlockCta && !unlocking && !freshlyPresent && unreachable;
+  // Union keeps every existing "softened" behavior (dim + still tappable) intact.
+  const softenForProximity = connecting || outOfRange;
 
   const onOyna = async () => {
     if (unlockingRef.current) return;
@@ -729,8 +738,10 @@ export default function SessionPrep() {
           style={{
             backgroundColor: unlocking
               ? palette.butter
+              : connecting
+              ? palette.ink + '22' // warming the BLE link → "bağlanılıyor…"
               : softenForProximity
-              ? palette.ink + '33' // not freshly nearby → softened "yaklaş" state
+              ? palette.ink + '33' // gave up → softened "yaklaş" state
               : isLast && isHowto
               ? palette.ink
               : isLast
@@ -759,6 +770,8 @@ export default function SessionPrep() {
               name={
                 unlocking
                   ? 'unlock'
+                  : connecting
+                  ? 'bluetooth'
                   : softenForProximity
                   ? 'map-pin'
                   : isLast && isHowto
@@ -780,6 +793,8 @@ export default function SessionPrep() {
           >
             {unlocking
               ? t('prep.opening')
+              : connecting
+              ? t('prep.connecting')
               : softenForProximity
               ? t('prep.approach')
               : isLast && isHowto
@@ -791,10 +806,10 @@ export default function SessionPrep() {
         </View>
       </Pressable>
 
-      {/* Gentle proximity nudge — shown only when the unlock CTA is softened
-          because the radio hasn't freshly heard this station. Purely advisory;
+      {/* Gentle proximity nudge — shown only when the eager warm-connect gave
+          up (out of range), NOT while it's still connecting. Purely advisory;
           the button above stays tappable (real connect is source of truth). */}
-      {softenForProximity ? (
+      {outOfRange ? (
         <Text
           style={{
             fontFamily: 'Inter_600SemiBold',
