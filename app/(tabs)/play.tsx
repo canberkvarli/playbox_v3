@@ -195,6 +195,39 @@ export default function Play() {
   const reopeningRef = useRef(false);
   const [reopening, setReopening] = useState(false);
 
+  // Optimistic door-open tracking for the "kapıyı aç" reopen button (Path 1):
+  // we hold no BLE link during a session, so we can't read the reed live.
+  // Instead we assume the door is open right after WE open it — a fresh OYNA
+  // start or a reopen tap — and auto-clear after a grace window (time to grab
+  // the gear and shut the door). While "open" the reopen button is disabled and
+  // reads "kapı açık", so you can't re-open a door that's already open.
+  const DOOR_OPEN_GRACE_MS = 25_000;
+  const [doorOpen, setDoorOpen] = useState(false);
+  const doorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markDoorOpen = (remainingMs: number = DOOR_OPEN_GRACE_MS) => {
+    setDoorOpen(true);
+    if (doorTimerRef.current) clearTimeout(doorTimerRef.current);
+    doorTimerRef.current = setTimeout(
+      () => setDoorOpen(false),
+      Math.max(0, remainingMs),
+    );
+  };
+  // A freshly-started session means OYNA just opened the door — reflect that so
+  // the reopen button starts disabled and clears once they've had time to shut
+  // it. Keyed on startedAt so it fires only for a genuinely new session, not on
+  // every remount of an ongoing one.
+  useEffect(() => {
+    if (!active) return;
+    const elapsed = Date.now() - active.startedAt;
+    if (elapsed >= 0 && elapsed < DOOR_OPEN_GRACE_MS) {
+      markDoorOpen(DOOR_OPEN_GRACE_MS - elapsed);
+    }
+    return () => {
+      if (doorTimerRef.current) clearTimeout(doorTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.startedAt]);
+
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);
   const ignoreFirmwareTimeouts = useDevStore((s) => s.ignoreFirmwareTimeouts);
@@ -404,6 +437,9 @@ export default function Play() {
       } else {
         await new Promise((r) => setTimeout(r, 450));
       }
+      // Door is now open — disable reopen until the grace window lapses (Path 1
+      // optimistic tracking; we can't read the reed live during a session).
+      markDoorOpen();
       await hx.yes();
     } catch {
       await hx.punch();
@@ -940,7 +976,12 @@ export default function Play() {
       <View style={{ paddingHorizontal: 20, paddingTop: 6, paddingBottom: insets.bottom + 8 }}>
         {/* Re-open the door — available anytime during the session. Volt primary. */}
         <View style={{ marginBottom: 10 }}>
-          <Button label={reopening ? 'açılıyor…' : 'kapıyı aç'} onPress={onReopen} full />
+          <Button
+            label={reopening ? 'açılıyor…' : doorOpen ? 'kapı açık' : 'kapıyı aç'}
+            onPress={onReopen}
+            disabled={reopening || doorOpen}
+            full
+          />
         </View>
 
         {/* Primary CTA — coral-outline "seansı bitir". */}
