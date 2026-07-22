@@ -523,9 +523,12 @@ static void pollReeds() {
       lastReedChangeMs[g] = millis();
       if (r == LOW) handleGateClose(g);
       else Serial.printf("[REED] gate %d opened\n", g + 1);
-      // Republish INFO so the app's next read sees the live door state (the
-      // INFO char is READ-only, so we refresh it on every reed edge).
-      refreshInfoChar();
+      // NOTE: intentionally do NOT rebuild INFO here. Doing it on every reed
+      // edge churned the BLE stack (heap alloc + serialize in loop()) and, when
+      // a noisy reed chattered, destabilized connection setup → "online but
+      // won't connect". INFO still carries door state — refreshed on every state
+      // transition, on boot, and on the app's on-demand read (lastReed is always
+      // current), which is enough for the dev badge without the per-edge churn.
     }
   }
 }
