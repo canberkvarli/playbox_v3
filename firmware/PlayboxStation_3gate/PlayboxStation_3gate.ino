@@ -369,6 +369,11 @@ static void refreshInfoChar() {
   // Parallel string arrays — infoGate.ts shape (a).
   JsonArray gateStates   = info["gate_states"].to<JsonArray>();
   JsonArray gateSessions = info["gate_sessions"].to<JsonArray>();
+  // Physical DOOR state from the reed, parallel to the arrays above. LOW =
+  // magnet near = "closed"; HIGH (or no reed wired → INPUT_PULLUP) = "open".
+  // The app reads this to gate the open/return button: you can only open a door
+  // that's actually shut, and you can't "open" one already hanging open.
+  JsonArray gateDoors    = info["gate_doors"].to<JsonArray>();
   // Aliases for app/station/[id].tsx (info.states = object[], info.sessions[]).
   JsonArray states   = info["states"].to<JsonArray>();
   JsonArray sessions = info["sessions"].to<JsonArray>();
@@ -376,13 +381,18 @@ static void refreshInfoChar() {
   for (int g = 0; g < NUM_GATES; g++) {
     const char* st  = stateName(gateState[g]);
     const String& sid = activeSessionId[g];
+    const bool doorClosed = (lastReed[g] == LOW);
+    const char* door = doorClosed ? "closed" : "open";
     gateStates.add(st);
     gateSessions.add(sid);
+    gateDoors.add(door);
     sessions.add(sid);
     JsonObject go = states.add<JsonObject>();
-    go["gate"]       = g + 1;
-    go["state"]      = st;
-    go["session_id"] = sid;
+    go["gate"]        = g + 1;
+    go["state"]       = st;
+    go["session_id"]  = sid;
+    go["door"]        = door;         // "closed" | "open" (from the reed)
+    go["door_closed"] = doorClosed;   // boolean, convenient for the app's gate
   }
 
   String s;
@@ -513,6 +523,9 @@ static void pollReeds() {
       lastReedChangeMs[g] = millis();
       if (r == LOW) handleGateClose(g);
       else Serial.printf("[REED] gate %d opened\n", g + 1);
+      // Republish INFO so the app's next read sees the live door state (the
+      // INFO char is READ-only, so we refresh it on every reed edge).
+      refreshInfoChar();
     }
   }
 }

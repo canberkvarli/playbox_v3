@@ -433,7 +433,12 @@ type FwGateState = 'LOCKED' | 'UNLOCKED' | 'IN_USE' | 'RETURN_UNLOCKED';
 
 type FwSnapshot = {
   /** Per-gate state, keyed by 1-indexed gate number. */
-  states: Record<number, { state: FwGateState; session_id: string }>;
+  states: Record<
+    number,
+    // `door` is the physical reed state ("closed" = magnet near = shut). Optional
+    // so old firmware (no reed reporting) still parses.
+    { state: FwGateState; session_id: string; door?: 'open' | 'closed' }
+  >;
   /** Number of compartments the firmware exposes (1 for old fw, 3 for new). */
   gates: number;
   /** Firmware version string from the INFO characteristic. */
@@ -459,11 +464,22 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       const states: FwSnapshot['states'] = {};
       const rawStates = (info?.states as unknown[]) ?? [];
       for (const s of rawStates) {
-        const obj = s as { gate?: number; state?: string; session_id?: string };
+        const obj = s as {
+          gate?: number;
+          state?: string;
+          session_id?: string;
+          door?: string;
+        };
         if (typeof obj.gate === 'number') {
           states[obj.gate] = {
             state: (obj.state ?? 'LOCKED') as FwGateState,
             session_id: obj.session_id ?? '',
+            door:
+              obj.door === 'closed'
+                ? 'closed'
+                : obj.door === 'open'
+                ? 'open'
+                : undefined,
           };
         }
       }
@@ -678,6 +694,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           const selected = g === gate;
           const s = fw?.states[g]?.state;
           const sess = fw?.states[g]?.session_id;
+          const door = fw?.states[g]?.door;
           const tint =
             s === 'UNLOCKED' || s === 'RETURN_UNLOCKED'
               ? palette.coral
@@ -734,6 +751,22 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                   {s ?? '?'}
                 </Text>
               </View>
+              {/* Physical door (reed) state — the ground truth from the magnet.
+                  Green = shut, coral = hanging open. Blank on old firmware. */}
+              {door ? (
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'JetBrainsMono_700Bold',
+                    fontSize: 10,
+                    letterSpacing: 0.3,
+                    marginTop: 5,
+                    color: door === 'closed' ? palette.volt : palette.coral,
+                  }}
+                >
+                  {door === 'closed' ? '🚪 kapalı' : '🚪 açık'}
+                </Text>
+              ) : null}
               <Text
                 numberOfLines={1}
                 style={{
