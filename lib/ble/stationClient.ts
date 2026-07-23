@@ -268,13 +268,49 @@ class StationClient {
     ) {
       return this.connectInFlight.promise;
     }
-    const promise = this._doScanAndConnect(stationName, timeoutMs);
+    const promise = this._scanAndConnectWithRetry(stationName, timeoutMs);
     this.connectInFlight = { name: stationName, promise };
     try {
       return await promise;
     } finally {
       if (this.connectInFlight?.promise === promise) this.connectInFlight = null;
     }
+  }
+
+  /**
+   * iOS BLE cold-connect is flaky: the first scan/connect after the radio warms
+   * up — or after a scan-teardown race — routinely misses, so the user ends up
+   * tapping 2–3 times to land one connection. Give a SINGLE tap up to
+   * MAX_ATTEMPTS internal shots: on failure we drop stale handles so the retry
+   * does a clean fresh scan, then let CoreBluetooth settle before trying again.
+   * We stop early on a terminal adapter state (off / unauthorized) — retrying
+   * there just burns another 8s timeout and delays the error the user needs.
+   */
+  private async _scanAndConnectWithRetry(
+    stationName: string,
+    timeoutMs: number,
+  ): Promise<Device> {
+    const MAX_ATTEMPTS = 2;
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this._doScanAndConnect(stationName, timeoutMs);
+      } catch (e) {
+        lastErr = e;
+        // Terminal adapter state → surface the error now, don't retry.
+        const st = await this.manager.state().catch(() => null);
+        if (st && st !== State.PoweredOn) break;
+        if (attempt < MAX_ATTEMPTS) {
+          // Clear stale handles so the next attempt scans fresh (a dead
+          // lastSeenDevice would just fail the fast path again), then let iOS
+          // finish tearing the scan down + settle the radio before retrying.
+          this.device = null;
+          this.lastSeenDevice = null;
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+    }
+    throw lastErr;
   }
 
   private async _doScanAndConnect(
