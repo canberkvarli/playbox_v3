@@ -86,40 +86,14 @@ export default function StationDetail() {
   // advert-based and stable. Scoped to focus (stops on blur) so it never scans
   // while the unlock/return flow holds a GATT connection — an always-on scan
   // scanning mid-connection wedged the radio.
-  // Once we've HEARD the station we're in the radius — so stop the nearby-scan
-  // and stop competing with our own connect. A scan running when we tap makes
-  // iOS cancel the connect ("operation was cancelled"); the debug screen
-  // connects first-try precisely because it runs no scan. So: scan only until
-  // presence is confirmed, then latch "in range", stop scanning, and let the
-  // tap connect immediately — scanAndConnect's fast path reuses the device we
-  // just heard, so there's no fresh scan and no contention. Re-arms on refocus.
-  const scanSubRef = useRef<{ stop: () => void } | null>(null);
-  const [presenceLatched, setPresenceLatched] = useState(false);
-  useFocusEffect(
-    useCallback(() => {
-      const driver = getDriver();
-      const sub = driver.watchNearbyStations((s) => {
-        useNearbyStore.getState().record(s);
-      });
-      scanSubRef.current = sub;
-      // Bounded scan: sample presence for a few seconds, then STOP. A scan
-      // running when the user taps makes iOS cancel the connect — the debug
-      // screen connects first-try precisely because it never scans. The latch
-      // below stops it sooner if we hear the station; this timer guarantees it
-      // stops even if we never do, so from then on connects run contention-free
-      // (scanAndConnect does its own one-shot scan on tap).
-      const stopTimer = setTimeout(() => {
-        scanSubRef.current?.stop();
-        scanSubRef.current = null;
-      }, 5000);
-      return () => {
-        clearTimeout(stopTimer);
-        sub.stop();
-        scanSubRef.current = null;
-        setPresenceLatched(false);
-      };
-    }, []),
-  );
+  // NO background BLE on this screen. Any scanning/watching here competes with
+  // the ONE thing that matters — the connect the user triggers on tap (unlock /
+  // fw-read) — and iOS cancels a connect that begins while a scan is running.
+  // The debug screen connects reliably precisely because it never scans. So we
+  // do the same: the only BLE this screen does is the one-shot scanAndConnect
+  // fired by a tap. Presence ("açık") just rides on whatever the map already
+  // heard (nearbyStore); we do NOT refresh it here — the tap's own connect is
+  // the real reachability check.
 
   // Live BLE presence for the header chip — advert-based (fed by the passive
   // scan above), so the header reflects real reachability instead of a static
@@ -134,19 +108,7 @@ export default function StationDetail() {
   // station as in-range/open — otherwise OYNA never lights up and a reviewer
   // can't run the unlock. The mock driver simulates the rest.
   const demoMode = useDevStore((s) => s.demoMode);
-  const open = demoMode || proximity.present || presenceLatched;
-
-  // Latch presence the first time we hear the station, then stop the nearby-scan
-  // so the unlock/read connect owns the radio (see the focus effect above).
-  // Once latched the header stays "açık" without a live scan; the tap's own
-  // connect is the real reachability check from here on. Un-latches on refocus.
-  useEffect(() => {
-    if ((proximity.present || demoMode) && !presenceLatched) {
-      setPresenceLatched(true);
-      scanSubRef.current?.stop();
-      scanSubRef.current = null;
-    }
-  }, [proximity.present, demoMode, presenceLatched]);
+  const open = demoMode || proximity.present;
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
   // neutral "bağlanıyor…" rather than flashing "kapalı" at someone standing in

@@ -320,7 +320,7 @@ class StationClient {
     stationName: string,
     timeoutMs: number,
   ): Promise<Device> {
-    const MAX_ATTEMPTS = 2;
+    const MAX_ATTEMPTS = 3;
     let lastErr: unknown;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
