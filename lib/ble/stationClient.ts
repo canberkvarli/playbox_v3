@@ -402,13 +402,14 @@ class StationClient {
     // connect to it. No second scan, no iOS scan-collision, no waiting
     // for the next advert packet — should be under a second.
     if (this.lastSeenDevice && this.lastSeenDevice.name === stationName) {
+      let connected: Device | null = null;
       try {
         // Bound the connect: a stale lastSeenDevice (previous session, or an
         // ESP32 that rebooted since we saw its advert) can hang connect()
         // indefinitely with no timeout, freezing the caller (e.g. the BLE
         // debug screen stuck on "scanning"). On timeout we fall through to a
         // fresh scan below.
-        const connected = await this.lastSeenDevice.connect({ timeout: 6000 });
+        connected = await this.lastSeenDevice.connect({ timeout: 6000 });
         await connected.discoverAllServicesAndCharacteristics();
         this.device = connected;
         connected.onDisconnected((err) => {
@@ -429,6 +430,19 @@ class StationClient {
         await this.syncTimeBestEffort();
         return connected;
       } catch {
+        // Post-connect failure (discovery/handshake) leaves iOS holding a live
+        // GATT link the app can't use — a PHANTOM connection that makes the
+        // ESP32 stop advertising and blocks every future connect (solid LED,
+        // no "açık", "bağlanamadı"). Tear it down before falling back so the
+        // board keeps advertising and the retry can land a clean link.
+        if (connected) {
+          try {
+            await connected.cancelConnection();
+          } catch {
+            // best-effort — the link may already be gone
+          }
+        }
+        this.device = null;
         // Fall back to the full scan — fast path is best-effort.
         this.lastSeenDevice = null;
       }
@@ -498,8 +512,9 @@ class StationClient {
           // cancelled ("operation was cancelled", code 2). This is the single
           // biggest cause of the slow-path first-try failure.
           await new Promise((r) => setTimeout(r, 250));
+          let connected: Device | null = null;
           try {
-            const connected = await scanned.connect({ timeout: 8000 });
+            connected = await scanned.connect({ timeout: 8000 });
             await connected.discoverAllServicesAndCharacteristics();
             this.device = connected;
             this.lastSeenDevice = scanned;
@@ -512,8 +527,20 @@ class StationClient {
               if (!this.connectInFlight) this.runPassiveScan();
             });
             await this.syncTimeBestEffort();
-            finish(() => resolve(connected));
+            const linked = connected;
+            finish(() => resolve(linked));
           } catch (e) {
+            // Cancel a half-open link so we don't leak a phantom connection
+            // that stops the board advertising and blocks future connects
+            // (see the fast-path note above).
+            if (connected) {
+              try {
+                await connected.cancelConnection();
+              } catch {
+                // best-effort — may already be gone
+              }
+            }
+            this.device = null;
             finish(() => reject(e));
           }
         }
