@@ -695,12 +695,16 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           const s = fw?.states[g]?.state;
           const sess = fw?.states[g]?.session_id;
           const door = fw?.states[g]?.door;
-          const tint =
-            s === 'UNLOCKED' || s === 'RETURN_UNLOCKED'
-              ? palette.coral
-              : s === 'IN_USE'
-              ? palette.butter
-              : palette.ink + '33';
+          // High-contrast state pill (dark theme: `ink` is the LIGHT text, so
+          // fills must be solid and text picked to contrast each fill).
+          const open = s === 'UNLOCKED' || s === 'RETURN_UNLOCKED';
+          const inUse = s === 'IN_USE';
+          const pillFill = open
+            ? palette.volt
+            : inUse
+            ? palette.butter
+            : palette.border;
+          const pillText = open ? palette.voltInk : inUse ? '#FFFFFF' : palette.ink;
           return (
             <Pressable
               key={g}
@@ -708,12 +712,12 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               disabled={!!busy}
               style={({ pressed }) => ({
                 flex: 1,
-                paddingVertical: 16,
+                paddingVertical: 14,
                 paddingHorizontal: 6,
                 borderRadius: 18,
                 borderWidth: 2,
-                borderColor: selected ? palette.ink : palette.ink + '22',
-                backgroundColor: selected ? palette.ink + '0d' : 'transparent',
+                borderColor: selected ? palette.volt : palette.border,
+                backgroundColor: palette.surface,
                 alignItems: 'center',
                 opacity: pressed && !busy ? 0.7 : 1,
               })}
@@ -723,7 +727,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                   fontFamily: 'Unbounded_800ExtraBold',
                   fontSize: 26,
                   lineHeight: 31,
-                  color: selected ? palette.ink : palette.ink + '88',
+                  color: selected ? palette.volt : palette.ink,
                 }}
               >
                 {g}
@@ -733,8 +737,8 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                   marginTop: 8,
                   paddingHorizontal: 8,
                   paddingVertical: 4,
-                  borderRadius: 6,
-                  backgroundColor: tint,
+                  borderRadius: 8,
+                  backgroundColor: pillFill,
                   maxWidth: '100%',
                 }}
               >
@@ -743,36 +747,39 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                   adjustsFontSizeToFit
                   style={{
                     fontFamily: 'JetBrainsMono_700Bold',
-                    fontSize: 12,
-                    letterSpacing: 0.4,
-                    color: tint === palette.butter ? palette.ink : palette.paper,
+                    fontSize: 11,
+                    letterSpacing: 0.3,
+                    color: pillText,
                   }}
                 >
-                  {s ?? '?'}
+                  {s ?? '—'}
                 </Text>
               </View>
-              {/* Physical door (reed) state — the ground truth from the magnet.
-                  Green = shut, coral = hanging open. Blank on old firmware. */}
-              {door ? (
-                <Text
-                  numberOfLines={1}
-                  style={{
-                    fontFamily: 'JetBrainsMono_700Bold',
-                    fontSize: 10,
-                    letterSpacing: 0.3,
-                    marginTop: 5,
-                    color: door === 'closed' ? palette.volt : palette.coral,
-                  }}
-                >
-                  {door === 'closed' ? '🚪 kapalı' : '🚪 açık'}
-                </Text>
-              ) : null}
+              {/* Physical door (reed) state — ground truth from the magnet.
+                  Green = shut, orange = open, dash = old fw / unknown. */}
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontFamily: 'JetBrainsMono_700Bold',
+                  fontSize: 11,
+                  letterSpacing: 0.2,
+                  marginTop: 7,
+                  color:
+                    door === 'closed'
+                      ? palette.volt
+                      : door === 'open'
+                      ? palette.butter
+                      : palette.muted,
+                }}
+              >
+                {door === 'closed' ? '🚪 KAPALI' : door === 'open' ? '🚪 AÇIK' : '🚪 —'}
+              </Text>
               <Text
                 numberOfLines={1}
                 style={{
                   fontFamily: 'JetBrainsMono_400Regular',
                   fontSize: 11,
-                  color: palette.ink + '66',
+                  color: palette.muted,
                   marginTop: 6,
                   maxWidth: '100%',
                 }}
@@ -798,14 +805,14 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         >
           <View
             style={{
-              paddingVertical: 22,
+              paddingVertical: 20,
               paddingHorizontal: 12,
-              borderRadius: 20,
-              backgroundColor: busy === 'unlock' ? palette.ink + '88' : palette.ink,
+              borderRadius: 18,
+              backgroundColor: palette.volt,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
-              shadowColor: palette.ink,
+              shadowColor: palette.volt,
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: canUnlock ? 0.35 : 0,
               shadowRadius: 14,
@@ -814,19 +821,19 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           >
             <Feather
               name="unlock"
-              size={22}
-              color={palette.paper}
-              style={{ marginRight: 10 }}
+              size={20}
+              color={palette.voltInk}
+              style={{ marginRight: 9 }}
             />
             <Text
               style={{
-                color: palette.fg,
+                color: palette.voltInk,
                 fontFamily: 'Unbounded_800ExtraBold',
-                fontSize: 17,
+                fontSize: 16,
                 letterSpacing: 0.5,
               }}
             >
-              {busy === 'unlock' ? '...' : 'UNLOCK'}
+              {busy === 'unlock' ? '...' : 'AÇ'}
             </Text>
           </View>
         </Pressable>
@@ -842,14 +849,14 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         >
           <View
             style={{
-              paddingVertical: 22,
+              paddingVertical: 20,
               paddingHorizontal: 12,
-              borderRadius: 20,
-              backgroundColor: busy === 'return' ? palette.coral + 'cc' : palette.coral,
+              borderRadius: 18,
+              backgroundColor: palette.butter,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
-              shadowColor: palette.coral,
+              shadowColor: palette.butter,
               shadowOffset: { width: 0, height: 8 },
               shadowOpacity: canReturn ? 0.4 : 0,
               shadowRadius: 14,
@@ -858,19 +865,19 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           >
             <Feather
               name="rotate-ccw"
-              size={22}
-              color={palette.paper}
-              style={{ marginRight: 10 }}
+              size={20}
+              color="#FFFFFF"
+              style={{ marginRight: 9 }}
             />
             <Text
               style={{
-                color: palette.fg,
+                color: '#FFFFFF',
                 fontFamily: 'Unbounded_800ExtraBold',
-                fontSize: 17,
+                fontSize: 16,
                 letterSpacing: 0.5,
               }}
             >
-              {busy === 'return' ? '...' : 'RETURN'}
+              {busy === 'return' ? '...' : 'İADE'}
             </Text>
           </View>
         </Pressable>
@@ -935,26 +942,26 @@ function DevServoButtons({ stationId }: { stationId: string }) {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            paddingVertical: 16,
+            paddingVertical: 15,
             paddingHorizontal: 16,
             borderRadius: 18,
             borderWidth: 2,
-            borderColor: palette.ink + '33',
-            backgroundColor: palette.surface + '08',
+            borderColor: palette.border,
+            backgroundColor: palette.surface,
           }}
         >
           <Feather
             name="refresh-cw"
-            size={18}
-            color={palette.ink + 'cc'}
-            style={{ marginRight: 10 }}
+            size={17}
+            color={palette.ink}
+            style={{ marginRight: 9 }}
           />
           <Text
             style={{
               fontFamily: 'JetBrainsMono_700Bold',
-              fontSize: 14,
+              fontSize: 13,
               letterSpacing: 1,
-              color: palette.ink + 'cc',
+              color: palette.ink,
               textTransform: 'uppercase',
             }}
           >
@@ -967,9 +974,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         <Text
           style={{
             fontFamily: 'JetBrainsMono_400Regular',
-            fontSize: 11,
-            color: palette.ink + 'aa',
-            marginTop: 12,
+            fontSize: 11.5,
+            color: palette.ink,
+            marginTop: 10,
             textAlign: 'center',
             lineHeight: 16,
           }}
@@ -981,13 +988,13 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           style={{
             fontFamily: 'Inter_400Regular',
             fontSize: 11,
-            color: palette.ink + '66',
-            marginTop: 12,
+            color: palette.muted,
+            marginTop: 10,
             textAlign: 'center',
             lineHeight: 15,
           }}
         >
-          pick gate · UNLOCK pulses relay 300ms · RETURN reuses same session
+          gate seç · AÇ = röle 300ms · İADE = aynı seansı sürdürür
         </Text>
       )}
     </View>
