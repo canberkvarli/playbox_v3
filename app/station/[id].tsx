@@ -666,7 +666,13 @@ function DevServoButtons({ stationId }: { stationId: string }) {
     setLastResult('reading firmware state...');
     const snap = await refreshFirmwareState({ connect: true });
     if (snap) {
-      setLastResult(`fw ${snap.fw ?? '?'} · gates=${snap.gates}`);
+      // Surface the last drop reason too — if the link dropped mid-use and we
+      // just reconnected, this tells us WHY (520=RF/supervision timeout,
+      // 19/531=peripheral terminated, 8=conn timeout) with no serial/LED.
+      const drop = stationClient.lastDisconnectReason();
+      setLastResult(
+        `fw ${snap.fw ?? '?'} · gates=${snap.gates}${drop ? ` · son kopma: ${drop}` : ''}`,
+      );
     } else {
       setLastResult('✗ INFO read failed (not connected?)');
     }

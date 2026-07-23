@@ -27,6 +27,12 @@ class StationClient {
   // BLE scan at a time, so when proximity + unlock try to scan in parallel
   // they fight; using the watcher's already-known device avoids that.
   private lastSeenDevice: Device | null = null;
+  // Reason of the most recent disconnect (from ble-plx's onDisconnected error),
+  // surfaced to the dev panel so a mid-use drop is diagnosable with no serial or
+  // LED. iOS reason 520 = supervision timeout (RF/interference), 19/531 = remote
+  // (peripheral) terminated, 8 = connection timeout, 22 = local host terminated.
+  // 'temiz' = a clean, app-initiated disconnect. null until the first drop.
+  private lastDisconnect: string | null = null;
 
   // Passive scan that emits any "Playbox-*" advert it sees, used by the
   // map screen to show "nearby" badges before the user taps a station.
@@ -57,6 +63,30 @@ class StationClient {
 
   isConnected(): boolean {
     return this.device !== null;
+  }
+
+  /** Human-readable reason of the last disconnect, or null if none yet. */
+  lastDisconnectReason(): string | null {
+    return this.lastDisconnect;
+  }
+
+  /**
+   * Record why a link dropped, from ble-plx's onDisconnected error. A null err
+   * means a clean, app-initiated close ('temiz'); otherwise capture the native
+   * reason code (iOS supervision-timeout=520, remote-terminated=19/531, …) so a
+   * mid-use drop can be diagnosed from the UI without a serial cable.
+   */
+  private recordDisconnect(err: unknown): void {
+    if (!err) {
+      this.lastDisconnect = 'temiz';
+      return;
+    }
+    const e = err as { reason?: string; errorCode?: number; message?: string };
+    this.lastDisconnect =
+      (e.reason != null ? `reason=${e.reason}` : null) ??
+      (e.errorCode != null ? `code=${e.errorCode}` : null) ??
+      e.message ??
+      'bilinmeyen';
   }
 
   /**
@@ -381,7 +411,8 @@ class StationClient {
         const connected = await this.lastSeenDevice.connect({ timeout: 6000 });
         await connected.discoverAllServicesAndCharacteristics();
         this.device = connected;
-        connected.onDisconnected(() => {
+        connected.onDisconnected((err) => {
+          this.recordDisconnect(err);
           this.device = null;
           // Clear the cached handle too — after a disconnect (especially
           // if the ESP32 rebooted), the cached Device may be stale and
@@ -472,7 +503,8 @@ class StationClient {
             await connected.discoverAllServicesAndCharacteristics();
             this.device = connected;
             this.lastSeenDevice = scanned;
-            connected.onDisconnected(() => {
+            connected.onDisconnected((err) => {
+              this.recordDisconnect(err);
               this.device = null;
               this.lastSeenDevice = null;
               // Resume the passive scan so map/station presence recovers without
