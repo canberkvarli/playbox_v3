@@ -665,16 +665,16 @@ function DevServoButtons({ stationId }: { stationId: string }) {
     setBusy('refresh');
     setLastResult('reading firmware state...');
     const snap = await refreshFirmwareState({ connect: true });
+    // Show the last drop reason on BOTH paths. If the board reset mid-flow the
+    // reconnect fails (it's still rebooting), but the reason was captured at
+    // drop time — so we still learn WHY: 520=supervision timeout (RF/power),
+    // 19/531=peripheral (ESP32) terminated, 8=conn timeout, temiz=clean.
+    const drop = stationClient.lastDisconnectReason();
+    const dropStr = drop ? ` · son kopma: ${drop}` : '';
     if (snap) {
-      // Surface the last drop reason too — if the link dropped mid-use and we
-      // just reconnected, this tells us WHY (520=RF/supervision timeout,
-      // 19/531=peripheral terminated, 8=conn timeout) with no serial/LED.
-      const drop = stationClient.lastDisconnectReason();
-      setLastResult(
-        `fw ${snap.fw ?? '?'} · gates=${snap.gates}${drop ? ` · son kopma: ${drop}` : ''}`,
-      );
+      setLastResult(`fw ${snap.fw ?? '?'} · gates=${snap.gates}${dropStr}`);
     } else {
-      setLastResult('✗ INFO read failed (not connected?)');
+      setLastResult(`✗ bağlanamadı${dropStr}`);
     }
     setBusy(null);
   };
