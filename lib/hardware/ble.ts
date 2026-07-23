@@ -577,8 +577,24 @@ export function createBleDriver(): HardwareDriver {
             lastSeenAt: sighting!.lastSeenAt,
           });
           // Re-check on the normal cadence: when the advert stops being heard,
-          // the next tick finds a stale sighting (and no live connection) and
-          // proceeds to scanAndConnect → out_of_range, so presence decays.
+          // the next tick finds a stale sighting and (below) decays to
+          // out_of_range WITHOUT opening a link.
+          armRetry(3000);
+          return;
+        }
+
+        // PRESENCE NEVER CONNECTS. For an idle non-eager watcher with no live
+        // link and no fresh advert, do NOT scanAndConnect just to probe presence.
+        // A held GATT link makes the ESP32 stop advertising (station reads
+        // "offline" everywhere) AND races the user's real tap — two scan/connects
+        // against one peripheral cancel each other on iOS ("not connected").
+        // This background probe was the residual warm-connect that fought every
+        // tap. Rest as out_of_range and keep listening passively; a fresh advert
+        // or an explicit tap (unlock/return — the real source of truth) brings us
+        // back. The ONE exception: a return that's genuinely mid-flight, whose
+        // recovery loop needs the link re-established — let that through.
+        if (!eager && !returnInFlight) {
+          onChange({ kind: 'out_of_range' });
           armRetry(3000);
           return;
         }
