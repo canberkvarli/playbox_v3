@@ -455,9 +455,16 @@ function DevServoButtons({ stationId }: { stationId: string }) {
   // first action) so we don't show errors on initial mount.
   const refreshFirmwareState = async (opts: { connect?: boolean } = {}): Promise<FwSnapshot | null> => {
     try {
-      if (!stationClient.isConnected()) {
-        if (!opts.connect) return null;
+      // Always verify via scanAndConnect when a connect is requested — the cheap
+      // isConnected() null-check stays TRUE for a STALE handle (the link dropped
+      // without onDisconnected firing), so gating on it made us read/write a DEAD
+      // link and fail with "bağlanamadı" while the debug screen (which always
+      // scanAndConnects) worked. scanAndConnect re-checks the handle with a real
+      // async isConnected() and reconnects if it's dead; it's fast if truly live.
+      if (opts.connect) {
         await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
+      } else if (!stationClient.isConnected()) {
+        return null;
       }
       const info = (await stationClient.readInfo()) as Record<string, unknown>;
       const states: FwSnapshot['states'] = {};
@@ -497,7 +504,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       // failure is diagnosable with no serial/LED — "Timeout: …not found",
       // "operation was cancelled", "bluetooth off" each point at a different
       // fix. Stays silent on mount (no connect) so we don't flash errors idle.
-      if (opts.connect) setLastResult(`✗ ${msg}`);
+      if (opts.connect) {
+        const drop = stationClient.lastDisconnectReason();
+        setLastResult(`✗ ${msg}${drop ? ` · son kopma: ${drop}` : ''}`);
+      }
       return null;
     }
   };
@@ -534,9 +544,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
     setBusy('close');
     setLastResult(`gate ${gate} → sim kapanış (reed/EN yerine)...`);
     try {
-      if (!stationClient.isConnected()) {
-        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
-      }
+      // Always scanAndConnect (it verifies + reconnects a stale handle); never
+      // gate on the cheap isConnected() null-check, which stays true for a dead
+      // link and made the action operate on a dropped connection.
+      await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       await stationClient.simulateClose(gate);
       const snap = await refreshFirmwareState();
       const newState = snap?.states[gate]?.state;
@@ -565,9 +576,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         devBypass: true,
       });
       setLastResult(`gate ${gate} → payload signed, connecting BLE...`);
-      if (!stationClient.isConnected()) {
-        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
-      }
+      // Always scanAndConnect (it verifies + reconnects a stale handle); never
+      // gate on the cheap isConnected() null-check, which stays true for a dead
+      // link and made the action operate on a dropped connection.
+      await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       setLastResult(`gate ${gate} → writing BLE...`);
       await stationClient.unlock(signed);
       // Re-read firmware state. If state didn't change from LOCKED, the
@@ -611,9 +623,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         devBypass: true,
       });
       setLastResult(`gate ${gate} → payload signed, connecting BLE...`);
-      if (!stationClient.isConnected()) {
-        await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
-      }
+      // Always scanAndConnect (it verifies + reconnects a stale handle); never
+      // gate on the cheap isConnected() null-check, which stays true for a dead
+      // link and made the action operate on a dropped connection.
+      await stationClient.scanAndConnect(`Playbox-${stationId.toUpperCase()}`, 8000);
       setLastResult(`gate ${gate} → writing BLE...`);
       await stationClient.returnUnlock(signed);
       const snap = await refreshFirmwareState();
@@ -646,9 +659,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
     const dropStr = drop ? ` · son kopma: ${drop}` : '';
     if (snap) {
       setLastResult(`fw ${snap.fw ?? '?'} · gates=${snap.gates}${dropStr}`);
-    } else {
-      setLastResult(`✗ bağlanamadı${dropStr}`);
     }
+    // else: refreshFirmwareState's catch already set "✗ <real reason>" — the
+    // actual BLE error (Timeout / operation cancelled / bluetooth off), not a
+    // generic "bağlanamadı". Leave it so we can see WHY it failed.
     setBusy(null);
   };
 

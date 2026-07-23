@@ -869,9 +869,11 @@ export function createBleDriver(): HardwareDriver {
                 ? cached.payload
                 : await signUnlock();
 
-            if (!stationClient.isConnected()) {
-              await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
-            }
+            // Always scanAndConnect (it verifies + reconnects a stale handle);
+            // the cheap isConnected() null-check stays true for a dead link, so
+            // gating on it made the unlock write hit a dropped connection and
+            // fail. scanAndConnect returns fast when the link is genuinely live.
+            await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
             // Arm the gate_opened confirmation BEFORE the write so a fast event
             // is never missed. A BLE write only ACKs that the ESP32 RECEIVED the
             // bytes — the firmware still silently no-ops (emitting nothing) on a
@@ -954,9 +956,10 @@ export function createBleDriver(): HardwareDriver {
           sessionId,
           devBypass: stationId === 'DEV-001',
         });
-        if (!stationClient.isConnected()) {
-          await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
-        }
+        // Always scanAndConnect (verifies + reconnects a stale handle) — see the
+        // unlock path above; gating on the cheap isConnected() operated on a
+        // dead link and failed.
+        await stationClient.scanAndConnect(targetName, SCAN_TIMEOUT_MS);
         // Thread the station's BLE name so a mid-write reconnect can re-target
         // it by name (otherwise the retry falls back to lastSeenDevice?.name).
         await stationClient.returnUnlock(signed, targetName);
