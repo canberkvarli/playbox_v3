@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, Text, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -86,13 +86,27 @@ export default function StationDetail() {
   // advert-based and stable. Scoped to focus (stops on blur) so it never scans
   // while the unlock/return flow holds a GATT connection — an always-on scan
   // scanning mid-connection wedged the radio.
+  // Once we've HEARD the station we're in the radius — so stop the nearby-scan
+  // and stop competing with our own connect. A scan running when we tap makes
+  // iOS cancel the connect ("operation was cancelled"); the debug screen
+  // connects first-try precisely because it runs no scan. So: scan only until
+  // presence is confirmed, then latch "in range", stop scanning, and let the
+  // tap connect immediately — scanAndConnect's fast path reuses the device we
+  // just heard, so there's no fresh scan and no contention. Re-arms on refocus.
+  const scanSubRef = useRef<{ stop: () => void } | null>(null);
+  const [presenceLatched, setPresenceLatched] = useState(false);
   useFocusEffect(
     useCallback(() => {
       const driver = getDriver();
       const sub = driver.watchNearbyStations((s) => {
         useNearbyStore.getState().record(s);
       });
-      return () => sub.stop();
+      scanSubRef.current = sub;
+      return () => {
+        sub.stop();
+        scanSubRef.current = null;
+        setPresenceLatched(false);
+      };
     }, []),
   );
 
@@ -109,7 +123,19 @@ export default function StationDetail() {
   // station as in-range/open — otherwise OYNA never lights up and a reviewer
   // can't run the unlock. The mock driver simulates the rest.
   const demoMode = useDevStore((s) => s.demoMode);
-  const open = demoMode || proximity.present;
+  const open = demoMode || proximity.present || presenceLatched;
+
+  // Latch presence the first time we hear the station, then stop the nearby-scan
+  // so the unlock/read connect owns the radio (see the focus effect above).
+  // Once latched the header stays "açık" without a live scan; the tap's own
+  // connect is the real reachability check from here on. Un-latches on refocus.
+  useEffect(() => {
+    if ((proximity.present || demoMode) && !presenceLatched) {
+      setPresenceLatched(true);
+      scanSubRef.current?.stop();
+      scanSubRef.current = null;
+    }
+  }, [proximity.present, demoMode, presenceLatched]);
 
   // Settle window: BLE takes ~1s to resolve on first open. Until then we show a
   // neutral "bağlanıyor…" rather than flashing "kapalı" at someone standing in
@@ -491,7 +517,14 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       setFw(snap);
       return snap;
     } catch (e) {
-      console.log('[DEV] INFO read failed:', String((e as Error)?.message ?? e));
+      const msg = String((e as Error)?.message ?? e);
+      console.log('[DEV] INFO read failed:', msg);
+      // When this was an explicit user-initiated connect (fw durumu oku or an
+      // action passing connect:true), surface the REAL reason on-screen so a
+      // failure is diagnosable with no serial/LED — "Timeout: …not found",
+      // "operation was cancelled", "bluetooth off" each point at a different
+      // fix. Stays silent on mount (no connect) so we don't flash errors idle.
+      if (opts.connect) setLastResult(`✗ ${msg}`);
       return null;
     }
   };
