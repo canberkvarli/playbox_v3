@@ -102,7 +102,18 @@ export default function StationDetail() {
         useNearbyStore.getState().record(s);
       });
       scanSubRef.current = sub;
+      // Bounded scan: sample presence for a few seconds, then STOP. A scan
+      // running when the user taps makes iOS cancel the connect — the debug
+      // screen connects first-try precisely because it never scans. The latch
+      // below stops it sooner if we hear the station; this timer guarantees it
+      // stops even if we never do, so from then on connects run contention-free
+      // (scanAndConnect does its own one-shot scan on tap).
+      const stopTimer = setTimeout(() => {
+        scanSubRef.current?.stop();
+        scanSubRef.current = null;
+      }, 5000);
       return () => {
+        clearTimeout(stopTimer);
         sub.stop();
         scanSubRef.current = null;
         setPresenceLatched(false);
