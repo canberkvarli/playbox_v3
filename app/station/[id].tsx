@@ -449,6 +449,45 @@ function DevServoButtons({ stationId }: { stationId: string }) {
   const [lastResult, setLastResult] = useState<string>('');
   const [gate, setGate] = useState<1 | 2 | 3>(1);
   const [fw, setFw] = useState<FwSnapshot | null>(null);
+  // Keep-alive: hold an active notification subscription so iOS doesn't
+  // idle-drop the link after ~10-30s of no GATT activity — the confirmed
+  // "connected then lost it" cause. Re-armed after each successful read (below),
+  // torn down on unmount.
+  const keepAliveRef = useRef<{ remove: () => void } | null>(null);
+
+  // On open: a ONE-SHOT advert sighting to warm scanAndConnect's fast-path cache
+  // (lastSeenDevice) so the first tap connects fast instead of a cold multi-
+  // second scan. It fires once and stops — NOT a continuous scan. Also tears
+  // down the keep-alive subscription on unmount.
+  useEffect(() => {
+    const name = `Playbox-${stationId.toUpperCase()}`;
+    let warm: { stop: () => void } | null = null;
+    try {
+      warm = stationClient.watchAdvertisements(name, () => {
+        warm?.stop();
+        warm = null;
+      });
+    } catch {
+      warm = null;
+    }
+    // Safety: stop the warm-up scan after 6s even if we never hear it, so it
+    // never lingers to compete with a tap.
+    const t = setTimeout(() => {
+      warm?.stop();
+      warm = null;
+    }, 6000);
+    return () => {
+      clearTimeout(t);
+      try {
+        warm?.stop();
+      } catch {}
+      try {
+        keepAliveRef.current?.remove();
+      } catch {}
+      keepAliveRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationId]);
 
   // Read INFO and parse the firmware's per-gate state into a useful shape.
   // Quietly no-ops if BLE isn't connected yet (the connection happens on
@@ -495,6 +534,20 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         fw: typeof info?.fw === 'string' ? info.fw : undefined,
       };
       setFw(snap);
+      // Re-arm keep-alive now that we hold a live link (replace any dead sub):
+      // an active EVENTS subscription tells iOS the link is "in use" so it isn't
+      // idle-dropped. Best-effort — a failure here never fails the read.
+      try {
+        keepAliveRef.current?.remove();
+      } catch {}
+      try {
+        keepAliveRef.current = stationClient.subscribeToEvents(
+          () => {},
+          () => {},
+        );
+      } catch {
+        keepAliveRef.current = null;
+      }
       return snap;
     } catch (e) {
       const msg = String((e as Error)?.message ?? e);

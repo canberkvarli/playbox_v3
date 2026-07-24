@@ -58,6 +58,8 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
+#include "soc/soc.h"            // brownout register access
+#include "soc/rtc_cntl_reg.h"  // RTC_CNTL_BROWN_OUT_REG
 
 extern "C" {
   #include "playbox_sign.h"   // canonical builders + sign/verify (host-tested; flat in sketch root)
@@ -825,6 +827,14 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
 // Setup
 // =============================================================================
 void setup() {
+  // Disable the brownout detector FIRST, before any BLE/relay current spikes.
+  // It false-trips on the sub-millisecond current bursts from +9 dBm BLE TX and
+  // relay inrush, resetting the chip mid-connection — which looks exactly like a
+  // random BLE drop. We run off a 12V 7Ah SLA -> buck -> 5V pin with plenty of
+  // headroom, so a real deep sag isn't the concern; the twitchy detector is.
+  // Killing it stops the spurious resets that were dropping the link.
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+
   Serial.begin(115200);
   delay(500);
   Serial.printf("\n=== Playbox 3-gate firmware (%s) ===\n", FW_VERSION);
