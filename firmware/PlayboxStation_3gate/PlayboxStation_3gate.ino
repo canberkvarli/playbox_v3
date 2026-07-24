@@ -886,6 +886,13 @@ void setup() {
 
   // BLE.
   NimBLEDevice::init("Playbox-" STATION_ID);
+  // Crank BLE TX power to the ESP32 max (+9 dBm). The default (~3 dBm) made the
+  // advertisement too weak for the phone to hear reliably through the battery /
+  // buck / wiring around the board — the app's scan would run its full 8s and
+  // report "Playbox-DEV-001 not found". +9 dBm roughly doubles usable range and
+  // punches through 2.4 GHz clutter (Wi-Fi, the user's Dexcom). NimBLE 2.x takes
+  // dBm directly. Must be set after init(), before advertising starts.
+  NimBLEDevice::setPower(9);
   NimBLEServer* server = NimBLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
   NimBLEService* service = server->createService(SERVICE_UUID);
