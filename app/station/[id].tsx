@@ -455,39 +455,32 @@ function DevServoButtons({ stationId }: { stationId: string }) {
   // torn down on unmount.
   const keepAliveRef = useRef<{ remove: () => void } | null>(null);
 
-  // On open: a ONE-SHOT advert sighting to warm scanAndConnect's fast-path cache
-  // (lastSeenDevice) so the first tap connects fast instead of a cold multi-
-  // second scan. It fires once and stops — NOT a continuous scan. Also tears
-  // down the keep-alive subscription on unmount.
-  useEffect(() => {
-    const name = `Playbox-${stationId.toUpperCase()}`;
-    let warm: { stop: () => void } | null = null;
-    try {
-      warm = stationClient.watchAdvertisements(name, () => {
-        warm?.stop();
-        warm = null;
+  // Presence + fast-connect cache. Keep a light advert scan running while this
+  // screen is open. The board's RF is marginal, so a persistent LISTEN is what
+  // actually catches it — a one-shot scan mostly misses. Each sighting (a) shows
+  // "açık" via nearbyStore and (b) caches the device (runPassiveScan sets
+  // lastSeenDevice) so a tap uses scanAndConnect's FAST path. scanAndConnect
+  // stops + settles this scan before connecting and resumes it after, so it does
+  // NOT fight the tap — that coordination is built into scanAndConnect.
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((s) => {
+        useNearbyStore.getState().record(s);
       });
-    } catch {
-      warm = null;
-    }
-    // Safety: stop the warm-up scan after 6s even if we never hear it, so it
-    // never lingers to compete with a tap.
-    const t = setTimeout(() => {
-      warm?.stop();
-      warm = null;
-    }, 6000);
+      return () => sub.stop();
+    }, []),
+  );
+
+  // Tear down the keep-alive subscription on unmount.
+  useEffect(() => {
     return () => {
-      clearTimeout(t);
-      try {
-        warm?.stop();
-      } catch {}
       try {
         keepAliveRef.current?.remove();
       } catch {}
       keepAliveRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stationId]);
+  }, []);
 
   // Read INFO and parse the firmware's per-gate state into a useful shape.
   // Quietly no-ops if BLE isn't connected yet (the connection happens on
