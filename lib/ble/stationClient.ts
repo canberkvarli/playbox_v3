@@ -732,12 +732,22 @@ class StationClient {
 
   async readInfo(): Promise<unknown> {
     if (!this.device) throw new Error("Not connected to a station");
-    const char = await this.device.readCharacteristicForService(
-      SERVICE_UUID,
-      INFO_CHAR_UUID,
-    );
-    if (!char.value) throw new Error("INFO characteristic returned no value");
-    return JSON.parse(Buffer.from(char.value, "base64").toString("utf-8"));
+    // Read with a few quick retries. Right after the ESP32 boots (e.g. a
+    // power-cycle) the INFO characteristic is momentarily EMPTY until setup()'s
+    // refreshInfoChar() populates it, and a transient BLE read can also come
+    // back empty — so a single read racing the boot window would wrongly throw
+    // "returned no value". Re-read a few times (400ms apart) before giving up.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const char = await this.device.readCharacteristicForService(
+        SERVICE_UUID,
+        INFO_CHAR_UUID,
+      );
+      if (char.value) {
+        return JSON.parse(Buffer.from(char.value, "base64").toString("utf-8"));
+      }
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 400));
+    }
+    throw new Error("INFO characteristic returned no value (board still booting?)");
   }
 
   /**
