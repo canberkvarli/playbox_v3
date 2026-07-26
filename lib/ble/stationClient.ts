@@ -19,6 +19,32 @@ import {
 import { backoffSchedule, classifyBleError, jitter } from "./retry";
 import type { BtState } from "./btState";
 
+/** Budget for the CONNECT phase, once the scan has already found the board. */
+const CONNECT_TIMEOUT_MS = 8000;
+/**
+ * Budget for GATT discovery. ble-plx puts NO timeout on
+ * discoverAllServicesAndCharacteristics, so a board that accepts the link then
+ * stalls mid-discovery would hang the caller forever (spinner that never ends).
+ */
+const DISCOVER_TIMEOUT_MS = 8000;
+
+/** Reject if `p` hasn't settled within `ms`. Used to bound un-timeoutable ble-plx calls. */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`${label} (${ms}ms)`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
 class StationClient {
   private _manager: BleManager | null = null;
   private device: Device | null = null;
@@ -416,7 +442,14 @@ class StationClient {
         // debug screen stuck on "scanning"). On timeout we fall through to a
         // fresh scan below.
         connected = await this.lastSeenDevice.connect({ timeout: 6000 });
-        await connected.discoverAllServicesAndCharacteristics();
+        // Same unbounded-discovery hang as the slow path — bound it so a board
+        // that links then stalls falls through to a fresh scan instead of
+        // freezing the caller.
+        await withTimeout(
+          connected.discoverAllServicesAndCharacteristics(),
+          DISCOVER_TIMEOUT_MS,
+          'GATT keşfi zaman aşımı',
+        );
         this.device = connected;
         connected.onDisconnected((err) => {
           this.recordDisconnect(err);
@@ -530,6 +563,17 @@ class StationClient {
           // if a scan is still active ("operation was cancelled"). `connecting`
           // guards the allowDuplicates callback from firing again mid-connect.
           connecting = true;
+          // WE FOUND IT — the scan timer's job is over, so disarm it NOW.
+          // Leaving it armed meant it kept counting through connect+discovery
+          // and fired mid-connect, rejecting with a nonsense
+          // `Timeout: "Playbox-DEV-001" not found ... (görülen Playbox:
+          // Playbox-DEV-001)` — a "not found" that names the device it found.
+          // Worse, the real connect kept running past the rejection and
+          // adopted a link nobody was waiting for; the retry loop then nulled
+          // the handle, leaking a live GATT link that stops the board
+          // advertising, so every later attempt saw no Playbox name at all.
+          // connect + discovery each get their own budget below.
+          clearTimeout(timer);
           try {
             this.manager.stopDeviceScan();
           } catch {
@@ -542,8 +586,12 @@ class StationClient {
           await new Promise((r) => setTimeout(r, 250));
           let connected: Device | null = null;
           try {
-            connected = await scanned.connect({ timeout: 8000 });
-            await connected.discoverAllServicesAndCharacteristics();
+            connected = await scanned.connect({ timeout: CONNECT_TIMEOUT_MS });
+            await withTimeout(
+              connected.discoverAllServicesAndCharacteristics(),
+              DISCOVER_TIMEOUT_MS,
+              'GATT keşfi zaman aşımı',
+            );
             this.device = connected;
             this.lastSeenDevice = scanned;
             connected.onDisconnected((err) => {
