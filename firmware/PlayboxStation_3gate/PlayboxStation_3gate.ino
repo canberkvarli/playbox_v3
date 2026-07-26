@@ -344,8 +344,7 @@ static void refreshBufferChar() {
 //   gate_sessions  string[]  per-gate session     lib/hardware/infoGate.ts shape (a):
 //                                                 extractGate() reads gate_sessions[idx]
 //   states         object[]  {gate,state,         app/station/[id].tsx: iterates
-//                            session_id}           info.states, keys by obj.gate
-//   sessions       string[]  per-gate session     alias of gate_sessions (parallel)
+//                            session_id,door}      info.states, keys by obj.gate
 //
 // gate_states[i] / states[i] describe gate i+1. State strings are exactly the 4
 // valid GateState values: LOCKED | UNLOCKED | IN_USE | RETURN_UNLOCKED. session
@@ -354,6 +353,14 @@ static void refreshBufferChar() {
 // NOTE: gate_states/gate_sessions (parallel string arrays) are what infoGate.ts
 // reads (shape a). `states` is the object array the dev station screen reads.
 // Both carry the SAME per-gate data — keep both in sync.
+//
+// KEEP THIS BLOB SMALL. It is fetched over BLE, where a single attribute is
+// capped at 512 bytes and anything past the negotiated MTU costs extra READ
+// BLOB round trips — the most drop-prone operation on the link (symptom: an
+// empty INFO value, or a disconnect mid-read). The `sessions` alias,
+// `gate_doors`, and `states[].door_closed` were removed for this reason: all
+// three were pure duplication with ZERO readers in the app (verified by
+// grep). Before adding a field, check something actually reads it.
 //
 // Rebuilt on every state/battery change so a fresh READ always reflects truth.
 // =============================================================================
@@ -373,10 +380,8 @@ static void refreshInfoChar() {
   // magnet near = "closed"; HIGH (or no reed wired → INPUT_PULLUP) = "open".
   // The app reads this to gate the open/return button: you can only open a door
   // that's actually shut, and you can't "open" one already hanging open.
-  JsonArray gateDoors    = info["gate_doors"].to<JsonArray>();
-  // Aliases for app/station/[id].tsx (info.states = object[], info.sessions[]).
-  JsonArray states   = info["states"].to<JsonArray>();
-  JsonArray sessions = info["sessions"].to<JsonArray>();
+  // Object array read by app/station/[id].tsx (info.states).
+  JsonArray states = info["states"].to<JsonArray>();
 
   for (int g = 0; g < NUM_GATES; g++) {
     const char* st  = stateName(gateState[g]);
@@ -385,14 +390,11 @@ static void refreshInfoChar() {
     const char* door = doorClosed ? "closed" : "open";
     gateStates.add(st);
     gateSessions.add(sid);
-    gateDoors.add(door);
-    sessions.add(sid);
     JsonObject go = states.add<JsonObject>();
     go["gate"]        = g + 1;
     go["state"]       = st;
     go["session_id"]  = sid;
     go["door"]        = door;         // "closed" | "open" (from the reed)
-    go["door_closed"] = doorClosed;   // boolean, convenient for the app's gate
   }
 
   String s;
@@ -902,6 +904,17 @@ void setup() {
   // "Playbox-DEV-001 not found within 8000ms" until a power cycle. A crashed
   // radio is a silent radio: louder-but-hung is worse than quieter-but-alive.
   // Leaving TX at the NimBLE default (~+3 dBm) is the known-good, findable state.
+  //
+  // Ask for a LARGE MTU. INFO is a ~350-500 byte JSON blob; over a small MTU the
+  // phone must fetch it with a chain of sequential ATT READ BLOB round trips.
+  // That chain is the single heaviest, longest-airtime thing this link ever
+  // does, and if the link dies partway the app sees an EMPTY value ("INFO
+  // characteristic returned no value / board still booting?") or an outright
+  // mid-read disconnect. With a 517-byte MTU the whole blob lands in ONE
+  // exchange: less airtime, less current, far fewer chances to drop. This is a
+  // request — the phone negotiates down to what it supports (iOS caps ~185),
+  // so it is safe and never larger than both sides agree on.
+  NimBLEDevice::setMTU(517);
   NimBLEServer* server = NimBLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
   NimBLEService* service = server->createService(SERVICE_UUID);
