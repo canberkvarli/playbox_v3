@@ -146,7 +146,7 @@ class StationClient {
         // allowDuplicates on, iOS gives us the scan-response packets too —
         // those contain the local name even when NimBLE has pushed it out
         // of the primary advert due to the 31-byte budget.
-        if (scanned.name === stationName) {
+        if (scanned.name === stationName || scanned.localName === stationName) {
           this.lastSeenDevice = scanned;
           onSeen(scanned.rssi ?? -55);
         }
@@ -271,11 +271,13 @@ class StationClient {
             onError?.(err);
             return;
           }
-          if (!scanned?.name) return;
-          // Cheap prefix check — saves a per-station regex per packet.
-          if (!scanned.name.startsWith('Playbox-')) return;
+          if (!scanned) return;
+          // Prefer the ADVERTISED local name (what the board broadcasts, per
+          // nRF Connect) over Device.name (iOS's GAP cache, often null/stale).
+          const adv = scanned.localName ?? scanned.name;
+          if (!adv?.startsWith('Playbox-')) return;
           this.lastSeenDevice = scanned;
-          onSeen(scanned.name, scanned.rssi ?? -70);
+          onSeen(adv, scanned.rssi ?? -70);
         },
       );
     } catch (e) {
@@ -401,7 +403,11 @@ class StationClient {
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
     // for the next advert packet — should be under a second.
-    if (this.lastSeenDevice && this.lastSeenDevice.name === stationName) {
+    if (
+      this.lastSeenDevice &&
+      (this.lastSeenDevice.name === stationName ||
+        this.lastSeenDevice.localName === stationName)
+    ) {
       let connected: Device | null = null;
       try {
         // Bound the connect: a stale lastSeenDevice (previous session, or an
@@ -452,6 +458,11 @@ class StationClient {
     // was already stopped up front, above.)
     return new Promise<Device>((resolve, reject) => {
       let settled = false;
+      // Diagnostics for the timeout path: how many adverts we heard at all, and
+      // which Playbox-* names — so a failure says WHY (dead radio vs. name
+      // mismatch) instead of an opaque "not found".
+      let seenTotal = 0;
+      const seenPlaybox = new Set<string>();
       const finish = (fn: () => void) => {
         if (settled) return;
         settled = true;
@@ -472,13 +483,19 @@ class StationClient {
 
       const timer = setTimeout(
         () =>
-          finish(() =>
+          finish(() => {
+            const diag =
+              seenTotal === 0
+                ? ' (hiç advert alınmadı — telefon taraması ölü; uygulamayı TAMAMEN kapat)'
+                : seenPlaybox.size > 0
+                  ? ` (görülen Playbox: ${[...seenPlaybox].join(', ')})`
+                  : ` (${seenTotal} cihaz görüldü, Playbox adı yok)`;
             reject(
               new Error(
-                `Timeout: "${stationName}" not found within ${timeoutMs}ms`,
+                `Timeout: "${stationName}" not found within ${timeoutMs}ms${diag}`,
               ),
-            ),
-          ),
+            );
+          }),
         timeoutMs,
       );
 
@@ -497,7 +514,18 @@ class StationClient {
           finish(() => reject(err));
           return;
         }
-        if (scanned?.name === stationName) {
+        if (scanned) {
+          seenTotal++;
+          // Match the ADVERTISED name against BOTH fields: on iOS `Device.name`
+          // is CBPeripheral.name (a GAP-layer cache that is often null/stale
+          // before a connection), while the name the board actually broadcasts
+          // arrives in `Device.localName` (the advertisement's Local Name —
+          // exactly what nRF Connect displays). Matching only `.name` was why
+          // the app timed out on a board nRF Connect sees perfectly.
+          const adv = scanned.localName ?? scanned.name;
+          if (adv?.startsWith('Playbox-')) seenPlaybox.add(adv);
+        }
+        if (scanned?.name === stationName || scanned?.localName === stationName) {
           // Stop the scan BEFORE connecting — iOS cancels an in-flight connect
           // if a scan is still active ("operation was cancelled"). `connecting`
           // guards the allowDuplicates callback from firing again mid-connect.
