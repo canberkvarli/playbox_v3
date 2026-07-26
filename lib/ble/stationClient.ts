@@ -22,6 +22,20 @@ import type { BtState } from "./btState";
 /** Budget for the CONNECT phase, once the scan has already found the board. */
 const CONNECT_TIMEOUT_MS = 8000;
 /**
+ * How recently we must have HEARD a board's advert to trust the cached handle.
+ * Adverts arrive every 20-40ms while we're in range, so a fresh sighting is
+ * always seconds old; anything older means we walked away or the board
+ * rebooted.
+ */
+const FAST_PATH_MAX_AGE_MS = 20000;
+/**
+ * Fast-path connect budget. A board we JUST heard connects in well under a
+ * second, so a long timeout here only buys dead air before the real scan. Kept
+ * short deliberately: on failure we fall straight through to the full scan
+ * (which has its own 8s budget), so a tight bound costs nothing but time saved.
+ */
+const FAST_PATH_CONNECT_TIMEOUT_MS = 3000;
+/**
  * Budget for GATT discovery. ble-plx puts NO timeout on
  * discoverAllServicesAndCharacteristics, so a board that accepts the link then
  * stalls mid-discovery would hang the caller forever (spinner that never ends).
@@ -53,6 +67,13 @@ class StationClient {
   // BLE scan at a time, so when proximity + unlock try to scan in parallel
   // they fight; using the watcher's already-known device avoids that.
   private lastSeenDevice: Device | null = null;
+  // When lastSeenDevice was last actually HEARD (advert timestamp, ms). A cached
+  // handle only helps if the board is still there: after a station power-cycle
+  // (or the user walking away) the handle is dead, and connecting to it burns
+  // the FULL fast-path timeout before we fall back to a real scan — that was
+  // most of the ~15s cold-tap connect. Older than FAST_PATH_MAX_AGE_MS ⇒ don't
+  // trust it, go straight to the scan.
+  private lastSeenAt = 0;
   // Reason of the most recent disconnect (from ble-plx's onDisconnected error),
   // surfaced to the dev panel so a mid-use drop is diagnosable with no serial or
   // LED. iOS reason 520 = supervision timeout (RF/interference), 19/531 = remote
@@ -174,6 +195,7 @@ class StationClient {
         // of the primary advert due to the 31-byte budget.
         if (scanned.name === stationName || scanned.localName === stationName) {
           this.lastSeenDevice = scanned;
+          this.lastSeenAt = Date.now();
           onSeen(scanned.rssi ?? -55);
         }
       },
@@ -303,6 +325,7 @@ class StationClient {
           const adv = scanned.localName ?? scanned.name;
           if (!adv?.startsWith('Playbox-')) return;
           this.lastSeenDevice = scanned;
+          this.lastSeenAt = Date.now();
           onSeen(adv, scanned.rssi ?? -70);
         },
       );
@@ -453,6 +476,7 @@ class StationClient {
     // for the next advert packet — should be under a second.
     if (
       this.lastSeenDevice &&
+      Date.now() - this.lastSeenAt < FAST_PATH_MAX_AGE_MS &&
       (this.lastSeenDevice.name === stationName ||
         this.lastSeenDevice.localName === stationName)
     ) {
@@ -463,7 +487,9 @@ class StationClient {
         // indefinitely with no timeout, freezing the caller (e.g. the BLE
         // debug screen stuck on "scanning"). On timeout we fall through to a
         // fresh scan below.
-        connected = await this.lastSeenDevice.connect({ timeout: 6000 });
+        connected = await this.lastSeenDevice.connect({
+          timeout: FAST_PATH_CONNECT_TIMEOUT_MS,
+        });
         // Same unbounded-discovery hang as the slow path — bound it so a board
         // that links then stalls falls through to a fresh scan instead of
         // freezing the caller.
@@ -616,6 +642,7 @@ class StationClient {
             );
             this.device = connected;
             this.lastSeenDevice = scanned;
+            this.lastSeenAt = Date.now();
             connected.onDisconnected((err) => {
               this.recordDisconnect(err);
               this.device = null;
