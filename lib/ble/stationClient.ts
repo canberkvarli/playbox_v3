@@ -426,6 +426,28 @@ class StationClient {
       await new Promise((r) => setTimeout(r, 250));
     }
 
+    // Clear ORPHANED iOS links before scanning. CoreBluetooth excludes any
+    // peripheral it considers CONNECTED from scan results — so a link iOS still
+    // holds (app killed mid-session, JS reload, or the board rebooted on a power
+    // swap without iOS noticing) makes the station INVISIBLE to every scan, even
+    // though it's advertising happily (LED blinking). The symptom is a timeout
+    // reporting hundreds of devices seen and no Playbox name at all, which looks
+    // exactly like dead hardware. Nothing recovers this on its own short of an
+    // iOS supervision timeout or a Bluetooth toggle. Cancelling the orphan makes
+    // the board re-advertise and become scannable again. Best-effort: this.device
+    // (our live, working link) already returned above, so anything found here is
+    // by definition not ours to keep.
+    try {
+      const orphans = await this.manager.connectedDevices([SERVICE_UUID]);
+      for (const orphan of orphans) {
+        if (orphan.id === this.device?.id) continue;
+        await this.manager.cancelDeviceConnection(orphan.id).catch(() => {});
+      }
+      if (orphans.length) await new Promise((r) => setTimeout(r, 250));
+    } catch {
+      // best-effort — never block a connect on this
+    }
+
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
     // for the next advert packet — should be under a second.
