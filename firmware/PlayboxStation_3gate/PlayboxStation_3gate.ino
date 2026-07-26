@@ -919,17 +919,23 @@ void setup() {
 
   service->start();
   NimBLEAdvertising* adv = NimBLEDevice::getAdvertising();
-  // Advertise the NAME in the PRIMARY packet and push the 128-bit service UUID
-  // into the SCAN RESPONSE. Both do NOT fit in one 31-byte advertisement — with
-  // addServiceUUID() in the primary (16 bytes + overhead) there was no room left
-  // for the 15-char name, so NimBLE silently DROPPED the name. Result: iOS never
-  // saw "Playbox-DEV-001", scanned.name never matched, and every app scan timed
-  // out ("scanning… not found" — the app finds stations by EXACT name, see
-  // lib/ble/stationClient.ts). Name alone in the primary (flags + name ≈ 20
-  // bytes) fits with room to spare. NimBLE 2.x also no longer enables scan
-  // response by default (see 1.x→2.x migration guide), so enable it explicitly
-  // to carry the UUID for standard UUID-based scanners.
-  adv->setName("Playbox-" STATION_ID);
+  // Build the PRIMARY advertising packet EXPLICITLY so the name is GUARANTEED to
+  // be broadcast. We previously relied on adv->setName(), but in NimBLE 2.x that
+  // places the name in the SCAN RESPONSE by default — and our custom
+  // setScanResponseData() below (UUID only) then OVERWROTE it, so the name was
+  // broadcast NOWHERE. iOS and nRF Connect still SHOWED "Playbox-DEV-001" from
+  // their per-peripheral name CACHE (a past session), which masked the bug — but
+  // a fresh phone scan saw hundreds of adverts with NO Playbox name and never
+  // matched (app diagnostic: "386 cihaz görüldü, Playbox adı yok"). Putting the
+  // name in the primary packet (flags + 15-char name ≈ 20 bytes) fits the 31-byte
+  // budget with room to spare and is what iOS surfaces as the advertised name.
+  NimBLEAdvertisementData advData;
+  advData.setFlags(0x06);  // LE General Discoverable + BR/EDR not supported
+  advData.setName("Playbox-" STATION_ID);
+  adv->setAdvertisementData(advData);
+  // 128-bit service UUID goes in the SCAN RESPONSE — it won't fit alongside the
+  // name in the 31-byte primary. NimBLE 2.x no longer enables scan response by
+  // default (1.x→2.x migration guide), so enable it explicitly.
   NimBLEAdvertisementData scanData;
   scanData.addServiceUUID(SERVICE_UUID);
   adv->setScanResponseData(scanData);
