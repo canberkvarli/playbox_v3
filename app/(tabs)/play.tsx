@@ -366,21 +366,26 @@ export default function Play() {
     router.replace('/session-review');
   };
 
-  // Auto-advance when the firmware confirms the door was closed. Only fires
-  // while we're in awaiting_close — otherwise an early/stale event would jump
-  // the user past the confirm step. The closing photo is mandatory, so we
-  // also hold the auto-finish until a photo has been captured AND an upload
-  // attempted (saved OR failed). A failed upload still releases the gate so a
-  // network problem never traps the user; if no picker module is linked the
-  // photo step can't apply and we proceed as before.
+  // Auto-advance out of awaiting_close. Only fires while we're in that phase —
+  // otherwise an early/stale event would jump the user past the confirm step.
+  //
+  // The CAPTURED PHOTO is the completion signal: the shot of the ball back in
+  // the box is the evidence we actually keep, and by the time the user has
+  // framed it they have physically finished the return. Holding them for the
+  // firmware's gate_closed on top of that is a second wait for something they
+  // already did, so once a photo is captured (saved OR failed — a network
+  // problem must never trap the user) we finish immediately.
+  //
+  // When no photo can exist — Demo Mode (App Store review: reviewers have
+  // nothing to photograph and the camera never auto-opens) or no picker module
+  // linked — there's no such signal, so fall back to the old behaviour and wait
+  // for the firmware to confirm the door closed. The manual "kapattım, bitir"
+  // button covers every remaining case, including a cancelled picker.
   useEffect(() => {
     if (returnPhase !== 'awaiting_close') return;
-    if (!active?.returnConfirmed) return;
-    // Demo Mode (App Store review): never require a closing photo — reviewers
-    // have nothing to photograph and shouldn't be blocked from finishing.
-    const photoSatisfied =
-      demoMode || !ImagePicker || photoState === 'saved' || photoState === 'failed';
-    if (!photoSatisfied) return;
+    const photoCaptured =
+      !demoMode && !!ImagePicker && (photoState === 'saved' || photoState === 'failed');
+    if (!photoCaptured && !active?.returnConfirmed) return;
     finalizeReturn();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [returnPhase, active?.returnConfirmed, photoState]);

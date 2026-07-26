@@ -182,6 +182,12 @@ unsigned long relayOffMs[NUM_GATES] = { 0 };
 int           lastReed[NUM_GATES];
 unsigned long lastReedChangeMs[NUM_GATES] = { 0 };
 
+// Coalesced INFO rebuild. A reed edge marks INFO dirty instead of rebuilding it
+// inline; loop() flushes at most once per INFO_COALESCE_MS. See pollReeds().
+bool          infoDirty     = false;
+unsigned long infoDirtyAtMs = 0;
+#define INFO_COALESCE_MS 500UL
+
 // Signing.
 uint8_t       gKey[32];          // decoded station secret (32 raw bytes)
 bool          gKeyOk = false;
@@ -525,14 +531,28 @@ static void pollReeds() {
       lastReedChangeMs[g] = millis();
       if (r == LOW) handleGateClose(g);
       else Serial.printf("[REED] gate %d opened\n", g + 1);
-      // NOTE: intentionally do NOT rebuild INFO here. Doing it on every reed
-      // edge churned the BLE stack (heap alloc + serialize in loop()) and, when
-      // a noisy reed chattered, destabilized connection setup → "online but
-      // won't connect". INFO still carries door state — refreshed on every state
-      // transition, on boot, and on the app's on-demand read (lastReed is always
-      // current), which is enough for the dev badge without the per-edge churn.
+      // Do NOT rebuild INFO inline. Doing it on every reed edge churned the BLE
+      // stack (heap alloc + serialize in loop()) and, when a noisy reed
+      // chattered, destabilized connection setup → "online but won't connect".
+      // Instead mark it dirty and let flushInfoIfDirty() coalesce: one tap = one
+      // rebuild, chatter = at most one rebuild per INFO_COALESCE_MS. Needed
+      // because INFO has NO onRead callback — it is a cached blob, so an edge
+      // that causes no state transition (the bench case: magnet tapped on a
+      // LOCKED gate) would otherwise never reach the app's door badge at all.
+      infoDirty     = true;
+      infoDirtyAtMs = millis();
     }
   }
+}
+
+// Flush a pending INFO rebuild once the coalescing window has passed. Called
+// from loop(). transitionTo() still refreshes INFO immediately — this only
+// covers reed edges that move no state.
+static void flushInfoIfDirty() {
+  if (!infoDirty) return;
+  if (millis() - infoDirtyAtMs < INFO_COALESCE_MS) return;
+  infoDirty = false;
+  refreshInfoChar();
 }
 
 static void handleGateClose(int g) {
@@ -998,6 +1018,7 @@ void loop() {
 
   tickRelays();
   pollReeds();
+  flushInfoIfDirty();
   checkTimeouts();
   sampleBattery();
 
