@@ -376,11 +376,11 @@ static void refreshInfoChar() {
   // Parallel string arrays — infoGate.ts shape (a).
   JsonArray gateStates   = info["gate_states"].to<JsonArray>();
   JsonArray gateSessions = info["gate_sessions"].to<JsonArray>();
-  // Physical DOOR state from the reed, parallel to the arrays above. LOW =
-  // magnet near = "closed"; HIGH (or no reed wired → INPUT_PULLUP) = "open".
-  // The app reads this to gate the open/return button: you can only open a door
-  // that's actually shut, and you can't "open" one already hanging open.
-  // Object array read by app/station/[id].tsx (info.states).
+  // Object array read by app/station/[id].tsx (info.states). Each entry also
+  // carries the physical DOOR state from the reed: LOW = magnet near =
+  // "closed"; HIGH (or no reed wired → INPUT_PULLUP) = "open". The app reads it
+  // to gate the open/return button — you can only open a door that's actually
+  // shut, and you can't "open" one already hanging open.
   JsonArray states = info["states"].to<JsonArray>();
 
   for (int g = 0; g < NUM_GATES; g++) {
