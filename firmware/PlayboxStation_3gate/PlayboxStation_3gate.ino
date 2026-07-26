@@ -58,8 +58,6 @@
 #include <ArduinoJson.h>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
-#include "soc/soc.h"            // brownout register access
-#include "soc/rtc_cntl_reg.h"  // RTC_CNTL_BROWN_OUT_REG
 
 extern "C" {
   #include "playbox_sign.h"   // canonical builders + sign/verify (host-tested; flat in sketch root)
@@ -827,13 +825,13 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
 // Setup
 // =============================================================================
 void setup() {
-  // Disable the brownout detector FIRST, before any BLE/relay current spikes.
-  // It false-trips on the sub-millisecond current bursts from +9 dBm BLE TX and
-  // relay inrush, resetting the chip mid-connection — which looks exactly like a
-  // random BLE drop. We run off a 12V 7Ah SLA -> buck -> 5V pin with plenty of
-  // headroom, so a real deep sag isn't the concern; the twitchy detector is.
-  // Killing it stops the spurious resets that were dropping the link.
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  // Brownout detector LEFT ENABLED (default). We previously disabled it to stop
+  // "random BLE drops", but that was the wrong fix: the drops came from the
+  // +9 dBm TX current spike (now removed). Disabling the detector turned a
+  // recoverable voltage sag into an unrecoverable HANG — the chip stopped
+  // advertising and only a power cycle brought it back ("not found within
+  // 8000ms"). Enabled, a genuine sag cleanly RESETS the chip and setup()
+  // re-starts advertising on its own — self-healing, no power cycle needed.
 
   Serial.begin(115200);
   delay(500);
@@ -896,13 +894,14 @@ void setup() {
 
   // BLE.
   NimBLEDevice::init("Playbox-" STATION_ID);
-  // Crank BLE TX power to the ESP32 max (+9 dBm). The default (~3 dBm) made the
-  // advertisement too weak for the phone to hear reliably through the battery /
-  // buck / wiring around the board — the app's scan would run its full 8s and
-  // report "Playbox-DEV-001 not found". +9 dBm roughly doubles usable range and
-  // punches through 2.4 GHz clutter (Wi-Fi, the user's Dexcom). NimBLE 2.x takes
-  // dBm directly. Must be set after init(), before advertising starts.
-  NimBLEDevice::setPower(9);
+  // NOTE: we deliberately do NOT crank TX power. Setting +9 dBm (the old
+  // "range boost") spikes the peak current on this DevKit's marginal
+  // AMS1117 rail during each TX burst. With the brownout detector disabled
+  // (which we also had done) that sag no longer produced a clean reset — the
+  // chip HUNG and stopped advertising entirely, so the phone reported
+  // "Playbox-DEV-001 not found within 8000ms" until a power cycle. A crashed
+  // radio is a silent radio: louder-but-hung is worse than quieter-but-alive.
+  // Leaving TX at the NimBLE default (~+3 dBm) is the known-good, findable state.
   NimBLEServer* server = NimBLEDevice::createServer();
   server->setCallbacks(new ServerCallbacks());
   NimBLEService* service = server->createService(SERVICE_UUID);
