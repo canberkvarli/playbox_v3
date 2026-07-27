@@ -19,6 +19,7 @@ import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { DemoBadge } from '@/components/DemoBadge';
 import { initTelemetry } from '@/lib/telemetry';
 import { useColdLaunchReattach } from '@/lib/hardware/useColdLaunchReattach';
+import { installBackgroundLinkRelease } from '@/lib/ble/backgroundLinkRelease';
 // Side-effect: statically loads lib/liveActivity → the widget files, so
 // createLiveActivity/createWidget RUN at bundle load. The widget extension runs
 // this same bundle; without this the components stay unregistered → empty box.
@@ -38,6 +39,15 @@ AppState.addEventListener('change', (state) => {
   if (state === 'active') supabase.auth.startAutoRefresh();
   else supabase.auth.stopAutoRefresh();
 });
+
+// Hold the BLE link only while we're foregrounded — during an active session
+// that makes the return tap instant, but a link kept into the background would
+// stop the station advertising and hide the locker from every other user (and
+// from us, once iOS decides the suspended link is still "connected"). Its own
+// listener rather than a branch above: unrelated lifetimes, and it needs the
+// 'inactive' vs 'background' distinction that the auth refresh doesn't care
+// about. Idempotent, so a Fast-Refresh re-evaluation can't stack listeners.
+installBackgroundLinkRelease();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
