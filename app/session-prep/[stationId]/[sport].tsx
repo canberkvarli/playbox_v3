@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Pressable, Text, View } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Linking, Pressable, Text, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
@@ -15,7 +15,7 @@ import {
   type Sport,
 } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
-import { useFreshPresence } from '@/stores/nearbyStore';
+import { useFreshPresence, useNearbyStore } from '@/stores/nearbyStore';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
@@ -160,6 +160,19 @@ export default function SessionPrep() {
   // can fire onOyna twice before unlocking flips. The ref blocks the second
   // call inside the same tick, preventing duplicate preauth holds.
   const unlockingRef = useRef(false);
+  // A tap that lands fast needs no explanation; one that runs long does. After
+  // SLOW_CONNECT_HINT_MS the CTA grows a sub-line, so a 3-5s connect reads as
+  // "working" instead of "frozen" — the ambiguity that makes a user tap twice
+  // (and a second tap is worse than waiting: it fights the in-flight connect).
+  const [slowConnect, setSlowConnect] = useState(false);
+  useEffect(() => {
+    if (!unlocking) {
+      setSlowConnect(false);
+      return;
+    }
+    const t = setTimeout(() => setSlowConnect(true), 2500);
+    return () => clearTimeout(t);
+  }, [unlocking]);
   // Fresh-presence cue for the unlock CTA. Called unconditionally (before the
   // `!station` early return) so the hook order stays stable. `stationId` is
   // always a string param; the hook decays on its own 1s tick so the CTA goes
@@ -192,6 +205,36 @@ export default function SessionPrep() {
   // otherwise the "istasyona yaklaş" nudge shows on the slides even though the
   // mock unlock succeeds.
   const freshlyPresent = passivelyPresent || activelyPresent || demoMode;
+
+  // PRE-WARM THE TAP. The dominant cost of OYNA is not the GATT handshake
+  // (~0.5s) — it's the cold SCAN in front of it (1-3s, and the thing that
+  // makes a first attempt fail outright). scanAndConnect skips that scan
+  // entirely when it already holds a recent advert sighting, but until now
+  // NOTHING was listening while this screen was open (the user picks sport +
+  // duration in silence), so the cache went stale and every OYNA paid full
+  // price.
+  //
+  // So: keep a light advert scan running for as long as the screen is up.
+  // This is the SAME pattern already proven on the station screen — it is
+  // ADVERT-ONLY and opens no GATT link, which matters: a connected ESP32 stops
+  // advertising, so holding a warm link here would make the locker invisible to
+  // every other user and would race the tap (that eager warm-connect is exactly
+  // what destabilized this screen before — see the note above). Listening is
+  // free and exclusive to nobody. Each sighting refreshes stationClient's
+  // lastSeenDevice/lastSeenAt, so by the time the user taps, the scan is
+  // already paid for and OYNA goes straight to connect.
+  //
+  // scanAndConnect stops + settles this scan before connecting and resumes it
+  // after, so it never fights the tap — that coordination lives in the client.
+  useFocusEffect(
+    useCallback(() => {
+      const driver = getDriver();
+      const sub = driver.watchNearbyStations((s) => {
+        useNearbyStore.getState().record(s);
+      });
+      return () => sub.stop();
+    }, []),
+  );
 
   if (!station) {
     return (
@@ -748,7 +791,15 @@ export default function SessionPrep() {
             elevation: 10,
           }}
         >
-          {!unlocking && !softenForProximity && isLast && !isHowto ? (
+          {unlocking ? (
+            // A real spinner, not a static swapped icon. The connect can take a
+            // couple of seconds and a motionless button reads as a dead button.
+            <ActivityIndicator
+              size="small"
+              color={palette.ink}
+              style={{ marginRight: 10 }}
+            />
+          ) : !softenForProximity && isLast && !isHowto ? (
             // Start-mode "oyna" CTA — the sport ball (paper-tinted for contrast
             // on the coral button), not a play triangle.
             <View style={{ marginRight: 10 }}>
@@ -757,16 +808,14 @@ export default function SessionPrep() {
           ) : (
             <Feather
               name={
-                unlocking
-                  ? 'unlock'
-                  : softenForProximity
+                softenForProximity
                   ? 'map-pin'
                   : isLast && isHowto
                   ? 'check'
                   : 'arrow-right'
               }
               size={22}
-              color={unlocking ? palette.ink : palette.paper}
+              color={palette.paper}
               style={{ marginRight: 10 }}
             />
           )}
@@ -790,6 +839,24 @@ export default function SessionPrep() {
           </Text>
         </View>
       </Pressable>
+
+      {/* Slow-connect reassurance. Only appears once the connect has genuinely
+          been running a while, so a normal fast tap never sees it. Purely
+          informational — the CTA is already locked by `unlocking`. */}
+      {unlocking && slowConnect ? (
+        <Text
+          style={{
+            fontFamily: 'Inter_600SemiBold',
+            fontSize: 13,
+            textAlign: 'center',
+            color: palette.ink,
+            opacity: 0.6,
+            marginTop: 10,
+          }}
+        >
+          {t('prep.connect_slow')}
+        </Text>
+      ) : null}
 
       {/* Gentle proximity nudge — shown only when the unlock CTA is softened
           because the radio hasn't freshly heard this station. Purely advisory;

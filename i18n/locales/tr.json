@@ -489,7 +489,8 @@
     "cta": "oyna!",
     "opening": "kapı açılıyor...",
     "approach": "istasyona yaklaş",
-    "approach_hint": "kapıyı açmak için istasyonun yanında ol"
+    "approach_hint": "kapıyı açmak için istasyonun yanında ol",
+    "connect_slow": "kapıya bağlanılıyor, bir saniye..."
   },
   "scan": {
     "title": "istasyonun qr'ını okut",
