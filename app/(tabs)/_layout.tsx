@@ -15,6 +15,13 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          // Tabs defaulted to 'none', so harita ↔ oyna ↔ profil cut instantly —
+          // the rigid, app-switcher feel. 'shift' slides the outgoing screen out
+          // and the incoming one in (in the direction you actually moved along
+          // the bar) while cross-fading, which reads as one surface moving
+          // rather than three unrelated screens. Set on screenOptions so every
+          // tab shares it; a per-tab override would make the motion asymmetric.
+          animation: 'shift',
           tabBarActiveTintColor: palette.volt,
           tabBarInactiveTintColor: palette.muted,
           // Asphalt Volt tab bar: dark surface + hairline top, volt active tint.

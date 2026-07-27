@@ -442,6 +442,14 @@ type FwSnapshot = {
   gates: number;
   /** Firmware version string from the INFO characteristic. */
   fw?: string;
+  /**
+   * RAW reed levels, one char per gate ('0' = closed, '1' = open), read live
+   * off the pins BEFORE debounce. `states[].door` is the debounced value the
+   * state machine acts on; this is the physical truth, so when a reed is wired
+   * but "nothing happens" the two together say which half is broken. Optional —
+   * firmware older than the reed-diagnostics build doesn't send it.
+   */
+  reed?: string;
 };
 
 function DevServoButtons({ stationId }: { stationId: string }) {
@@ -525,6 +533,7 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         states,
         gates: typeof info?.gates === 'number' ? info.gates : Object.keys(states).length || 1,
         fw: typeof info?.fw === 'string' ? info.fw : undefined,
+        reed: typeof info?.reed === 'string' ? info.reed : undefined,
       };
       setFw(snap);
       // Re-arm keep-alive now that we hold a live link (replace any dead sub):
@@ -846,6 +855,24 @@ function DevServoButtons({ stationId }: { stationId: string }) {
               >
                 {door === 'closed' ? '🚪 KAPALI' : door === 'open' ? '🚪 AÇIK' : '🚪 —'}
               </Text>
+              {/* RAW pin level, pre-debounce. Diverging from the line above is
+                  the diagnosis: raw flips but 🚪 doesn't => debounce is eating
+                  the edge; raw never flips => the pin isn't moving at all
+                  (wiring/GPIO), and no amount of firmware logic will help. */}
+              {fw?.reed ? (
+                <Text
+                  numberOfLines={1}
+                  style={{
+                    fontFamily: 'JetBrainsMono_400Regular',
+                    fontSize: 10,
+                    letterSpacing: 0.2,
+                    marginTop: 3,
+                    color: palette.muted,
+                  }}
+                >
+                  {`raw ${fw.reed[g - 1] === '0' ? 'LOW' : 'HIGH'}`}
+                </Text>
+              ) : null}
               <Text
                 numberOfLines={1}
                 style={{

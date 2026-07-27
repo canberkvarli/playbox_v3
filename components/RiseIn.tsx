@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -26,17 +27,28 @@ export function RiseIn({ delay = 0, duration = 380, distance = 12, children, sty
   const v = useSharedValue(0);
   const reduceMotion = useReduceMotion();
 
-  useEffect(() => {
-    if (reduceMotion) {
-      // No slide/fade — land directly on the final state (opacity 1, no offset).
-      v.value = 1;
-      return;
-    }
-    v.value = withDelay(
-      delay,
-      withTiming(1, { duration, easing: Easing.out(Easing.cubic) })
-    );
-  }, [delay, duration, v, reduceMotion]);
+  // ON FOCUS, not on mount. A tab screen mounts once and then stays mounted
+  // forever, so a mount-only entrance played on the FIRST visit to profil and
+  // never again — which is exactly the "it stops animating after a while"
+  // symptom. Re-running on focus replays the entrance every time you arrive,
+  // and costs nothing on screens that mount and unmount (push/pop), where focus
+  // and mount coincide.
+  useFocusEffect(
+    useCallback(() => {
+      if (reduceMotion) {
+        // No slide/fade — land directly on the final state (opacity 1, no offset).
+        v.value = 1;
+        return;
+      }
+      // Rewind first: on a re-focus the value is still 1 from last time, and
+      // withTiming(1) from 1 is a no-op that would silently skip the entrance.
+      v.value = 0;
+      v.value = withDelay(
+        delay,
+        withTiming(1, { duration, easing: Easing.out(Easing.cubic) })
+      );
+    }, [delay, duration, v, reduceMotion]),
+  );
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: v.value,

@@ -403,6 +403,19 @@ static void refreshInfoChar() {
     go["door"]        = door;         // "closed" | "open" (from the reed)
   }
 
+  // RAW reed levels, one char per gate: '0' = LOW/closed, '1' = HIGH/open.
+  // Read live off the pins (NOT lastReed) so it shows the physical truth even
+  // when debounce is eating every edge. 3 bytes — nothing against the 512-byte
+  // INFO budget — and it makes a dead or miswired reed visible in the dev panel
+  // without a serial cable, which is the whole point when the board is on
+  // battery in the field.
+  char reedRaw[NUM_GATES + 1];
+  for (int g = 0; g < NUM_GATES; g++) {
+    reedRaw[g] = (digitalRead(REED_PINS[g]) == LOW) ? '0' : '1';
+  }
+  reedRaw[NUM_GATES] = '\0';
+  info["reed"] = String(reedRaw);   // String => ArduinoJson copies; no dangling stack pointer
+
   String s;
   serializeJson(info, s);
   infoChar->setValue(s);
@@ -524,8 +537,23 @@ static void initReeds() {
 }
 
 static void pollReeds() {
+  // RAW pre-debounce trace. From the app the two reed failure modes look
+  // identical ("nothing happens"), but they need opposite fixes:
+  //   - no [REED-RAW] line at all when you close the contact => the pin never
+  //     moved. Wiring/pin problem: wrong GPIO, a lead not actually landing on
+  //     the header, or the switch not closing.
+  //   - [REED-RAW] lines but no [REED] line => the level IS moving but never
+  //     survives REED_DEBOUNCE_MS. Chatter; raise the debounce.
+  // Prints only on an actual raw change, so a settled board stays silent.
+  static int lastRawSeen[NUM_GATES] = { -1, -1, -1 };
+
   for (int g = 0; g < NUM_GATES; g++) {
     int r = digitalRead(REED_PINS[g]);
+    if (r != lastRawSeen[g]) {
+      lastRawSeen[g] = r;
+      Serial.printf("[REED-RAW] gate %d (GPIO %d) = %s\n", g + 1, REED_PINS[g],
+                    r == LOW ? "LOW / closed" : "HIGH / open");
+    }
     if (r != lastReed[g] && (millis() - lastReedChangeMs[g]) > REED_DEBOUNCE_MS) {
       lastReed[g] = r;
       lastReedChangeMs[g] = millis();
