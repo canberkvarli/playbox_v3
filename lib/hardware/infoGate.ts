@@ -84,3 +84,42 @@ export function extractGate(
 
   return unknown;
 }
+
+/** Physical door position for one gate, straight off the reed switch. */
+export type DoorState = 'closed' | 'open' | 'unknown';
+
+/**
+ * Pull the physical DOOR state for ONE gate out of a `readInfo()` blob.
+ *
+ * Source of truth is `info.states[]` (firmware `refreshInfoChar()`), where each
+ * entry carries `door: "closed" | "open" | "unknown"` derived from the reed.
+ * `"unknown"` is what a gate with no reed soldered on reports — it is NOT the
+ * same as `"open"`, and callers must treat it permissively (allow the action)
+ * rather than as a closed door they can act on or an open one they can't.
+ *
+ * Falls back to `info.reed`, the raw per-gate level string ('0' closed,
+ * '1' open, '-' unwired), so a firmware that only emits the compact form still
+ * answers. Anything unrecognized → 'unknown'.
+ */
+export function extractDoor(info: unknown, gate: number): DoorState {
+  if (!info || typeof info !== 'object') return 'unknown';
+  const obj = info as Record<string, unknown>;
+  const idx = gate - 1;
+  if (idx < 0) return 'unknown';
+
+  if (Array.isArray(obj.states)) {
+    const entry = obj.states[idx];
+    if (entry && typeof entry === 'object') {
+      const door = (entry as Record<string, unknown>).door;
+      if (door === 'closed' || door === 'open') return door;
+    }
+  }
+
+  if (typeof obj.reed === 'string') {
+    const c = obj.reed[idx];
+    if (c === '0') return 'closed';
+    if (c === '1') return 'open';
+  }
+
+  return 'unknown';
+}

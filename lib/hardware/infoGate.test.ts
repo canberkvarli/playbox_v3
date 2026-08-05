@@ -1,4 +1,4 @@
-import { extractGate } from './infoGate';
+import { extractDoor, extractGate } from './infoGate';
 import type { GateState } from './returnRecovery';
 
 const SID = 'sess-abc-123';
@@ -149,5 +149,46 @@ describe('extractGate', () => {
         extractGate({ gate1: { state: 'LOCKED', session_id: SID } }, 2),
       ).toEqual({ state: 'UNKNOWN', sessionId: null });
     });
+  });
+});
+
+describe('extractDoor', () => {
+  // The shape today's firmware actually sends: gate 1 has a reed, gates 2 and 3
+  // don't (REED_WIRED = { true, false, false }).
+  const INFO = {
+    states: [
+      { gate: 1, state: 'IN_USE', session_id: SID, door: 'closed' },
+      { gate: 2, state: 'LOCKED', session_id: '', door: 'unknown' },
+      { gate: 3, state: 'LOCKED', session_id: '', door: 'unknown' },
+    ],
+    reed: '0--',
+  };
+
+  it('reads the wired gate off states[].door', () => {
+    expect(extractDoor(INFO, 1)).toBe('closed');
+  });
+
+  it('an UNWIRED gate is "unknown", never "open"', () => {
+    // Regression guard: reporting an unwired gate as open would permanently
+    // disable the reopen button on gates 2 and 3.
+    expect(extractDoor(INFO, 2)).toBe('unknown');
+    expect(extractDoor(INFO, 3)).toBe('unknown');
+  });
+
+  it('reports an open door', () => {
+    expect(extractDoor({ states: [{ gate: 1, door: 'open' }] }, 1)).toBe('open');
+  });
+
+  it('falls back to the compact reed string when states[] is absent', () => {
+    expect(extractDoor({ reed: '10-' }, 1)).toBe('open');
+    expect(extractDoor({ reed: '10-' }, 2)).toBe('closed');
+    expect(extractDoor({ reed: '10-' }, 3)).toBe('unknown');
+  });
+
+  it('unparseable / absent / out-of-range → unknown', () => {
+    expect(extractDoor(null, 1)).toBe('unknown');
+    expect(extractDoor({ gates: 3 }, 1)).toBe('unknown');
+    expect(extractDoor(INFO, 9)).toBe('unknown');
+    expect(extractDoor({ states: [{ gate: 1, door: 'ajar' }] }, 1)).toBe('unknown');
   });
 });

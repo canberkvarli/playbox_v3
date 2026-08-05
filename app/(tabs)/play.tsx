@@ -24,6 +24,7 @@ import { getDriver } from '@/lib/hardware';
 import { supabase } from '@/lib/supabase';
 import { recordPlaySession } from '@/lib/playSessions';
 import { useStationInRange } from '@/lib/ble/useStationInRange';
+import { useDoorState } from '@/lib/hardware/useDoorState';
 import { stationClient } from '@/lib/ble/stationClient';
 import { useT } from '@/hooks/useT';
 import { GearReportSheet } from '@/components/GearReportSheet';
@@ -195,20 +196,20 @@ export default function Play() {
   const reopeningRef = useRef(false);
   const [reopening, setReopening] = useState(false);
 
-  // Optimistic door-open tracking for the "kapıyı aç" reopen button (Path 1):
-  // we hold no BLE link during a session, so we can't read the reed live.
-  // Instead we assume the door is open right after WE open it — a fresh OYNA
-  // start or a reopen tap — and auto-clear after a grace window (time to grab
-  // the gear and shut the door). While "open" the reopen button is disabled and
-  // reads "kapı açık", so you can't re-open a door that's already open.
+  // FALLBACK door tracking for the "kapıyı aç" reopen button (Path 1), used
+  // only when the reed can't tell us (no link, or that gate has no reed wired).
+  // We assume the door is open right after WE open it — a fresh OYNA start or a
+  // reopen tap — and auto-clear after a grace window (time to grab the gear and
+  // shut the door). The real reed overrides this in BOTH directions below; see
+  // `doorOpen`.
   const DOOR_OPEN_GRACE_MS = 25_000;
-  const [doorOpen, setDoorOpen] = useState(false);
+  const [assumedDoorOpen, setAssumedDoorOpen] = useState(false);
   const doorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markDoorOpen = (remainingMs: number = DOOR_OPEN_GRACE_MS) => {
-    setDoorOpen(true);
+    setAssumedDoorOpen(true);
     if (doorTimerRef.current) clearTimeout(doorTimerRef.current);
     doorTimerRef.current = setTimeout(
-      () => setDoorOpen(false),
+      () => setAssumedDoorOpen(false),
       Math.max(0, remainingMs),
     );
   };
@@ -227,6 +228,20 @@ export default function Play() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.startedAt]);
+
+  // THE REAL DOOR, off the reed switch — 'closed' | 'open' | 'unknown'.
+  // Passive: reads INFO only over a link we already hold, never opens one, and
+  // answers 'unknown' when it can't tell (no link, or no reed wired on that
+  // gate — only gate 1 has one today).
+  const liveDoor = useDoorState(active?.gate ?? null, !!active);
+
+  // The reed wins in BOTH directions when it speaks: 'open' disables the reopen
+  // button even after the 25s grace has lapsed (the door really is still
+  // hanging open), and 'closed' re-enables it IMMEDIATELY instead of making the
+  // user wait out a timer they already satisfied by shutting the door. Only
+  // when the reed is silent do we fall back to the optimistic timer.
+  const doorOpen =
+    liveDoor === 'open' ? true : liveDoor === 'closed' ? false : assumedDoorOpen;
 
   const fakeActiveSession = useDevStore((s) => s.fakeActiveSession);
   const setFakeActiveSession = useDevStore((s) => s.setFakeActiveSession);

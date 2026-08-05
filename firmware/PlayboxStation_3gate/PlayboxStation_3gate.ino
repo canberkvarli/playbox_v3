@@ -99,6 +99,18 @@ extern "C" {
 static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
 static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 
+// Which gates actually have a reed switch soldered on. FLIP TO true AS YOU WIRE
+// EACH ONE — this is the only line that needs to change.
+//
+// This is not cosmetic. An INPUT_PULLUP pin with nothing attached is a floating
+// high-impedance antenna: it idles HIGH but can be dragged LOW by a relay
+// firing next to it or by a hand near the board. pollReeds() would read that
+// as a door-closed edge and run handleGateClose() — silently walking an
+// UNLOCKED gate to IN_USE, or ending a return session, with nobody touching
+// anything. So an unwired gate is SKIPPED entirely, and reports its door as
+// "unknown" rather than lying in either direction.
+static const bool REED_WIRED[NUM_GATES]    = { true, false, false };
+
 // Battery ADC: ADC1 input-only pin (safe alongside WiFi/BLE, unlike ADC2).
 #define BATTERY_ADC_PIN 34
 
@@ -392,8 +404,12 @@ static void refreshInfoChar() {
   for (int g = 0; g < NUM_GATES; g++) {
     const char* st  = stateName(gateState[g]);
     const String& sid = activeSessionId[g];
-    const bool doorClosed = (lastReed[g] == LOW);
-    const char* door = doorClosed ? "closed" : "open";
+    // "unknown" for a gate with no reed wired — NOT "open". Reporting a
+    // sensorless gate as open would permanently disable the app's "kapıyı aç"
+    // button on it (you can't open a door the app thinks is already open),
+    // which is exactly the failure while only gate 1 has a sensor.
+    const char* door = !REED_WIRED[g] ? "unknown"
+                     : (lastReed[g] == LOW ? "closed" : "open");
     gateStates.add(st);
     gateSessions.add(sid);
     JsonObject go = states.add<JsonObject>();
@@ -403,7 +419,8 @@ static void refreshInfoChar() {
     go["door"]        = door;         // "closed" | "open" (from the reed)
   }
 
-  // RAW reed levels, one char per gate: '0' = LOW/closed, '1' = HIGH/open.
+  // RAW reed levels, one char per gate: '0' = LOW/closed, '1' = HIGH/open,
+  // '-' = no reed wired (REED_WIRED false — the pin is never read).
   // Read live off the pins (NOT lastReed) so it shows the physical truth even
   // when debounce is eating every edge. 3 bytes — nothing against the 512-byte
   // INFO budget — and it makes a dead or miswired reed visible in the dev panel
@@ -411,7 +428,8 @@ static void refreshInfoChar() {
   // battery in the field.
   char reedRaw[NUM_GATES + 1];
   for (int g = 0; g < NUM_GATES; g++) {
-    reedRaw[g] = (digitalRead(REED_PINS[g]) == LOW) ? '0' : '1';
+    reedRaw[g] = !REED_WIRED[g] ? '-'
+               : ((digitalRead(REED_PINS[g]) == LOW) ? '0' : '1');
   }
   reedRaw[NUM_GATES] = '\0';
   info["reed"] = String(reedRaw);   // String => ArduinoJson copies; no dangling stack pointer
@@ -530,9 +548,20 @@ static void handleGateClose(int g);
 
 static void initReeds() {
   for (int g = 0; g < NUM_GATES; g++) {
+    if (!REED_WIRED[g]) {
+      // No sensor on this gate. Leave the pin untouched (don't even enable the
+      // pullup — nothing reads it) and park lastReed at HIGH so any code that
+      // still looks at it sees "not closed" rather than a random float.
+      lastReed[g] = HIGH;
+      lastReedChangeMs[g] = millis();
+      Serial.printf("[REED] gate %d has no reed wired — skipping\n", g + 1);
+      continue;
+    }
     pinMode(REED_PINS[g], INPUT_PULLUP);
     lastReed[g] = digitalRead(REED_PINS[g]);
     lastReedChangeMs[g] = millis();
+    Serial.printf("[REED] gate %d (GPIO %d) armed, initial = %s\n", g + 1,
+                  REED_PINS[g], lastReed[g] == LOW ? "LOW / closed" : "HIGH / open");
   }
 }
 
@@ -548,6 +577,7 @@ static void pollReeds() {
   static int lastRawSeen[NUM_GATES] = { -1, -1, -1 };
 
   for (int g = 0; g < NUM_GATES; g++) {
+    if (!REED_WIRED[g]) continue;   // floating pin — see REED_WIRED
     int r = digitalRead(REED_PINS[g]);
     if (r != lastRawSeen[g]) {
       lastRawSeen[g] = r;

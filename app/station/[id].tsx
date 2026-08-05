@@ -870,7 +870,9 @@ function DevServoButtons({ stationId }: { stationId: string }) {
                     color: palette.muted,
                   }}
                 >
-                  {`raw ${fw.reed[g - 1] === '0' ? 'LOW' : 'HIGH'}`}
+                  {fw.reed[g - 1] === '-'
+                    ? 'reed yok'
+                    : `raw ${fw.reed[g - 1] === '0' ? 'LOW' : 'HIGH'}`}
                 </Text>
               ) : null}
               <Text
