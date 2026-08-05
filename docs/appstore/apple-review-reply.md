@@ -31,12 +31,24 @@ and operating a physical Playbox station end to end, is provided in the App
 Review Information section (Notes / demo video URL field).
 
 ## Guideline 5.2.1 — Authorization for the "Playbox" brand and hardware
-Playbox is our own product. The stations shown in the app are hardware we build
-and operate; the "Playbox" name and branding are ours. We have attached
-documentary evidence of ownership and authorization in the App Review
-Information section (business registration, trademark filing, domain ownership,
-and a signed letter of authorization). Please let us know if you need anything
-further to confirm.
+There is no third party involved. Playbox is not another company's product — it
+is mine. I am an individual developer and the sole designer, builder and
+operator of the Playbox stations. I designed the enclosure, sourced and
+assembled the parts, wrote the ESP32 firmware that runs on the locker, and wrote
+this app. The name "Playbox" is a name I created for my own project; no other
+party licenses it to me because no other party is involved.
+
+I have attached documentary evidence of this in the App Review Information
+section:
+- the assembly manual (Montaj Kılavuzu) I wrote for building the station,
+- photographs of the enclosure parts and the assembled electronics,
+- a video of the station hardware I built being assembled and operated,
+- ownership of the playboxsport.com domain used by the app,
+- and a signed declaration of sole authorship.
+
+The Apple Developer account is registered to me personally, which matches the
+sole developer named in all of the above. Please let me know if anything further
+would help confirm this.
 
 ## Guideline 2.3.7 — Pricing reference in a screenshot
 We have replaced the screenshot that contained the word "ÜCRETSİZ" (free). No
@@ -73,3 +85,6 @@ Thank you again. We are happy to provide anything else you need.
   return flow works with no hardware."
 - Demo video URL: (unlisted YouTube/Vimeo link — see demo-video-shotlist.md)
 - Attachment: authorization documents (see authorization-letter.md)
+- Do NOT list a review phone number. `REVIEW_PHONE` is an unset placeholder and
+  no Supabase Test OTP exists — the reviewer cannot receive a Turkish SMS.
+  Demo Login (`appstore`) is the only supported review entry.
