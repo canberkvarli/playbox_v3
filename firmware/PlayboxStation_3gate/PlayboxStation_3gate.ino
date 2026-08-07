@@ -589,6 +589,7 @@ static void transitionTo(int g, GateState next) {
 // Reed switches
 // =============================================================================
 static void handleGateClose(int g);
+static void testReedBridges();
 
 static void initReeds() {
   for (int g = 0; g < NUM_GATES; g++) {
@@ -607,6 +608,67 @@ static void initReeds() {
     Serial.printf("[REED] gate %d (GPIO %d) armed, initial = %s\n", g + 1,
                   REED_PINS[g], lastReed[g] == LOW ? "LOW / closed" : "HIGH / open");
   }
+  // Catch shorted signal legs at boot, before they show up as two gates that
+  // mysteriously mirror each other.
+  testReedBridges();
+  // The test briefly drove pins as outputs; re-seed the debounce baseline from
+  // the restored INPUT_PULLUP levels so a transient can't look like a real edge.
+  for (int g = 0; g < NUM_GATES; g++) {
+    if (!REED_WIRED[g]) continue;
+    lastReed[g] = digitalRead(REED_PINS[g]);
+    lastReedChangeMs[g] = millis();
+  }
+}
+
+// Continuity self-test: are any two reed GPIOs electrically the SAME node?
+//
+// Symptom this exists for: two gates reporting every edge together, at the
+// IDENTICAL millisecond, in both directions. That is not crosstalk (which is
+// brief spikes that never survive REED_DEBOUNCE_MS) and it is not a firmware
+// indexing bug — it is one node being read twice, i.e. the two signal legs
+// shorted somewhere: same breadboard row, twisted leads, or a solder bridge
+// between two adjacent header pins.
+//
+// Method: drive one pin OUTPUT LOW, then read the others (still INPUT_PULLUP).
+// A weak pullup that reads LOW while another pin is driving LOW has a hard
+// conductive path to it. Only ONE pin is ever an output at a time, so this can
+// never fight another output.
+//
+// Baseline guard: a pin whose own reed is CLOSED already sits at GND and would
+// look shorted to everything. Those are skipped and reported, not tested.
+static void testReedBridges() {
+  bool openAtBoot[NUM_GATES];
+  for (int g = 0; g < NUM_GATES; g++) {
+    openAtBoot[g] = REED_WIRED[g] && digitalRead(REED_PINS[g]) == HIGH;
+  }
+
+  bool foundShort = false;
+  for (int a = 0; a < NUM_GATES; a++) {
+    if (!REED_WIRED[a]) continue;
+    if (!openAtBoot[a]) {
+      Serial.printf("[REED-TEST] gate %d (GPIO %d) reed is CLOSED — skipped "
+                    "(move the magnet away and reboot to test it)\n",
+                    a + 1, REED_PINS[a]);
+      continue;
+    }
+    pinMode(REED_PINS[a], OUTPUT);
+    digitalWrite(REED_PINS[a], LOW);
+    delayMicroseconds(500);          // settle the weak pullups on the others
+    for (int b = 0; b < NUM_GATES; b++) {
+      if (b == a || !openAtBoot[b]) continue;
+      if (digitalRead(REED_PINS[b]) == LOW) {
+        foundShort = true;
+        Serial.printf("[REED-TEST] *** SHORT: GPIO %d (gate %d) and GPIO %d "
+                      "(gate %d) are the SAME NODE ***\n",
+                      REED_PINS[a], a + 1, REED_PINS[b], b + 1);
+      }
+    }
+    pinMode(REED_PINS[a], INPUT_PULLUP);   // always restore
+  }
+  Serial.println(foundShort
+    ? "[REED-TEST] wiring fault — separate those two signal legs; until then "
+      "both gates will mirror each other"
+    : "[REED-TEST] no shorts between reed pins");
 }
 
 static void pollReeds() {
