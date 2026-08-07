@@ -200,6 +200,11 @@ bool          infoDirty     = false;
 unsigned long infoDirtyAtMs = 0;
 #define INFO_COALESCE_MS 500UL
 
+// Hard ceiling for the serialized INFO blob. This is BLE_ATT_ATTR_MAX_LEN — a
+// single GATT attribute cannot exceed it, and NimBLE WIPES the value rather
+// than truncating when you exceed it. See the guard in refreshInfoChar().
+#define INFO_MAX_BYTES 512
+
 // Signing.
 uint8_t       gKey[32];          // decoded station secret (32 raw bytes)
 bool          gKeyOk = false;
@@ -415,8 +420,12 @@ static void refreshInfoChar() {
     JsonObject go = states.add<JsonObject>();
     go["gate"]        = g + 1;
     go["state"]       = st;
-    go["session_id"]  = sid;
-    go["door"]        = door;         // "closed" | "open" (from the reed)
+    go["door"]        = door;         // "closed" | "open" | "unknown" (reed)
+    // NO session_id here. It lives ONCE, in gate_sessions[g]. Carrying it in
+    // both places cost ~55 bytes PER ACTIVE GATE out of a 512-byte budget and
+    // is what pushed INFO over the cap with two gates rented at the same time
+    // (see the size table above). app/station/[id].tsx now reads
+    // gate_sessions[] for the same value.
   }
 
   // RAW reed levels, one char per gate: '0' = LOW/closed, '1' = HIGH/open,
@@ -436,6 +445,41 @@ static void refreshInfoChar() {
 
   String s;
   serializeJson(info, s);
+
+  // ---- HARD CAP GUARD -------------------------------------------------------
+  // NimBLEAttValue::setValue() does NOT truncate an oversized value. Read
+  // NimBLEAttValue.cpp: it zeroes the buffer FIRST (m_attr_len = 0), then calls
+  // append(), which bails out with "val > max" and writes nothing. The
+  // characteristic is left EMPTY — so the phone reads an empty value and throws
+  // "INFO characteristic returned no value (board still booting?)", forever,
+  // with the board otherwise healthy and advertising happily. Silent, total,
+  // and it looks exactly like dead hardware.
+  //
+  // Session ids are the only unbounded part of the blob (~39 bytes each,
+  // "unlock-<station>-<sport>-<epoch_ms>"). Degrade by dropping them rather
+  // than losing the whole blob: state + door still reach the app, which is what
+  // the UI actually gates on.
+  if (s.length() > INFO_MAX_BYTES) {
+    Serial.printf("[INFO] %u bytes > %u cap — dropping session ids\n",
+                  (unsigned)s.length(), (unsigned)INFO_MAX_BYTES);
+    for (int g = 0; g < NUM_GATES; g++) gateSessions[g] = "";
+    s = "";
+    serializeJson(info, s);
+  }
+  if (s.length() > INFO_MAX_BYTES) {
+    // Should be unreachable — the remaining fields are fixed-width. Emit a
+    // minimal valid blob anyway; an app that can read station_id/fw can still
+    // tell the board apart from a dead one.
+    Serial.printf("[INFO] STILL %u bytes — emitting minimal blob\n", (unsigned)s.length());
+    JsonDocument tiny;
+    tiny["station_id"] = STATION_ID;
+    tiny["fw"]         = FW_VERSION;
+    tiny["gates"]      = NUM_GATES;
+    tiny["truncated"]  = true;
+    s = "";
+    serializeJson(tiny, s);
+  }
+
   infoChar->setValue(s);
 }
 

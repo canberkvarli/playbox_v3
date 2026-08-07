@@ -509,6 +509,12 @@ function DevServoButtons({ stationId }: { stationId: string }) {
       const info = (await stationClient.readInfo()) as Record<string, unknown>;
       const states: FwSnapshot['states'] = {};
       const rawStates = (info?.states as unknown[]) ?? [];
+      // Session ids live ONCE, in gate_sessions[] — states[] no longer repeats
+      // them. That duplication was ~55 bytes per active gate and pushed the
+      // whole INFO blob past the 512-byte GATT attribute cap with two gates
+      // rented at once, which makes NimBLE serve an EMPTY value. `?? obj.session_id`
+      // keeps firmware older than that fix working.
+      const rawSessions = (info?.gate_sessions as unknown[]) ?? [];
       for (const s of rawStates) {
         const obj = s as {
           gate?: number;
@@ -517,9 +523,10 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           door?: string;
         };
         if (typeof obj.gate === 'number') {
+          const sess = rawSessions[obj.gate - 1] ?? obj.session_id;
           states[obj.gate] = {
             state: (obj.state ?? 'LOCKED') as FwGateState,
-            session_id: obj.session_id ?? '',
+            session_id: typeof sess === 'string' ? sess : '',
             door:
               obj.door === 'closed'
                 ? 'closed'
