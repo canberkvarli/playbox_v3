@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 
 import { stationClient } from '@/lib/ble/stationClient';
 import { extractDoor, type DoorState } from './infoGate';
@@ -33,44 +34,55 @@ export function useDoorState(gate: number | null, enabled: boolean): DoorState {
   // overlapping GATT reads on the same characteristic.
   const inFlight = useRef(false);
 
-  useEffect(() => {
-    if (!enabled || !gate) {
-      setDoor('unknown');
-      return;
-    }
-    let cancelled = false;
-
-    const tick = async () => {
-      if (cancelled || inFlight.current) return;
-      // Backgrounded: iOS is about to suspend us (and backgroundLinkRelease is
-      // tearing the link down anyway) — don't burn a read on a dying handle.
-      if (AppState.currentState !== 'active') return;
-      // The ONLY gate on connecting: if we aren't already connected, we stay
-      // ignorant rather than opening a link for a status read.
-      if (!stationClient.isConnected()) {
-        if (!cancelled) setDoor('unknown');
+  // ON FOCUS, not on mount. play.tsx is a TAB screen: it mounts once and stays
+  // mounted forever, so a plain useEffect kept firing a GATT read every 4s from
+  // a screen the user had navigated away from — including while session-prep
+  // was running an unlock on the very same radio. A status poll must never be
+  // in the way of the one operation the user is actually waiting on.
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled || !gate) {
+        setDoor('unknown');
         return;
       }
-      inFlight.current = true;
-      try {
-        const info = await stationClient.readInfo();
-        if (!cancelled) setDoor(extractDoor(info, gate));
-      } catch {
-        // Stale handle, mid-reconnect, or the board is busy. Not knowing is a
-        // valid answer here — fall back to 'unknown' and try again next tick.
-        if (!cancelled) setDoor('unknown');
-      } finally {
-        inFlight.current = false;
-      }
-    };
+      let cancelled = false;
 
-    void tick();
-    const id = setInterval(tick, POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [gate, enabled]);
+      const tick = async () => {
+        if (cancelled || inFlight.current) return;
+        // Backgrounded: iOS is about to suspend us (and backgroundLinkRelease is
+        // tearing the link down anyway) — don't burn a read on a dying handle.
+        if (AppState.currentState !== 'active') return;
+        // A connect/reconnect owns the radio. Reading now would land on a
+        // handle mid-teardown and can leave iOS holding a phantom link, which
+        // is far worse than not knowing the door position for 4 more seconds.
+        if (stationClient.isBusy()) return;
+        // The ONLY gate on connecting: if we aren't already connected, we stay
+        // ignorant rather than opening a link for a status read.
+        if (!stationClient.isConnected()) {
+          if (!cancelled) setDoor('unknown');
+          return;
+        }
+        inFlight.current = true;
+        try {
+          const info = await stationClient.readInfo();
+          if (!cancelled) setDoor(extractDoor(info, gate));
+        } catch {
+          // Stale handle, mid-reconnect, or the board is busy. Not knowing is a
+          // valid answer here — fall back to 'unknown' and try again next tick.
+          if (!cancelled) setDoor('unknown');
+        } finally {
+          inFlight.current = false;
+        }
+      };
+
+      void tick();
+      const id = setInterval(tick, POLL_MS);
+      return () => {
+        cancelled = true;
+        clearInterval(id);
+      };
+    }, [gate, enabled]),
+  );
 
   return door;
 }

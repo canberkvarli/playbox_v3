@@ -112,6 +112,18 @@ class StationClient {
     return this.device !== null;
   }
 
+  /**
+   * True while a connect/reconnect owns the radio. Background pollers MUST back
+   * off on this: a read issued while scanAndConnect is tearing down a stale
+   * handle and building a new one lands on a device mid-cancel, which on iOS is
+   * how you end up with a phantom link the app can't use and the board won't
+   * advertise past. Nothing time-critical should ever wait on it — just skip
+   * the tick and come back later.
+   */
+  isBusy(): boolean {
+    return this.connectInFlight !== null;
+  }
+
   /** Human-readable reason of the last disconnect, or null if none yet. */
   lastDisconnectReason(): string | null {
     return this.lastDisconnect;
