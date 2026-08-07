@@ -109,7 +109,7 @@ static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
 // UNLOCKED gate to IN_USE, or ending a return session, with nobody touching
 // anything. So an unwired gate is SKIPPED entirely, and reports its door as
 // "unknown" rather than lying in either direction.
-static const bool REED_WIRED[NUM_GATES]    = { true, false, false };
+static const bool REED_WIRED[NUM_GATES]    = { true, true, false };
 
 // Battery ADC: ADC1 input-only pin (safe alongside WiFi/BLE, unlike ADC2).
 #define BATTERY_ADC_PIN 34
