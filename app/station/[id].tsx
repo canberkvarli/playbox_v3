@@ -450,6 +450,29 @@ type FwSnapshot = {
    * firmware older than the reed-diagnostics build doesn't send it.
    */
   reed?: string;
+  /** esp_reset_reason() from the last boot — why the board came up. */
+  rst?: number;
+  /** Free heap in bytes. A steady decline across cycles = leak/fragmentation. */
+  heap?: number;
+};
+
+/**
+ * esp_reset_reason() → what actually happened. "Power is on but the LED is
+ * gone" has four causes needing four different fixes; this is the board saying
+ * which. POWERON after an unattended run means it reset with nobody touching it.
+ */
+const RESET_REASONS: Record<number, string> = {
+  0: 'bilinmiyor',
+  1: 'POWERON — güç verildi',
+  2: 'EXT — harici reset',
+  3: 'SW — yazılım restart',
+  4: 'PANIC — firmware çöktü',
+  5: 'INT_WDT — kesme watchdog',
+  6: 'TASK_WDT — loop() 30sn kilitlendi',
+  7: 'WDT — watchdog',
+  8: 'DEEPSLEEP',
+  9: 'BROWNOUT — besleme düştü',
+  10: 'SDIO',
 };
 
 function DevServoButtons({ stationId }: { stationId: string }) {
@@ -541,6 +564,8 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         gates: typeof info?.gates === 'number' ? info.gates : Object.keys(states).length || 1,
         fw: typeof info?.fw === 'string' ? info.fw : undefined,
         reed: typeof info?.reed === 'string' ? info.reed : undefined,
+        rst: typeof info?.rst === 'number' ? info.rst : undefined,
+        heap: typeof info?.heap === 'number' ? info.heap : undefined,
       };
       setFw(snap);
       // Re-arm keep-alive now that we hold a live link (replace any dead sub):
@@ -720,7 +745,19 @@ function DevServoButtons({ stationId }: { stationId: string }) {
     const drop = stationClient.lastDisconnectReason();
     const dropStr = drop ? ` · son kopma: ${drop}` : '';
     if (snap) {
-      setLastResult(`fw ${snap.fw ?? '?'} · gates=${snap.gates}${dropStr}`);
+      // Reset reason + free heap ride along on every refresh. If the board died
+      // unattended, the reason it came back is the first thing worth seeing —
+      // and a heap that shrinks across cycles says leak/fragmentation before it
+      // ever gets far enough to take the board down again.
+      const rstStr =
+        snap.rst !== undefined
+          ? ` · reset: ${RESET_REASONS[snap.rst] ?? snap.rst}`
+          : '';
+      const heapStr =
+        snap.heap !== undefined ? ` · heap ${Math.round(snap.heap / 1024)}k` : '';
+      setLastResult(
+        `fw ${snap.fw ?? '?'} · gates=${snap.gates}${rstStr}${heapStr}${dropStr}`,
+      );
     }
     // else: refreshFirmwareState's catch already set "✗ <real reason>" — the
     // actual BLE error (Timeout / operation cancelled / bluetooth off), not a

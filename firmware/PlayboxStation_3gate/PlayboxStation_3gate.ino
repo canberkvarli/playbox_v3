@@ -205,6 +205,35 @@ unsigned long infoDirtyAtMs = 0;
 // than truncating when you exceed it. See the guard in refreshInfoChar().
 #define INFO_MAX_BYTES 512
 
+// ---- Health / post-mortem ---------------------------------------------------
+// Captured in setup() BEFORE anything can overwrite it, and surfaced both on
+// serial and in INFO so a board that died on battery in the field can still be
+// asked "why?" without a USB cable.
+esp_reset_reason_t gResetReason = ESP_RST_UNKNOWN;
+
+static const char* resetReasonName(esp_reset_reason_t r) {
+  switch (r) {
+    case ESP_RST_POWERON:   return "POWERON (power applied / EN pressed)";
+    case ESP_RST_EXT:       return "EXT (external reset pin)";
+    case ESP_RST_SW:        return "SW (esp_restart)";
+    case ESP_RST_PANIC:     return "PANIC (firmware crash — backtrace above)";
+    case ESP_RST_INT_WDT:   return "INT_WDT (interrupt watchdog — ISR blocked)";
+    case ESP_RST_TASK_WDT:  return "TASK_WDT (loop() blocked > WDT_TIMEOUT_S)";
+    case ESP_RST_WDT:       return "WDT (other watchdog)";
+    case ESP_RST_DEEPSLEEP: return "DEEPSLEEP";
+    case ESP_RST_BROWNOUT:  return "BROWNOUT (supply dipped below the detector)";
+    case ESP_RST_SDIO:      return "SDIO";
+    default:                return "UNKNOWN";
+  }
+}
+
+// Periodic health line. Free heap alone is not enough: a heap that stays large
+// while the LARGEST FREE BLOCK shrinks is fragmentation, which is the failure
+// mode to expect here because refreshInfoChar() allocates a JsonDocument + a
+// String on every rebuild and now runs from loop() on reed edges. Watch
+// `largest` across cycles — a steady decline is the smoking gun.
+#define HEALTH_LOG_MS 30000UL
+
 // Signing.
 uint8_t       gKey[32];          // decoded station secret (32 raw bytes)
 bool          gKeyOk = false;
@@ -442,6 +471,13 @@ static void refreshInfoChar() {
   }
   reedRaw[NUM_GATES] = '\0';
   info["reed"] = String(reedRaw);   // String => ArduinoJson copies; no dangling stack pointer
+
+  // Post-mortem, ~25 bytes: why we last rebooted and how much heap is left.
+  // Deliberately raw ints, not strings — this has to earn its place against the
+  // INFO_MAX_BYTES budget, and the app maps `rst` to a label. Worth it because
+  // the board dies on battery in the field where serial isn't an option.
+  info["rst"]  = (int)gResetReason;
+  info["heap"] = (int)ESP.getFreeHeap();
 
   String s;
   serializeJson(info, s);
@@ -1011,6 +1047,9 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
 // Setup
 // =============================================================================
 void setup() {
+  // FIRST thing: latch why we rebooted, before any init can clobber it.
+  gResetReason = esp_reset_reason();
+
   // Brownout detector LEFT ENABLED (default). We previously disabled it to stop
   // "random BLE drops", but that was the wrong fix: the drops came from the
   // +9 dBm TX current spike (now removed). Disabling the detector turned a
@@ -1068,6 +1107,16 @@ void setup() {
   Serial.printf("[NVS] seq=%u acked=%u epoch=%u lastTs=%u ring=%u\n",
                 (unsigned)eventSeq, (unsigned)ackedSeq, (unsigned)bootEpoch,
                 (unsigned)lastTs, (unsigned)ringCount());
+
+  // WHY DID WE JUST BOOT? The single most useful line on this board. "Power is
+  // on but the blue LED is gone" has at least four causes that need completely
+  // different fixes — a firmware crash, a blocked loop(), a supply dip, or a
+  // clean power-up — and they are indistinguishable by eye. The chip knows.
+  // POWERON after an unattended run means it reset when nobody touched it.
+  Serial.printf("[BOOT] reset reason: %s\n", resetReasonName(gResetReason));
+  Serial.printf("[BOOT] heap free=%u min=%u largest=%u\n",
+                (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 
   // Watchdog.
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -1162,6 +1211,23 @@ void setup() {
 // =============================================================================
 unsigned long lastHeartbeat = 0;
 
+// Heap/uptime trace, once per HEALTH_LOG_MS. Cheap (one printf) and it turns
+// "it died out of nowhere after a while" into a graph: if `heap` or `largest`
+// walks downward cycle after cycle, it's a leak/fragmentation and the board was
+// always going to die — the only question was when. If both stay flat right up
+// to the moment it dies, memory is NOT the cause and we look elsewhere.
+static unsigned long lastHealthMs = 0;
+static void logHealth() {
+  if (millis() - lastHealthMs < HEALTH_LOG_MS) return;
+  lastHealthMs = millis();
+  Serial.printf("[HEALTH] up=%lus heap=%u min=%u largest=%u ble=%s\n",
+                (unsigned long)(millis() / 1000),
+                (unsigned)ESP.getFreeHeap(),
+                (unsigned)ESP.getMinFreeHeap(),
+                (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+                bleConnected ? "connected" : "advertising");
+}
+
 void loop() {
   esp_task_wdt_reset();
 
@@ -1185,6 +1251,7 @@ void loop() {
   flushInfoIfDirty();
   checkTimeouts();
   sampleBattery();
+  logHealth();
 
   delay(5);
 }
