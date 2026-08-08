@@ -97,6 +97,10 @@ class StationClient {
   // cancelled", code 2). We dedupe: a second connect to the SAME station awaits
   // the in-flight one instead of racing it.
   private connectInFlight: { name: string; promise: Promise<Device> } | null = null;
+  // Station name of the most recent connect attempt. Only ever read through
+  // connectedName(), which gates on `this.device` being non-null, so a stale
+  // value can never be reported as a live connection.
+  private connectTargetName: string | null = null;
   // Watches the BLE adapter power state. Without it, a passive scan started
   // while the adapter is off (user opens the map, THEN enables Bluetooth)
   // errors out and never retries — the station stays grayed until a fresh scan
@@ -156,7 +160,16 @@ class StationClient {
    * breadboard must never count as presence for ist-taksim.
    */
   connectedName(): string | null {
-    return this.device?.name ?? null;
+    if (!this.device) return null;
+    // `Device.name` is iOS's GAP cache and is very often NULL for a peripheral
+    // we discovered by advertisement — the same trap that made the app "unable
+    // to find a board nRF Connect can see" (we matched name instead of
+    // localName). Returning null here silently broke useConnectionPresence:
+    // it read no name, recorded no synthetic sighting, and the map decayed the
+    // station to "kapalı" ~10s after any connect, while the board sat there
+    // healthy with a solid LED. Fall through to localName, then to the name we
+    // actually asked to connect to — which is authoritative and needs no cache.
+    return this.device.name ?? this.device.localName ?? this.connectTargetName;
   }
 
   /**
@@ -361,6 +374,9 @@ class StationClient {
     ) {
       return this.connectInFlight.promise;
     }
+    // Remember what we're targeting so connectedName() has an authoritative
+    // answer even when iOS gives us a nameless Device handle.
+    this.connectTargetName = stationName;
     const promise = this._scanAndConnectWithRetry(stationName, timeoutMs);
     this.connectInFlight = { name: stationName, promise };
     try {
