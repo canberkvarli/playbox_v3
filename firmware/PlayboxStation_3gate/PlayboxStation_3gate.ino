@@ -600,6 +600,13 @@ static void tickRelays() {
     if (relayOffMs[g] != 0 && (long)(millis() - relayOffMs[g]) >= 0) {
       relayOffMs[g] = 0;
       digitalWrite(RELAY_PINS[g], RELAY_OFF);
+      // Log the RELEASE, not just the kick. "Tongue retracts and never comes
+      // back out" has two completely different causes: the coil is still
+      // energized (firmware/relay), or the coil is off and the plunger is
+      // binding (mechanical). This line settles it without a multimeter — if
+      // RELEASED prints ~400ms after PULSE OPEN and the tongue is still in,
+      // the coil is de-energized and the fault is mechanical.
+      Serial.printf("[RELAY] gate %d -> RELEASED (coil off)\n", g + 1);
     }
   }
 }
