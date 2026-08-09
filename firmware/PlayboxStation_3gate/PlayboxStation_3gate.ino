@@ -1128,10 +1128,25 @@ void setup() {
   // Watchdog.
 #if ESP_ARDUINO_VERSION_MAJOR >= 3
   esp_task_wdt_config_t wdtCfg = { .timeout_ms = WDT_TIMEOUT_S * 1000, .idle_core_mask = 0, .trigger_panic = true };
-  esp_task_wdt_init(&wdtCfg);
+  // The Arduino core already starts the Task WDT itself (CONFIG_ESP_TASK_WDT_INIT=y,
+  // TIMEOUT_S=5, PANIC=y), so esp_task_wdt_init() here returns ESP_ERR_INVALID_STATE
+  // and OUR config is DISCARDED — silently, apart from one red line buried in the
+  // boot log: "E task_wdt: esp_task_wdt_init(517): TWDT already initialized".
+  // The board was running a 5-SECOND watchdog, not the 30 we wrote down. Any
+  // legitimately slow pass through loop() (an NVS commit landing badly, a long
+  // BLE op) would trip it and reset the chip, which reads as "the board rebooted
+  // for no reason". esp_task_wdt_reconfigure() is the supported way to change an
+  // already-running TWDT.
+  esp_err_t wdtErr = esp_task_wdt_init(&wdtCfg);
+  if (wdtErr == ESP_ERR_INVALID_STATE) wdtErr = esp_task_wdt_reconfigure(&wdtCfg);
 #else
-  esp_task_wdt_init(WDT_TIMEOUT_S, true);
+  esp_err_t wdtErr = esp_task_wdt_init(WDT_TIMEOUT_S, true);
 #endif
+  // Never let this fail silently again — a watchdog you THINK is 30s but is
+  // actually 5s is worse than no watchdog, because it makes you trust a theory
+  // about resets that isn't true.
+  Serial.printf("[WDT] timeout=%ds panic=on -> %s\n", WDT_TIMEOUT_S,
+                wdtErr == ESP_OK ? "OK" : esp_err_to_name(wdtErr));
   esp_task_wdt_add(NULL);
 
   // BLE.
