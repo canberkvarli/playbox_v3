@@ -1028,6 +1028,27 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         </Pressable>
       </View>
 
+      {/* WHY is İADE dead? A greyed-out button with no reason is a dead end —
+          you can see the gate is IN_USE and still have no idea why return is
+          refused. return_unlock is only accepted by the firmware when the
+          session_id matches, so no session id = no possible return, and that
+          is worth saying out loud rather than leaving as an opacity change. */}
+      {!canReturn && !busy && fwState === 'IN_USE' && !fwSessionId ? (
+        <Text
+          style={{
+            fontFamily: 'JetBrainsMono_400Regular',
+            fontSize: 11,
+            lineHeight: 16,
+            color: palette.coral,
+            marginBottom: 12,
+          }}
+        >
+          {'İADE kapalı: gate IN_USE ama session_id boş.\n' +
+            'Firmware session_id\'yi gate_sessions[] içinde yolluyor — ' +
+            'uygulamayı tamamen kapatıp açarak son sürüme geç, sonra "fw durumu oku".'}
+        </Text>
+      ) : null}
+
       {/* Sim close — drives the reed / door-closed edge from the phone so you
           don't have to press the ESP32 EN/BOOT button. Enabled after UNLOCK
           (→IN_USE) and after RETURN (→LOCKED). */}
