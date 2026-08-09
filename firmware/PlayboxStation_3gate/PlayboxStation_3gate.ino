@@ -478,6 +478,11 @@ static void refreshInfoChar() {
   // the board dies on battery in the field where serial isn't an option.
   info["rst"]  = (int)gResetReason;
   info["heap"] = (int)ESP.getFreeHeap();
+  // Is battery_mv REAL or the BATTERY_ADC_WIRED==0 placeholder? 11 bytes to stop
+  // the app presenting a hardcoded 12700mV as a measurement. While chasing a
+  // board that dies with power apparently on, a fake "100%" is worse than no
+  // reading at all — it quietly rules out the one thing we cannot see.
+  info["badc"] = (int)BATTERY_ADC_WIRED;
 
   String s;
   serializeJson(info, s);

@@ -454,6 +454,12 @@ type FwSnapshot = {
   rst?: number;
   /** Free heap in bytes. A steady decline across cycles = leak/fragmentation. */
   heap?: number;
+  /**
+   * Is the battery ADC divider actually wired? When 0 the firmware returns a
+   * hardcoded BATTERY_FULL_MV and every battery number is fiction — surface
+   * that rather than showing a confident, wrong percentage.
+   */
+  batteryAdcWired?: boolean;
 };
 
 /**
@@ -566,6 +572,8 @@ function DevServoButtons({ stationId }: { stationId: string }) {
         reed: typeof info?.reed === 'string' ? info.reed : undefined,
         rst: typeof info?.rst === 'number' ? info.rst : undefined,
         heap: typeof info?.heap === 'number' ? info.heap : undefined,
+        batteryAdcWired:
+          typeof info?.badc === 'number' ? info.badc === 1 : undefined,
       };
       setFw(snap);
       // Re-arm keep-alive now that we hold a live link (replace any dead sub):
@@ -755,8 +763,11 @@ function DevServoButtons({ stationId }: { stationId: string }) {
           : '';
       const heapStr =
         snap.heap !== undefined ? ` · heap ${Math.round(snap.heap / 1024)}k` : '';
+      // Loudly mark a fabricated battery reading. Silence here reads as "the
+      // rail is fine", which is the one thing this build cannot know.
+      const battStr = snap.batteryAdcWired === false ? ' · pil: SAHTE (ADC yok)' : '';
       setLastResult(
-        `fw ${snap.fw ?? '?'} · gates=${snap.gates}${rstStr}${heapStr}${dropStr}`,
+        `fw ${snap.fw ?? '?'} · gates=${snap.gates}${rstStr}${heapStr}${battStr}${dropStr}`,
       );
     }
     // else: refreshFirmwareState's catch already set "✗ <real reason>" — the
