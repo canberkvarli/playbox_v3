@@ -1,48 +1,55 @@
-# Guideline 2.1 — demo video shot list
+# Demo video shot list — 3rd submission (Aug 2026)
 
-Apple wants a video, filmed on a real Apple device (not a simulator), showing
-the app pairing with and operating the real hardware end to end. The hardware
-does NOT have to be a finished cabinet/locker. A working bench prototype (the
-control board + lock/gate actuator) is enough. Apple is verifying that the app
-controls real hardware, not that it looks like a product.
+Apple has now asked for this **twice**. The July 10 and August 7 messages use the
+same words, and the one phrase that keeps failing is:
 
-Film with a phone/camera pointed at BOTH the iPhone screen and the prototype so
-both are visible in the same frame (or intercut clearly). The single most
-important moment: tap in the app, and the physical lock/latch visibly moves.
+> "The **initial pairing process** between the app and the designated hardware"
 
-## Requirements Apple named
-- Current version of the app running on a physical iPhone (not simulator).
-- The initial pairing between the app and the station hardware.
-- The entire workflow with the hardware.
+The previous video started at "app already sees the station". That is the gap.
+Apple must watch the phone FIND the hardware on camera.
 
-## Suggested shots (2 to 4 minutes total) — bench prototype
-1. Show the iPhone: app open, Demo Login (or a real account), on the map.
-2. Show the prototype on the bench in the same frame: the control board and the
-   lock/gate actuator wired up and powered. A caption like "Playbox station
-   prototype" helps the reviewer.
-3. Reserve the station in the app. Show the reservation confirm.
-4. Show the Bluetooth connection happening (app connecting to the board). Pause
-   on any "connecting" / "connected" state so it is visible on screen.
-5. Tap unlock in the app. Show the physical latch/servo/solenoid/gate actually
-   opening. This is the key moment: app action on the iPhone, hardware reacts.
-   Keep both in frame so the cause and effect are unmistakable.
-6. (Optional) mime taking equipment out. Start the session in the app.
-7. Return/close: trigger the close in the app and show the latch locking again.
-   Show the attach-return-photo step if you use it.
-8. End on the session summary screen.
+## Non-negotiables
 
-## Making bare electronics read clearly on camera
-- You do not need a cabinet. If the latch is hard to see, mount the actuator on
-  a scrap of wood or a cardboard "door" so the open/close motion is obvious.
-- Add on-screen text labels for each step, or narrate briefly.
-- One continuous take (iPhone + prototype both visible) is the most convincing.
+1. **One continuous take.** No cuts. A cut is where a reviewer assumes the magic
+   happened off-camera.
+2. **Film with a second camera** so the physical iPhone AND the locker are in the
+   same frame the whole time. A screen recording alone will be rejected — they
+   asked for "a physical Apple device, not a simulator" twice.
+3. **Current build (45).** The last video was an older build with a lighter
+   theme; they explicitly ask for "the current version of the app in use".
+4. **Real account, NOT Demo Mode.** Demo Mode bypasses BLE entirely, so it
+   proves nothing about hardware. Demo Mode is the answer to 2.1(a), not to this.
+5. Narrate in English as you go, or add captions. Don't make them infer.
 
-## How to publish the link
-- Upload to YouTube as "Unlisted" (or Vimeo with a private link).
-- Do not make it fully private (Apple must be able to open it without a login).
-- Paste the link into App Review Information → the notes / demo video field.
+## Shot list
 
-## Tips
-- Keep it steady; narrate briefly or add on-screen labels for each step.
-- Make sure the gate opening is unmistakable on camera.
-- One continuous take is ideal; if you cut, keep it obvious it is one session.
+| # | What's on camera | Why it's here |
+|---|---|---|
+| 1 | Say the date + "iPhone <model>, build 45". Show the phone is a real device (lock screen, then open app). | "physical Apple device, current version" |
+| 2 | **Station powered OFF.** Show the map: station reads kapalı / offline. | Establishes the app is not faking it |
+| 3 | **Power the station ON, in frame.** Show the blue LED start blinking. | Hardware is real and you just energised it |
+| 4 | Wait, without touching the phone, until the map flips to **açık**. | ★ THIS IS THE "PAIRING" SHOT — the app discovering the hardware over BLE, unprompted, on camera |
+| 5 | If the Bluetooth permission prompt appears, grant it in frame. | iOS-side pairing consent |
+| 6 | Tap the station → choose Voleybol → choose duration. | Start of workflow |
+| 7 | Tap to unlock. Show the **solenoid retracting and the door opening** in the same frame as the phone. | "interacting during the use of the app" |
+| 8 | Let the active session run a few seconds — timer visible. | "entire app workflow" |
+| 9 | End the session; show the amount charged (e.g. 1,77 TL). | Proves it's a physical-equipment rental (supports 3.1.1(a)) |
+
+**Not filmed in the round-3 video, and deliberately not claimed in the reply:**
+the reed-switch door-close detection. Apple's ask is BLE pairing + the app
+driving the hardware, and steps 3–6 cover that. Do not describe the reed work in
+the reply unless it is on camera — an over-claimed step a reviewer can't find is
+worse than a shorter, accurate list.
+
+Steps 2–4 are the entire reason this was rejected twice. If you film nothing
+else differently, film those.
+
+## Notes
+
+- **Showing the money is fine and actually helps.** Guideline 2.3.7 was about
+  *App Store screenshots*, not the app or a video. A visible charge for renting
+  a physical ball reinforces that this is outside In-App Purchase.
+- Upload somewhere with no login wall (Streamable was accepted before). Put the
+  link in **App Review Information** in App Store Connect *as well as* in the
+  reply message.
+- Keep it under ~3 minutes. Reviewers are not going to watch ten.
