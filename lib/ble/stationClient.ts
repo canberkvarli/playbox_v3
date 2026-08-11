@@ -41,6 +41,15 @@ const FAST_PATH_CONNECT_TIMEOUT_MS = 3000;
  * stalls mid-discovery would hang the caller forever (spinner that never ends).
  */
 const DISCOVER_TIMEOUT_MS = 8000;
+/**
+ * How long the passive scan may hear NOTHING before we suspect an orphaned iOS
+ * link is hiding the station and sweep it. A station in range re-advertises
+ * every few hundred ms, so 8s of total silence is already well past normal —
+ * long enough not to fire while the user is simply out of range on a busy map,
+ * short enough that a stuck link self-heals before they reach for the power
+ * switch.
+ */
+const PASSIVE_SWEEP_MS = 8000;
 
 /** Reject if `p` hasn't settled within `ms`. Used to bound un-timeoutable ble-plx calls. */
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
@@ -91,6 +100,11 @@ class StationClient {
     onError?: (err: Error) => void;
   } | null = null;
   private passiveScanActive = false;
+  // Did the current passive-scan window hear ANY "Playbox-*" advert? Reset every
+  // sweep tick. Staying false is the signature of an orphaned iOS link hiding the
+  // station from scans — see sweepOrphanLinks().
+  private passiveSawStation = false;
+  private passiveSweepTimer: ReturnType<typeof setTimeout> | null = null;
   // Single-flight guard for scanAndConnect. When the eager prep-screen watcher
   // is mid-connect and the user taps OYNA, both call scanAndConnect on this same
   // singleton — two concurrent connects on iOS cancel each other ("operation was
@@ -280,6 +294,7 @@ class StationClient {
 
   stopPassiveScan(): void {
     this.passiveScan = null;
+    this.disarmPassiveSweep();
     if (this.stateSub) {
       this.stateSub.remove();
       this.stateSub = null;
@@ -309,6 +324,7 @@ class StationClient {
   destroy(): void {
     this.passiveScan = null;
     this.passiveScanActive = false;
+    this.disarmPassiveSweep();
     if (this.stateSub) {
       this.stateSub.remove();
       this.stateSub = null;
@@ -326,6 +342,77 @@ class StationClient {
     }
   }
 
+  /**
+   * Cancel GATT links iOS still thinks it holds. CoreBluetooth excludes any
+   * peripheral it considers CONNECTED from scan results — so a link iOS holds
+   * but the board has already dropped (app killed mid-session, JS reload, or the
+   * board rebooted without iOS noticing) makes the station INVISIBLE to every
+   * scan, even though it is advertising happily with the LED blinking. Nothing
+   * recovers this on its own short of an iOS supervision timeout, a Bluetooth
+   * toggle, or power-cycling the station. Cancelling the orphan makes the board
+   * scannable again.
+   *
+   * Never touches `this.device` — our own live link is not an orphan.
+   * Resolves true if it cancelled something (caller may want to re-scan).
+   */
+  private async sweepOrphanLinks(): Promise<boolean> {
+    try {
+      const orphans = await this.manager.connectedDevices([SERVICE_UUID]);
+      const stale = orphans.filter((o) => o.id !== this.device?.id);
+      for (const orphan of stale) {
+        await this.manager.cancelDeviceConnection(orphan.id).catch(() => {});
+      }
+      if (!stale.length) return false;
+      // Give CoreBluetooth a moment to actually drop them before we scan again.
+      await new Promise((r) => setTimeout(r, 250));
+      return true;
+    } catch {
+      // best-effort — never block a connect or a scan on this
+      return false;
+    }
+  }
+
+  /**
+   * While the passive scan is running, watch for the "heard nothing at all"
+   * window that means an orphaned link is hiding the station (see
+   * sweepOrphanLinks). The map's açık/kapalı comes from the passive scan, so
+   * without this the trap is self-sealing: the only code that clears orphans
+   * used to live in the connect path, behind a station the map had already
+   * greyed out as kapalı. That's the "power is on, LED blinking, app says
+   * kapalı until I power-cycle the board" report — the power cycle was doing
+   * this sweep's job.
+   */
+  private armPassiveSweep(): void {
+    if (this.passiveSweepTimer) return;
+    this.passiveSweepTimer = setTimeout(async () => {
+      this.passiveSweepTimer = null;
+      if (!this.passiveScan || !this.passiveScanActive) return;
+      const heardNothing = !this.passiveSawStation;
+      this.passiveSawStation = false;
+      if (heardNothing && !this.device && (await this.sweepOrphanLinks())) {
+        // Cancelling an orphan does NOT retroactively feed the running scan —
+        // restart it so the freshly-visible adverts actually reach us.
+        this.passiveScanActive = false;
+        try {
+          this.manager.stopDeviceScan();
+        } catch {
+          // already stopped — ignore
+        }
+        this.runPassiveScan();
+        return;
+      }
+      this.armPassiveSweep();
+    }, PASSIVE_SWEEP_MS);
+  }
+
+  private disarmPassiveSweep(): void {
+    if (this.passiveSweepTimer) {
+      clearTimeout(this.passiveSweepTimer);
+      this.passiveSweepTimer = null;
+    }
+    this.passiveSawStation = false;
+  }
+
   private runPassiveScan(): void {
     if (!this.passiveScan) return;
     if (this.passiveScanActive) return;
@@ -341,6 +428,7 @@ class StationClient {
             // restart — otherwise a transient scan error wedges it "active"
             // forever and presence never recovers while the screen stays open.
             this.passiveScanActive = false;
+            this.disarmPassiveSweep();
             onError?.(err);
             return;
           }
@@ -351,9 +439,11 @@ class StationClient {
           if (!adv?.startsWith('Playbox-')) return;
           this.lastSeenDevice = scanned;
           this.lastSeenAt = Date.now();
+          this.passiveSawStation = true;
           onSeen(adv, scanned.rssi ?? -70);
         },
       );
+      this.armPassiveSweep();
     } catch (e) {
       this.passiveScanActive = false;
       onError?.(e as Error);
@@ -463,6 +553,7 @@ class StationClient {
     // up holding a link.
     const passiveWasActive = this.passiveScanActive;
     this.passiveScanActive = false;
+    this.disarmPassiveSweep();
     try {
       this.manager.stopDeviceScan();
     } catch {
@@ -488,16 +579,7 @@ class StationClient {
     // the board re-advertise and become scannable again. Best-effort: this.device
     // (our live, working link) already returned above, so anything found here is
     // by definition not ours to keep.
-    try {
-      const orphans = await this.manager.connectedDevices([SERVICE_UUID]);
-      for (const orphan of orphans) {
-        if (orphan.id === this.device?.id) continue;
-        await this.manager.cancelDeviceConnection(orphan.id).catch(() => {});
-      }
-      if (orphans.length) await new Promise((r) => setTimeout(r, 250));
-    } catch {
-      // best-effort — never block a connect on this
-    }
+    await this.sweepOrphanLinks();
 
     // Fast path: if the proximity watcher recently saw this device, just
     // connect to it. No second scan, no iOS scan-collision, no waiting
