@@ -725,7 +725,9 @@ export function createBleDriver(): HardwareDriver {
       const RSSI_DELTA = 5;
       const MIN_INTERVAL_MS = 2_000;
 
-      stationClient.startPassiveScan(
+      // Refcounted: several screens watch presence at once, so we must drop only
+      // OUR subscription on unmount — a blanket stop would kill the map's.
+      const token = stationClient.startPassiveScan(
         (name, rssi) => {
           // Inverse of nameFromStationId. Override case maps to DEV-001.
           let stationId: string;
@@ -752,7 +754,7 @@ export function createBleDriver(): HardwareDriver {
 
       return {
         stop: () => {
-          stationClient.stopPassiveScan();
+          stationClient.stopPassiveScan(token);
           lastEmit.clear();
         },
       };

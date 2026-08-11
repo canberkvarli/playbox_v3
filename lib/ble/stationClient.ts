@@ -95,10 +95,21 @@ class StationClient {
   // Only one passive scan can run at a time, and scanAndConnect will
   // pause it (iOS allows one active scan); we restart it automatically
   // once the targeted scan finishes.
-  private passiveScan: {
-    onSeen: (name: string, rssi: number) => void;
-    onError?: (err: Error) => void;
-  } | null = null;
+  // Several screens (map, station detail, session-prep) want presence at the
+  // same time, and they all subscribe to this ONE singleton. It used to hold a
+  // single callback slot, so the first screen to unmount called
+  // stopPassiveScan() and killed presence for every screen still mounted — the
+  // map kept rendering with zero sightings and decayed to kapalı, permanently,
+  // because nothing restarts a scan the map never knew had stopped. Refcounted:
+  // the radio scan stops only when the LAST subscriber leaves.
+  private passiveSubs = new Map<
+    number,
+    {
+      onSeen: (name: string, rssi: number) => void;
+      onError?: (err: Error) => void;
+    }
+  >();
+  private passiveSubSeq = 0;
   private passiveScanActive = false;
   // Did the current passive-scan window hear ANY "Playbox-*" advert? Reset every
   // sweep tick. Staying false is the signature of an orphaned iOS link hiding the
@@ -265,10 +276,12 @@ class StationClient {
   startPassiveScan(
     onSeen: (name: string, rssi: number) => void,
     onError?: (err: Error) => void,
-  ): void {
-    this.passiveScan = { onSeen, onError };
+  ): number {
+    const token = ++this.passiveSubSeq;
+    this.passiveSubs.set(token, { onSeen, onError });
     this.armStateWatcher();
     this.runPassiveScan();
+    return token;
   }
 
   /**
@@ -284,7 +297,7 @@ class StationClient {
       if (state === State.PoweredOn) {
         // Only resume passive scanning when we DON'T already hold a live GATT
         // link — scanning while connected can wedge the radio.
-        if (this.passiveScan && !this.device) this.runPassiveScan();
+        if (this.passiveSubs.size && !this.device) this.runPassiveScan();
       } else {
         // Adapter unusable → mark inactive so the next PoweredOn restarts it.
         this.passiveScanActive = false;
@@ -292,8 +305,15 @@ class StationClient {
     }, true);
   }
 
-  stopPassiveScan(): void {
-    this.passiveScan = null;
+  /**
+   * Drop one subscription. Pass the token returned by startPassiveScan; omitting
+   * it tears down ALL subscribers (used by teardown paths that own the radio).
+   * The radio scan keeps running while any other screen is still subscribed.
+   */
+  stopPassiveScan(token?: number): void {
+    if (token === undefined) this.passiveSubs.clear();
+    else this.passiveSubs.delete(token);
+    if (this.passiveSubs.size) return; // someone else still wants presence
     this.disarmPassiveSweep();
     if (this.stateSub) {
       this.stateSub.remove();
@@ -322,7 +342,7 @@ class StationClient {
    * next use, so this is safe to call even if BLE is used again afterwards.
    */
   destroy(): void {
-    this.passiveScan = null;
+    this.passiveSubs.clear();
     this.passiveScanActive = false;
     this.disarmPassiveSweep();
     if (this.stateSub) {
@@ -386,7 +406,7 @@ class StationClient {
     if (this.passiveSweepTimer) return;
     this.passiveSweepTimer = setTimeout(async () => {
       this.passiveSweepTimer = null;
-      if (!this.passiveScan || !this.passiveScanActive) return;
+      if (!this.passiveSubs.size || !this.passiveScanActive) return;
       const heardNothing = !this.passiveSawStation;
       this.passiveSawStation = false;
       if (heardNothing && !this.device && (await this.sweepOrphanLinks())) {
@@ -414,9 +434,16 @@ class StationClient {
   }
 
   private runPassiveScan(): void {
-    if (!this.passiveScan) return;
+    if (!this.passiveSubs.size) return;
     if (this.passiveScanActive) return;
-    const { onSeen, onError } = this.passiveScan;
+    // Snapshot-free fan-out: subscribers can come and go between adverts, so
+    // read the live map on every packet rather than closing over one callback.
+    const onSeen = (name: string, rssi: number) => {
+      for (const sub of this.passiveSubs.values()) sub.onSeen(name, rssi);
+    };
+    const onError = (err: Error) => {
+      for (const sub of this.passiveSubs.values()) sub.onError?.(err);
+    };
     this.passiveScanActive = true;
     try {
       this.manager.startDeviceScan(
@@ -666,7 +693,7 @@ class StationClient {
         // Resume the passive scan if it was paused AND we didn't end up holding
         // a link — keeps the map's badges live without scanning while connected
         // (which can wedge the radio).
-        if (passiveWasActive && this.passiveScan && !this.device) {
+        if (passiveWasActive && this.passiveSubs.size && !this.device) {
           this.runPassiveScan();
         }
         fn();
