@@ -505,13 +505,11 @@ export default function Settings() {
           } catch {
             /* ignore — teardown is best-effort */
           }
-          // Clear the demo/review session so a reviewer (or you) lands back on
-          // the real onboarding, not stuck in Demo Mode.
-          useDevStore.getState().setDemoSession(false);
+          // Drop the mock-hardware flag so the next account gets the real BLE
+          // driver even if the review account was signed in a moment ago.
           useDevStore.getState().setDemoMode(false);
-          // Clear name/username overrides so the next account doesn't inherit the
-          // previous one — e.g. the demo login's "appstore" showing as the real
-          // user's username after logging back in with their phone.
+          // Clear name/username overrides so the next account doesn't inherit
+          // the previous one.
           useSettingsStore.getState().setNameOverride(null);
           useSettingsStore.getState().setUsernameOverride(null);
           await supabase.auth.signOut();

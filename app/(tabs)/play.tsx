@@ -126,11 +126,7 @@ function LiveTimer({ session }: { session: ActiveSession }) {
       : `${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
   };
   const centerTime = overtime ? `+${ringFmt(overMs)}` : ringFmt(remainingMs);
-  // Demo Mode (App Store review) sessions are free — never show a ₺ charge.
-  const demoMode = useDevStore((s) => s.demoMode);
-  const caption = demoMode
-    ? `${session.durationMinutes} dk planlandı · ücretsiz`
-    : overtime
+  const caption = overtime
     ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
     : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
 
@@ -1090,9 +1086,7 @@ export default function Play() {
                 marginTop: 10,
               }}
             >
-              {demoMode
-                ? 'demo seansı ücretsiz — dilediğinde bitirebilirsin.'
-                : 'her ek dakika için ücretlendirileceksin. bitirmek için kapıyı kapat & seansı bitir.'}
+              {'her ek dakika için ücretlendirileceksin. bitirmek için kapıyı kapat & seansı bitir.'}
             </Text>
             <View style={{ marginTop: 20, width: '100%' }}>
               <Button
@@ -1131,7 +1125,7 @@ export default function Play() {
         onManualConfirmClosed={onManualConfirmClosed}
         onAddClosingPhoto={addClosingPhoto}
         photoState={photoState}
-        accruedTry={demoMode ? 0 : costForMs(Date.now() - active.startedAt)}
+        accruedTry={costForMs(Date.now() - active.startedAt)}
       />
 
       <GearReportSheet

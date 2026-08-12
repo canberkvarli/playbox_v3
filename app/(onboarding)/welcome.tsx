@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Image, Text, View, TextInput, Pressable, ScrollView } from 'react-native';
+import { useEffect } from 'react';
+import { Image, Text, View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -19,10 +19,6 @@ import { palette } from '@/constants/theme';
 import { RiseIn } from '@/components/RiseIn';
 import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
-import { useDevStore } from '@/stores/devStore';
-import { useSessionStore } from '@/stores/sessionStore';
-import { useSettingsStore } from '@/stores/settingsStore';
-import { isDemoUsername } from '@/constants/review';
 
 export default function Welcome() {
   const { t } = useT();
@@ -35,35 +31,6 @@ export default function Welcome() {
     await hx.press();
     router.push('/(onboarding)/intro-map');
   });
-
-  // App Store review "Demo Login": entering the configured demo username drops
-  // straight into the app in Demo Mode (mock hardware, no phone/OTP/Supabase).
-  const setDemoSession = useDevStore((s) => s.setDemoSession);
-  const setDemoMode = useDevStore((s) => s.setDemoMode);
-  const setNameOverride = useSettingsStore((s) => s.setNameOverride);
-  const setUsernameOverride = useSettingsStore((s) => s.setUsernameOverride);
-  const [demoOpen, setDemoOpen] = useState(false);
-  const [demoUser, setDemoUser] = useState('');
-  const [demoErr, setDemoErr] = useState(false);
-
-  const onDemoLogin = async () => {
-    if (!isDemoUsername(demoUser)) {
-      setDemoErr(true);
-      await hx.no();
-      return;
-    }
-    await hx.press();
-    const name = demoUser.trim().replace(/^@/, '');
-    // Wipe any stale persisted session from prior testing so the reviewer starts
-    // clean — otherwise canStart() sees a lingering `active` and OYNA dead-ends
-    // with the generic error before the mock unlock even runs.
-    useSessionStore.getState().endSession();
-    setUsernameOverride(name);
-    setNameOverride(name);
-    setDemoMode(true);
-    setDemoSession(true);
-    router.replace('/(tabs)/map');
-  };
 
   // Logo entrance: springy zoom-in + tilt settle, then a slow idle bob.
   const logoScale = useSharedValue(0.6);
@@ -180,59 +147,6 @@ export default function Welcome() {
         <Button label={t('onb.welcome.cta')} onPress={onStart} full />
       </RiseIn>
 
-      {/* App Store review Demo Login — subtle link that reveals a username field. */}
-      <RiseIn delay={280}>
-        {demoOpen ? (
-          <View style={{ marginTop: 14 }}>
-            <TextInput
-              value={demoUser}
-              onChangeText={(v) => {
-                setDemoUser(v);
-                setDemoErr(false);
-              }}
-              placeholder="demo kullanıcı adı"
-              placeholderTextColor={palette.muted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={onDemoLogin}
-              style={{
-                backgroundColor: palette.surface,
-                borderWidth: 1,
-                borderColor: demoErr ? palette.danger : palette.border,
-                borderRadius: 14,
-                paddingHorizontal: 16,
-                height: 50,
-                color: palette.fg,
-                fontFamily: 'Inter_500Medium',
-                fontSize: 15,
-              }}
-            />
-            <View style={{ marginTop: 10 }}>
-              <Button label="demo giriş" variant="ghost" onPress={onDemoLogin} full />
-            </View>
-          </View>
-        ) : (
-          <Pressable
-            onPress={() => setDemoOpen(true)}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Demo Login"
-            style={{ alignItems: 'center', paddingVertical: 12, marginTop: 4 }}
-          >
-            <Text
-              style={{
-                fontFamily: 'Inter_600SemiBold',
-                fontSize: 13,
-                color: palette.muted,
-                textDecorationLine: 'underline',
-              }}
-            >
-              Demo Login
-            </Text>
-          </Pressable>
-        )}
-      </RiseIn>
     </ScrollView>
   );
 }

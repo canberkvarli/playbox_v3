@@ -79,7 +79,7 @@ export const STATIONS: Station[] = [
   // EDIT lat/lng to your physical location so it shows up as nearby on the
   // map. Quick way: open Google Maps, right-click your location, click the
   // coordinates that appear at the top — they'll copy as "lat, lng".
-  { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
+  { id: 'DEV-001',          name: 'Ataköy Sahil Spor Alanı',    city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
   // { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'dalyan', lat: 36.8336737, lng: 28.64972, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
 
   // İstanbul (16)

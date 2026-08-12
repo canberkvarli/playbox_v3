@@ -23,7 +23,6 @@ import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
 import { OnboardingProgress } from '@/components/OnboardingProgress';
-import { useDevStore } from '@/stores/devStore';
 import { RiseIn } from '@/components/RiseIn';
 import { Button } from '@/components/ui';
 import { useGuardedPress } from '@/hooks/useGuardedPress';
@@ -237,17 +236,12 @@ export default function Permissions() {
     bt: 'idle',
   });
 
-  const demoSession = useDevStore((s) => s.demoSession);
-
   useEffect(() => {
     let cancelled = false;
     (async () => {
       const initial = await readInitial().catch(() => null);
       if (cancelled || !initial) return;
       setPerms(initial);
-      // Reviewers (Demo Mode) never reach onboarding, but guard anyway — no
-      // point prompting a reviewer for real device permissions.
-      if (demoSession) return;
       // Proactively ask for the REQUIRED permissions right here so the OS
       // prompts appear on this screen. Only fire when still 'idle' (never
       // asked) — 'granted'/'denied' won't re-prompt.
@@ -266,7 +260,7 @@ export default function Permissions() {
     return () => {
       cancelled = true;
     };
-  }, [demoSession]);
+  }, []);
 
   const handle = (key: PermKey) => async () => {
     await hx.tap();

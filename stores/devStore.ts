@@ -34,14 +34,6 @@ type DevStore = {
    */
   demoMode: boolean;
   setDemoMode: (v: boolean) => void;
-  /**
-   * Local DEMO SESSION (App Store review "Demo Login"). When on, the app treats
-   * the user as signed-in WITHOUT a Supabase session — the entry router lets
-   * them into the tabs, and Supabase-backed screens fall back to a safe demo
-   * state. Set together with demoMode by the Demo Login on the welcome screen.
-   */
-  demoSession: boolean;
-  setDemoSession: (v: boolean) => void;
 };
 
 export const useDevStore = create<DevStore>()(
@@ -58,8 +50,6 @@ export const useDevStore = create<DevStore>()(
         set({ ignoreFirmwareTimeouts }),
       demoMode: false,
       setDemoMode: (demoMode) => set({ demoMode }),
-      demoSession: false,
-      setDemoSession: (demoSession) => set({ demoSession }),
     }),
     {
       name: 'playbox.dev',
