@@ -1,5 +1,31 @@
 # Gate 2 solenoid — dead, debug log (2026-08-12)
 
+> **RESOLVED — it was the reed MAGNET, not the electrics.**
+> The magnet sat against the solenoid, and a solenoid plunger is ferromagnetic
+> steel — the magnet gripped it harder than the coil could pull. Moving the
+> solenoid away from the reed fixed it instantly.
+>
+> Everything below was correct as elimination and completely wrong as
+> direction: we were bisecting an electrical path when nothing electrical was
+> broken. Two heuristics misled us and both deserve retiring:
+> - **"Relay clicks + LED lights ⇒ fault is downstream in the wiring."** No —
+>   the coil can energize perfectly while the plunger is mechanically pinned.
+>   Current arriving says nothing about whether the armature can move.
+> - **"Dead silent when you touch it ⇒ no current reaching the coil."** A
+>   plunger held rigid is silent *because* nothing moves. Silence does not
+>   distinguish "no power" from "powered but immobilised".
+>
+> **Check gate 1 for the same cause.** It retracts and stays retracted until
+> tapped — which is what a magnet holding the plunger *in* looks like, and a tap
+> is what breaks a marginal magnetic hold. It had been attributed to mechanical
+> binding in the mounting.
+>
+> **Rule:** keep the reed magnet ≥15-20 mm from any steel part of the solenoid.
+> Reed switches actuate on very little field, so clearance is cheap. Magnetic
+> force falls off ~cubically for small magnets — a few mm is the whole
+> difference. Orientation matters too: pole axis pointed at the plunger grips
+> far harder than side-on.
+
 **Symptom:** gate 2's solenoid does not move at all. Not sticking, not weak — nothing.
 Relay clicks, channel 2's LED blinks once on tap. Gates 1 and 3 fire normally.
 This gate worked earlier today.
