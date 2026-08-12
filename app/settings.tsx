@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+
+import { resetToOnboarding } from '@/lib/nav/resetToOnboarding';
 import { Feather } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
@@ -513,7 +515,7 @@ export default function Settings() {
           useSettingsStore.getState().setNameOverride(null);
           useSettingsStore.getState().setUsernameOverride(null);
           await supabase.auth.signOut();
-          router.replace('/(onboarding)/welcome');
+          resetToOnboarding();
         },
       },
     ]);
@@ -564,7 +566,7 @@ export default function Settings() {
 
     setTimeout(() => {
       setDeleteOpen(false);
-      router.replace('/(onboarding)/welcome');
+      resetToOnboarding();
     }, 1600);
   };
 

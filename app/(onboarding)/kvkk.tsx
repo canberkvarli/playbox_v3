@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+
+import { resetToOnboarding } from '@/lib/nav/resetToOnboarding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
@@ -86,7 +88,7 @@ export default function Kvkk() {
       /* ignore — teardown is best-effort */
     }
     await supabase.auth.signOut();
-    router.replace('/(onboarding)/welcome');
+    resetToOnboarding();
   });
 
   return (
