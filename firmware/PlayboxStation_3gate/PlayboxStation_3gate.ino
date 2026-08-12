@@ -97,7 +97,20 @@ extern "C" {
 // active-low relay on it can block boot. GPIO 27 is a safe general-purpose
 // output, as are GPIO 13 (gate 1) and GPIO 14 (gate 3).
 static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
-static const uint8_t REED_PINS[NUM_GATES]  = { 18, 19, 21 };
+// Reed signal pins. DELIBERATELY NOT ADJACENT on the header — we have shorted
+// neighbouring pins twice now (19<->21, then 18<->19), both times from untinned
+// strands splaying across the next joint, and both times it presented as two
+// gates mirroring each other. Gate 2 lives on the OPPOSITE edge of the DevKit
+// so a stray whisker has nowhere useful to land; 18 and 21 keep the free 19
+// between them.
+//
+// If you move one, pick a pin that has an internal pull-up and isn't a boot
+// strapping pin. SAFE *AND FREE*: 4, 19, 22, 23, 26, 32, 33. (13/14/27 are the
+// relays, 2 is the LED, 34 is the battery ADC — don't reuse those.)
+// NEVER: 34, 35, 36(VP), 39(VN) — input-only with NO internal pull-up, so
+// INPUT_PULLUP silently does nothing and the reed reads garbage. Also avoid
+// 0, 2, 12, 15 — strapping pins; a reed closed at boot changes boot mode.
+static const uint8_t REED_PINS[NUM_GATES]  = { 18, 25, 21 };
 
 // Which gates actually have a reed switch soldered on. FLIP TO true AS YOU WIRE
 // EACH ONE — this is the only line that needs to change.
