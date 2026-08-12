@@ -1,5 +1,5 @@
 import { BleManager, Device, Subscription, State } from "react-native-ble-plx";
-import { Platform, PermissionsAndroid } from "react-native";
+import { Platform, PermissionsAndroid, AppState, type AppStateStatus } from "react-native";
 import { Buffer } from "buffer";
 import {
   SERVICE_UUID,
@@ -111,6 +111,11 @@ class StationClient {
   >();
   private passiveSubSeq = 0;
   private passiveScanActive = false;
+  private appStateSub: { remove: () => void } | null = null;
+  // Set when we actually reach 'background' (iOS suspends us there). 'inactive'
+  // alone — app switcher peek, Control Centre, a call banner — does NOT kill the
+  // scan, and restarting on those would drop adverts for no reason.
+  private sawBackground = false;
   // Did the current passive-scan window hear ANY "Playbox-*" advert? Reset every
   // sweep tick. Staying false is the signature of an orphaned iOS link hiding the
   // station from scans — see sweepOrphanLinks().
@@ -280,6 +285,7 @@ class StationClient {
     const token = ++this.passiveSubSeq;
     this.passiveSubs.set(token, { onSeen, onError });
     this.armStateWatcher();
+    this.armAppStateWatcher();
     this.runPassiveScan();
     return token;
   }
@@ -306,6 +312,50 @@ class StationClient {
   }
 
   /**
+   * Restart the passive scan when the app returns from the background.
+   *
+   * iOS suspends the process on 'background' and tears the BLE scan down with
+   * it. We declare no background modes, so this is expected — but ble-plx is
+   * never told, so `passiveScanActive` stays TRUE while no scan is running.
+   * That flag is what `runPassiveScan()` guards on, so every later attempt to
+   * restart early-returns and presence is dead for good.
+   *
+   * Nothing else covers this. `useFocusEffect` on the map only fires on
+   * navigation focus/blur — backgrounding does not blur a screen, so the map
+   * comes back "focused" the whole time and never re-subscribes. The adapter
+   * watcher only fires when Bluetooth itself power-cycles. So: switch to another
+   * app, come back, and the map sits at kapalı forever with the board happily
+   * advertising a metre away.
+   *
+   * Skipped while we hold a live GATT link — scanning while connected wedges
+   * the radio, and a held link means presence already has its answer.
+   */
+  private armAppStateWatcher(): void {
+    if (this.appStateSub) return;
+    this.appStateSub = AppState.addEventListener(
+      'change',
+      (state: AppStateStatus) => {
+        if (state === 'background') {
+          this.sawBackground = true;
+          return;
+        }
+        if (state !== 'active' || !this.sawBackground) return;
+        this.sawBackground = false;
+        if (!this.passiveSubs.size || this.device) return;
+        // The flag is a lie at this point — force it false and start clean.
+        this.passiveScanActive = false;
+        this.disarmPassiveSweep();
+        try {
+          this.manager.stopDeviceScan();
+        } catch {
+          // nothing was running — that's the whole point
+        }
+        this.runPassiveScan();
+      },
+    );
+  }
+
+  /**
    * Drop one subscription. Pass the token returned by startPassiveScan; omitting
    * it tears down ALL subscribers (used by teardown paths that own the radio).
    * The radio scan keeps running while any other screen is still subscribed.
@@ -319,6 +369,11 @@ class StationClient {
       this.stateSub.remove();
       this.stateSub = null;
     }
+    if (this.appStateSub) {
+      this.appStateSub.remove();
+      this.appStateSub = null;
+    }
+    this.sawBackground = false;
     if (this.passiveScanActive) {
       this.passiveScanActive = false;
       try {
@@ -349,6 +404,11 @@ class StationClient {
       this.stateSub.remove();
       this.stateSub = null;
     }
+    if (this.appStateSub) {
+      this.appStateSub.remove();
+      this.appStateSub = null;
+    }
+    this.sawBackground = false;
     this.device = null;
     this.lastSeenDevice = null;
     if (this._manager) {
