@@ -1,9 +1,15 @@
 # Gate 2 solenoid — dead, debug log (2026-08-12)
 
-> **RESOLVED — it was the reed MAGNET, not the electrics.**
-> The magnet sat against the solenoid, and a solenoid plunger is ferromagnetic
-> steel — the magnet gripped it harder than the coil could pull. Moving the
-> solenoid away from the reed fixed it instantly.
+> **RESOLVED — the reed assembly was fouling the solenoid. Nothing electrical.**
+> The reed and its magnet sat against the solenoid and stopped the plunger
+> moving. Moving the solenoid away from the reed fixed it instantly.
+>
+> Mechanism not pinned down, and it doesn't change the fix — could be the reed
+> body physically obstructing the plunger's travel, or the magnet gripping it
+> (a plunger is ferromagnetic steel, so a magnet against it can hold harder than
+> the coil pulls), or both. The only practical consequence is the gap needed:
+> physical fouling needs a couple of mm, magnetic drag more like 15-20. Judge it
+> by how far the solenoid had to move before it freed up.
 >
 > Everything below was correct as elimination and completely wrong as
 > direction: we were bisecting an electrical path when nothing electrical was
