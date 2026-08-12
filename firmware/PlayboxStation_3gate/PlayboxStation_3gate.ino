@@ -103,10 +103,11 @@ static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
 // gates mirroring each other. Gate 1 lives on the OPPOSITE edge of the DevKit
 // so a stray whisker has nowhere useful to land.
 //
-// NOTE: 19 and 21 are still neighbours on the header — that is the pair that
-// shorted the FIRST time. 18 is free now, so gate 2 has a gap above it, but
-// gate 2 and gate 3 remain adjacent. If that pair ever mirrors again, move
-// gate 3 from 21 to 22 (RX0/TX0 sit between them) and the set is fully spaced.
+// Gate 2 is off 19 for good. Pin 19 appeared in ALL THREE shorts we hit
+// (19<->21, then 18<->19, then 19<->21 again) — it bridged to whichever
+// neighbour happened to exist. 22 has RX0/TX0 between it and 21, so nothing in
+// this set is adjacent to anything now. 18 and 19 are deliberately left EMPTY
+// as the buffer; do not reuse them for a fourth sensor without re-reading this.
 //
 // If you move one, pick a pin that has an internal pull-up and isn't a boot
 // strapping pin. SAFE *AND FREE*: 4, 19, 22, 23, 26, 32, 33. (13/14/27 are the
@@ -114,7 +115,7 @@ static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
 // NEVER: 34, 35, 36(VP), 39(VN) — input-only with NO internal pull-up, so
 // INPUT_PULLUP silently does nothing and the reed reads garbage. Also avoid
 // 0, 2, 12, 15 — strapping pins; a reed closed at boot changes boot mode.
-static const uint8_t REED_PINS[NUM_GATES]  = { 25, 19, 21 };
+static const uint8_t REED_PINS[NUM_GATES]  = { 25, 22, 21 };
 
 // Which gates actually have a reed switch soldered on. FLIP TO true AS YOU WIRE
 // EACH ONE — this is the only line that needs to change.
