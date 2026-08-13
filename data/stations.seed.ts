@@ -75,10 +75,21 @@ export function unlockGateId(
 }
 
 export const STATIONS: Station[] = [
-  // ---- Local dev breadboard (matches firmware station_id "DEV-001") --------
-  // EDIT lat/lng to your physical location so it shows up as nearby on the
-  // map. Quick way: open Google Maps, right-click your location, click the
-  // coordinates that appear at the top — they'll copy as "lat, lng".
+  // ---- The one physical unit (matches firmware station_id "DEV-001") -------
+  //
+  // ⚠️ BEFORE RESUBMITTING TO APP REVIEW: this row is the ENTIRE public map now
+  // that generated fixtures are dev-only, so its name and coordinates are a
+  // claim about a locker a stranger can walk up to. Today the hardware sits at
+  // home, and the name below is a placeholder for the site being arranged with
+  // Bakırköy Belediyesi — it does not yet describe a real public installation.
+  //
+  // Set name/lat/lng to the actual field the unit is mounted at, on the day it
+  // is mounted. Do not ship this row pointing at a venue that has no locker on
+  // its wall: a reviewer (or a user) who walks to the pin and finds nothing is
+  // the Guideline 2.2 "not a complete experience" rejection all over again.
+  //
+  // Coordinates: open Google Maps, right-click the spot, click the numbers at
+  // the top — they copy as "lat, lng".
   { id: 'DEV-001',          name: 'Ataköy Sahil Spor Alanı',    city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
   // { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'dalyan', lat: 36.8336737, lng: 28.64972, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
 

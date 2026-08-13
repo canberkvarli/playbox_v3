@@ -1280,17 +1280,25 @@ export default function Map() {
   // into it (continuous, not just on snap). TopBar reads it to fade smoothly.
   const homeSheetAnimatedIndex = useSharedValue(0);
 
-  // Demo Mode (App Store review) + dev builds see the full dummy set generated
-  // around the user. Real prod shows ONLY stations with live hardware
-  // (REAL_STATION_IDS) — no generated fixtures — so the map is honest (empty
-  // until a real locker exists).
-  const demoStations = useDevStore((s) => s.demoMode) || __DEV__;
+  // Generated fixtures are a DEV-ONLY convenience for working on the map with no
+  // hardware around. EVERYONE else — the public and the App Store review account
+  // alike — sees only stations with a locker actually installed
+  // (REAL_STATION_IDS).
+  //
+  // The review account deliberately does NOT get the generated set. A reviewer in
+  // California shown a dozen invented Turkish stations scattered around their own
+  // office reads the app as a concept demonstration, which is exactly the
+  // Guideline 2.2 rejection we took on build 45. One real station on the map is a
+  // small product; twelve fake ones are a mock-up. The mock hardware driver still
+  // lets that account complete unlock → session → return against the real
+  // station's id, and rankStations() keeps it reachable from the sheet list even
+  // when it is far outside the visible region.
   const allStations = useMemo(
     () =>
-      demoStations
+      __DEV__
         ? stationsNearUser(userLoc, STATIONS, { minTotal: 12, radiusKm: 5 })
         : STATIONS.filter((s) => REAL_STATION_IDS.has(s.id)),
-    [userLoc, demoStations]
+    [userLoc]
   );
 
   // Persist every station the user can see so /reservations can resolve a
