@@ -18,6 +18,7 @@ import { SPORT_LABELS } from '@/data/stations.seed';
 import { SPORT_EMOJI } from '@/data/sports';
 import { useSessionStore, type ActiveSession } from '@/stores/sessionStore';
 import { useDevStore } from '@/stores/devStore';
+import { usePaymentStore } from '@/stores/paymentStore';
 import { costForMs, formatTry, RATE_PER_MIN_GROSS } from '@/lib/pricing';
 import { cancelSessionEndAlerts, fireDoneAlertNow } from '@/lib/sessionNotifications';
 import { getDriver } from '@/lib/hardware';
@@ -126,7 +127,12 @@ function LiveTimer({ session }: { session: ActiveSession }) {
       : `${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}`;
   };
   const centerTime = overtime ? `+${ringFmt(overMs)}` : ringFmt(remainingMs);
-  const caption = overtime
+  // Free mode: show the plan and the clock, never a ₺ figure — a running total
+  // on a session nobody will be charged for is just alarming.
+  const paymentsEnabled = usePaymentStore((s) => s.paymentsEnabled);
+  const caption = !paymentsEnabled
+    ? `${session.durationMinutes} dk planlandı`
+    : overtime
     ? `${formatTry(costForMs(elapsed))} · ${formatTry(RATE_PER_MIN_GROSS)}/dk`
     : `${session.durationMinutes} dk planlandı · ${formatTry(costForMs(elapsed))}`;
 
@@ -188,6 +194,8 @@ export default function Play() {
   const endSession = useSessionStore((s) => s.endSession);
   // Demo/review sessions are free — no accrued charge anywhere.
   const demoMode = useDevStore((s) => s.demoMode);
+  // Free mode (payments_enabled false) — no ₺ figures anywhere in the session UI.
+  const paymentsEnabled = usePaymentStore((s) => s.paymentsEnabled);
 
   const reopeningRef = useRef(false);
   const [reopening, setReopening] = useState(false);
@@ -1086,7 +1094,9 @@ export default function Play() {
                 marginTop: 10,
               }}
             >
-              {'her ek dakika için ücretlendirileceksin. bitirmek için kapıyı kapat & seansı bitir.'}
+              {paymentsEnabled
+                ? 'her ek dakika için ücretlendirileceksin. bitirmek için kapıyı kapat & seansı bitir.'
+                : 'bitirmek için kapıyı kapat & seansı bitir.'}
             </Text>
             <View style={{ marginTop: 20, width: '100%' }}>
               <Button
@@ -1125,7 +1135,7 @@ export default function Play() {
         onManualConfirmClosed={onManualConfirmClosed}
         onAddClosingPhoto={addClosingPhoto}
         photoState={photoState}
-        accruedTry={costForMs(Date.now() - active.startedAt)}
+        accruedTry={paymentsEnabled ? costForMs(Date.now() - active.startedAt) : 0}
       />
 
       <GearReportSheet

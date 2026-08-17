@@ -112,14 +112,23 @@ export default function SessionPrep() {
     return STATIONS.find((s) => s.id === stationId) ?? null;
   }, [stationId, lastSelected]);
 
-  // DEV-001 is the no-card bench station (server honors dev_bypass for it), so
-  // never force a card there — lets the real rent flow be tested without one.
-  // Demo Mode (App Store review) also never requires a card — the whole rent
-  // flow runs on the mock driver with no iyzico hold.
+  // Who is never asked for a card:
+  //   - everyone, while payments_enabled is false (free mode — see
+  //     usePaymentsEnabled). This is the launch state: the şirket and the
+  //     iyzico production account do not exist yet, so there is nothing to
+  //     charge with and asking for a card would be a dead end.
+  //   - Demo Mode (App Store review) — the flow runs on the mock driver.
+  //   - DEV-001, the bench station (server honors dev_bypass for it), so the
+  //     real rent flow stays testable without a card.
   const demoMode = useDevStore((s) => s.demoMode);
+  const paymentsEnabled = usePaymentStore((s) => s.paymentsEnabled);
   const isDeveloper = useIsDeveloper();
   const mustAddCardFirst =
-    !demoMode && cardStatus === 'none' && freeFirstUsed && station?.id !== 'DEV-001';
+    paymentsEnabled &&
+    !demoMode &&
+    cardStatus === 'none' &&
+    freeFirstUsed &&
+    station?.id !== 'DEV-001';
 
   // --- Unlock pre-fetch ------------------------------------------------------
   // Stable correlationId for THIS prep session (== the firmware session_id).
@@ -369,7 +378,10 @@ export default function SessionPrep() {
     }
 
     let holdId: string | null = null;
-    if (cardStatus === 'on_file' && !demoMode) {
+    // Free mode places no hold even for a user who happens to have a card on
+    // file from an earlier paid period — holding ₺150 against a session we are
+    // not going to charge for is the fastest way to earn a 1-star review.
+    if (paymentsEnabled && cardStatus === 'on_file' && !demoMode) {
       const conversationId = `${station.id}:${sport}:${Date.now()}`;
       const res = await preauthorize(PREAUTH_HOLD_TRY, conversationId);
       if (!res.ok) {

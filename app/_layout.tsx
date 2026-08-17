@@ -14,6 +14,7 @@ import { usePushToken } from '@/hooks/usePushToken';
 import { useOtaAutoUpdate } from '@/hooks/useOtaAutoUpdate';
 import { useConnectionPresence } from '@/hooks/useConnectionPresence';
 import { useReviewerDemo } from '@/hooks/useReviewerDemo';
+import { usePaymentsEnabled } from '@/hooks/usePaymentsEnabled';
 import { supabase } from '@/lib/supabase';
 import { ErrorBoundary as AppErrorBoundary } from '@/components/ErrorBoundary';
 import { initTelemetry } from '@/lib/telemetry';
@@ -73,6 +74,11 @@ export default function RootLayout() {
   // App Store review account → auto-enable Demo Mode (mock hardware) so Apple
   // can test the full flow without a physical locker.
   useReviewerDemo();
+
+  // Mirror app_config.payments_enabled → free mode vs paid mode. Lets payments
+  // be switched on from the dashboard once the şirket + iyzico production
+  // account exist, with no rebuild and no App Review round.
+  usePaymentsEnabled();
 
   // Cold-launch recovery: if the app was killed mid-session, re-open the BLE
   // EVENTS subscription for the still-active persisted session so an incoming

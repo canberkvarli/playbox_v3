@@ -30,6 +30,7 @@ export default function SessionReview() {
   const markFreeFirstUsed = usePaymentStore((s) => s.markFreeFirstUsed);
   const currentHoldId = usePaymentStore((s) => s.currentHoldId);
   const clearHold = usePaymentStore((s) => s.setHold);
+  const paymentsEnabled = usePaymentStore((s) => s.paymentsEnabled);
   const { captureHold, releaseHold } = useIyzico();
 
   const [rating, setRating] = useState<number | null>(null);
@@ -57,13 +58,19 @@ export default function SessionReview() {
       const elapsedMs = lastEnded.endedAt - lastEnded.startedAt;
       const elapsedMin = Math.max(1, Math.ceil(elapsedMs / 60_000));
       const amountTry = costForMinutes(elapsedMin);
-      const free = cardStatus === 'none' && !freeFirstUsed;
+      // Release, never capture, when the session cost nothing: either the app is
+      // in free mode (payments_enabled false), or this was the user's free first
+      // session. A hold can still exist here from a session started before the
+      // flag flipped, so this is checked at settlement time, not just at start.
+      const free = !paymentsEnabled || (cardStatus === 'none' && !freeFirstUsed);
       const action = free ? releaseHold(holdId) : captureHold(holdId, amountTry);
       action.finally(() => clearHold(null));
     }
-  }, [lastEnded, cardStatus, freeFirstUsed, markFreeFirstUsed, captureHold, releaseHold, clearHold, currentHoldId]);
+  }, [lastEnded, cardStatus, freeFirstUsed, markFreeFirstUsed, captureHold, releaseHold, clearHold, currentHoldId, paymentsEnabled]);
 
-  const showCardPrompt = lastEnded && cardStatus === 'none' && !cardPromptDismissed;
+  // No "add a card" nag while nothing costs money — it reads as a bait-and-switch.
+  const showCardPrompt =
+    paymentsEnabled && lastEnded && cardStatus === 'none' && !cardPromptDismissed;
 
   const goHome = () => {
     acknowledgeEnded();
