@@ -94,9 +94,20 @@ extern "C" {
 // Relay INx -> these pins. Open = momentary LOW pulse; idle = HIGH (relay off).
 // Gate 2 was moved OFF GPIO 12 -> GPIO 27. GPIO 12 is an ESP32 strapping pin
 // that must read LOW at boot for the correct flash voltage; an idle-HIGH
-// active-low relay on it can block boot. GPIO 27 is a safe general-purpose
-// output, as are GPIO 13 (gate 1) and GPIO 14 (gate 3).
-static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 27, 14 };
+// active-low relay on it can block boot. GPIO 13, 14 and 27 are all safe
+// general-purpose outputs.
+//
+// GATES 2 AND 3 ARE CROSSED IN THE HARNESS (2026-08-19). The physical middle
+// gate's solenoid landed on relay channel 3, and the top gate's on channel 2.
+// The solenoids are mounted and cabled through a conduit, so re-pulling them is
+// expensive and pointless — this table is exactly the right place to absorb it.
+// Hence gate 2 -> GPIO 14 (channel 3) and gate 3 -> GPIO 27 (channel 2).
+//
+// REED_PINS below is NOT crossed — the reeds landed on the correct gates. Don't
+// "helpfully" swap them to match this line.
+//
+// Physical layout, bottom to top: gate 1 = bottom, gate 2 = middle, gate 3 = top.
+static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 14, 27 };
 // Reed signal pins. DELIBERATELY NOT ADJACENT on the header — we have shorted
 // neighbouring pins twice now (19<->21, then 18<->19), both times from untinned
 // strands splaying across the next joint, and both times it presented as two
