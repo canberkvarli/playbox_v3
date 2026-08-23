@@ -88,45 +88,54 @@ extern "C" {
 #define SELFTEST_GOLDEN_SIG "33414e3eb9a1788c3c19cf620e5d064cb549f5a8b377b02d465ff3285fd6fd85"
 
 // ---- Pins -------------------------------------------------------------------
-#define LED_PIN     2
+// Onboard indicator. The S3 DevKit has an ADDRESSABLE RGB LED (GPIO 48), not a
+// plain one. The Arduino core intercepts pins >= SOC_GPIO_PIN_COUNT, so
+// pinMode/digitalWrite on RGB_BUILTIN drive it correctly — but digitalRead()
+// CANNOT read its state back, so the 1 Hz blink tracks level in ledLevel below
+// instead of toggling off a read.
+#define LED_PIN     RGB_BUILTIN
 #define NUM_GATES   3
 // 4-channel relay board (ACTIVE-LOW) driving one solenoid latch per gate.
 // Relay INx -> these pins. Open = momentary LOW pulse; idle = HIGH (relay off).
-// Gate 2 was moved OFF GPIO 12 -> GPIO 27. GPIO 12 is an ESP32 strapping pin
-// that must read LOW at boot for the correct flash voltage; an idle-HIGH
-// active-low relay on it can block boot. GPIO 13, 14 and 27 are all safe
-// general-purpose outputs.
+// ESP32-S3 (2026-08-23). Safe general-purpose outputs, clear of the strapping
+// pins (0, 3, 45, 46), native USB (19/20), UART0 (43/44) and the flash/PSRAM
+// bus (26-32). Strapping matters here specifically because the relay board is
+// ACTIVE-LOW, so these idle HIGH — that is what blocked boot on the old chip
+// when gate 2 sat on GPIO 12.
 //
-// GATES 2 AND 3 ARE CROSSED IN THE HARNESS (2026-08-19). The physical middle
-// gate's solenoid landed on relay channel 3, and the top gate's on channel 2.
-// The solenoids are mounted and cabled through a conduit, so re-pulling them is
-// expensive and pointless — this table is exactly the right place to absorb it.
-// Hence gate 2 -> GPIO 14 (channel 3) and gate 3 -> GPIO 27 (channel 2).
+// This table is in plain gate order. The solenoid harness IS crossed — the
+// middle gate's solenoid is on relay channel 3 and the top gate's on channel 2 —
+// but that is absorbed by how the dupont jumpers land, NOT here:
 //
-// REED_PINS below is NOT crossed — the reeds landed on the correct gates. Don't
-// "helpfully" swap them to match this line.
+//     gate 1 (GPIO 15) -> IN1        gate 2 (GPIO 16) -> IN3
+//     gate 3 (GPIO 17) -> IN2
+//
+// Keeping the cross in one jumper rather than in this array is deliberate: an
+// array that silently disagrees with its own index is the kind of thing that
+// reads as a typo six months later and gets "fixed".
 //
 // Physical layout, bottom to top: gate 1 = bottom, gate 2 = middle, gate 3 = top.
-static const uint8_t RELAY_PINS[NUM_GATES] = { 13, 14, 27 };
-// Reed signal pins. DELIBERATELY NOT ADJACENT on the header — we have shorted
-// neighbouring pins twice now (19<->21, then 18<->19), both times from untinned
-// strands splaying across the next joint, and both times it presented as two
-// gates mirroring each other. Gate 1 lives on the OPPOSITE edge of the DevKit
-// so a stray whisker has nowhere useful to land.
+static const uint8_t RELAY_PINS[NUM_GATES] = { 15, 16, 17 };
+// Reed signal pins. DELIBERATELY NOT ADJACENT on the header. On the old board we
+// shorted neighbouring pins THREE times (19<->21, 18<->19, then 19<->21 again),
+// every time from untinned strands splaying across the next solder joint, and
+// every time it presented as two gates mirroring each other in the log. These
+// are hand-soldered wires, so spacing is the cheap insurance: 5 and 6 sit empty
+// between gates 1 and 2, and gate 3 is far down the row. Leave those gaps.
 //
-// Gate 2 is off 19 for good. Pin 19 appeared in ALL THREE shorts we hit
-// (19<->21, then 18<->19, then 19<->21 again) — it bridged to whichever
-// neighbour happened to exist. 22 has RX0/TX0 between it and 21, so nothing in
-// this set is adjacent to anything now. 18 and 19 are deliberately left EMPTY
-// as the buffer; do not reuse them for a fourth sensor without re-reading this.
+// (The relay lines above CAN be adjacent — those are dupont with housings, which
+// is not the failure mode that bit us.)
 //
-// If you move one, pick a pin that has an internal pull-up and isn't a boot
-// strapping pin. SAFE *AND FREE*: 4, 19, 22, 23, 26, 32, 33. (13/14/27 are the
-// relays, 2 is the LED, 34 is the battery ADC — don't reuse those.)
-// NEVER: 34, 35, 36(VP), 39(VN) — input-only with NO internal pull-up, so
-// INPUT_PULLUP silently does nothing and the reed reads garbage. Also avoid
-// 0, 2, 12, 15 — strapping pins; a reed closed at boot changes boot mode.
-static const uint8_t REED_PINS[NUM_GATES]  = { 25, 22, 21 };
+// If you move one, pick a pin with an internal pull-up that is not a strapping
+// pin. SAFE AND FREE on this board: 1, 2, 8, 10, 11, 13, 14, 18, 21, 47.
+// Taken: 15/16/17 relays, 4/7/12 reeds, 9 battery ADC, 48 RGB LED.
+// NEVER: 0, 3, 45, 46 (strapping — a reed closed at boot changes boot mode),
+// 19/20 (native USB), 43/44 (UART0 — you lose the serial console),
+// 26-32 (SPI flash), 35-37 (octal PSRAM on some modules).
+//
+// Note the ESP32-S3 has NO GPIO 22-25 and no VP/VN pins at all — the old
+// {25, 22, 21} assignment does not exist on this chip.
+static const uint8_t REED_PINS[NUM_GATES]  = { 4, 7, 12 };
 
 // Which gates actually have a reed switch soldered on. FLIP TO true AS YOU WIRE
 // EACH ONE — this is the only line that needs to change.
@@ -140,8 +149,12 @@ static const uint8_t REED_PINS[NUM_GATES]  = { 25, 22, 21 };
 // "unknown" rather than lying in either direction.
 static const bool REED_WIRED[NUM_GATES]    = { true, true, true };
 
-// Battery ADC: ADC1 input-only pin (safe alongside WiFi/BLE, unlike ADC2).
-#define BATTERY_ADC_PIN 34
+// Battery ADC: must be ADC1, which is GPIO 1-10 on the ESP32-S3 (ADC2 is unusable
+// while the radio is on). The old GPIO 34 does not exist on this chip — nor do
+// VP/VN, which were the original ESP32's input-only sense pins.
+// Still unwired: BATTERY_ADC_WIRED is 0, so this reserves a valid home rather
+// than describing an existing connection.
+#define BATTERY_ADC_PIN 9
 
 // ---- Relay (solenoid) timing ------------------------------------------------
 #define RELAY_ON        LOW       // active-low board: LOW = relay energized
@@ -1266,6 +1279,8 @@ void setup() {
 // Loop
 // =============================================================================
 unsigned long lastHeartbeat = 0;
+// Current LED level. Tracked rather than read back — see LED_PIN.
+bool          ledLevel      = false;
 
 // Heap/uptime trace, once per HEALTH_LOG_MS. Cheap (one printf) and it turns
 // "it died out of nowhere after a while" into a graph: if `heap` or `largest`
@@ -1295,10 +1310,14 @@ void loop() {
   // (app/RF); if it goes solid then blinks again, the link formed then dropped
   // (supervision/RF/ESP32 side).
   if (bleConnected) {
+    ledLevel = true;
     digitalWrite(LED_PIN, HIGH);
     lastHeartbeat = millis();  // so the blink resumes cleanly on disconnect
   } else if (millis() - lastHeartbeat > 1000) {
-    digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    // Tracked, not read back: digitalRead() on the RGB pseudo-pin does not
+    // return the LED's state, so toggling off it would freeze the blink.
+    ledLevel = !ledLevel;
+    digitalWrite(LED_PIN, ledLevel ? HIGH : LOW);
     lastHeartbeat = millis();
   }
 
