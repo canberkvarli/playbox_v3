@@ -103,19 +103,19 @@ extern "C" {
 // ACTIVE-LOW, so these idle HIGH — that is what blocked boot on the old chip
 // when gate 2 sat on GPIO 12.
 //
-// This table is in plain gate order. The solenoid harness IS crossed — the
-// middle gate's solenoid is on relay channel 3 and the top gate's on channel 2 —
-// but that is absorbed by how the dupont jumpers land, NOT here:
+// GATES 2 AND 3 ARE SWAPPED IN THE HARNESS, as landed on 2026-08-23. Verified
+// from the dev panel: firmware gate 3 drove the MIDDLE door and read the MIDDLE
+// door's reed. Gate 1 is correct on the bottom.
 //
-//     gate 1 (GPIO 15) -> IN1        gate 2 (GPIO 16) -> IN3
-//     gate 3 (GPIO 17) -> IN2
+// The swap is consistent across BOTH the relay and the reed, so it is corrected
+// the same way in both tables — RELAY_PINS here and REED_PINS below. If you ever
+// re-pull the harness, fix both or neither; a half-corrected pair is how you get
+// a gate that opens one door and watches another.
 //
-// Keeping the cross in one jumper rather than in this array is deliberate: an
-// array that silently disagrees with its own index is the kind of thing that
-// reads as a typo six months later and gets "fixed".
+//     gate 1 -> GPIO 15        gate 2 -> GPIO 17        gate 3 -> GPIO 16
 //
 // Physical layout, bottom to top: gate 1 = bottom, gate 2 = middle, gate 3 = top.
-static const uint8_t RELAY_PINS[NUM_GATES] = { 15, 16, 17 };
+static const uint8_t RELAY_PINS[NUM_GATES] = { 15, 17, 16 };
 // Reed signal pins. DELIBERATELY NOT ADJACENT on the header. On the old board we
 // shorted neighbouring pins THREE times (19<->21, 18<->19, then 19<->21 again),
 // every time from untinned strands splaying across the next solder joint, and
@@ -135,7 +135,9 @@ static const uint8_t RELAY_PINS[NUM_GATES] = { 15, 16, 17 };
 //
 // Note the ESP32-S3 has NO GPIO 22-25 and no VP/VN pins at all — the old
 // {25, 22, 21} assignment does not exist on this chip.
-static const uint8_t REED_PINS[NUM_GATES]  = { 4, 7, 12 };
+// Gates 2 and 3 swapped here too — see the RELAY_PINS comment. GPIO 12 is on the
+// MIDDLE door (gate 2) and GPIO 7 is on the TOP door (gate 3).
+static const uint8_t REED_PINS[NUM_GATES]  = { 4, 12, 7 };
 
 // Which gates actually have a reed switch soldered on. FLIP TO true AS YOU WIRE
 // EACH ONE — this is the only line that needs to change.
