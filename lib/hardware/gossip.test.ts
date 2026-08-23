@@ -1,9 +1,14 @@
 import { planGossipDrain, buildAckCommand, coalesceRelayQueue } from './gossip';
+import type { StationEvent } from '../ble/protocol';
 
 const sig = (n: number) => `sig${n}`;
 
-function ev(seq: number, extra: Record<string, unknown> = {}) {
-  return { event: 'gate_closed', gate: 1, session_id: 's1', ts: 100 + seq, seq, sig: sig(seq), ...extra };
+// Cast is needed because `extra` is deliberately untyped — several cases build
+// malformed events on purpose — so the literal widens past StationEvent.
+function ev(seq: number, extra: Record<string, unknown> = {}): StationEvent {
+  return {
+    event: 'gate_closed', gate: 1, session_id: 's1', ts: 100 + seq, seq, sig: sig(seq), ...extra,
+  } as unknown as StationEvent;
 }
 
 describe('planGossipDrain', () => {

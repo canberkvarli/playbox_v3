@@ -2,7 +2,14 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "types": ["node"],
+    "types": ["node", "jest"],
+    // The lib/server parity tests import the Deno edge functions directly to
+    // prove the app and the server agree on canonical event encoding. Deno
+    // requires explicit .ts extensions on those imports, so tsc has to accept
+    // them. Safe here because nothing is emitted from tsc — Metro/Babel does
+    // the actual building, and tsc is only ever run as `--noEmit` typecheck.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "paths": {
       "@/*": [
         "./*"

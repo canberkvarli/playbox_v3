@@ -26,7 +26,9 @@ type RecordedCall = {
   conversationId: string;
   paymentId?: string;
   paymentTxnId?: string;
-  priceTry: string;
+  // Optional because `release` carries no amount — it voids the whole hold.
+  // Only capture and refund move a specific sum.
+  priceTry?: string;
   ip: string;
 };
 
@@ -49,7 +51,7 @@ function makeIyzico(
       return result("capture");
     },
     release(args) {
-      calls.push({ op: "release", priceTry: args.priceTry, ip: args.ip, conversationId: args.conversationId, paymentId: args.paymentId });
+      calls.push({ op: "release", ip: args.ip, conversationId: args.conversationId, paymentId: args.paymentId });
       return result("release");
     },
     refund(args) {

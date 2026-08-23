@@ -36,7 +36,13 @@ const STATION = "DEV-001";
 // Sign an event exactly like the firmware: HMAC-SHA256 over eventSigningPayload
 // with the hex-decoded key, sig over the payload with sig:"". Returns the event
 // with its real sig filled in (same helper shape as eventVerify.test.ts::sign).
-function sign(e: Record<string, unknown>, secretHex: string = SECRET_HEX): IngestEvent {
+// Returns `sig` narrowed to string: IngestEvent declares no `sig` field, so it
+// falls through the `[k: string]: unknown` index signature and callers that
+// inspect the signature (the tamper tests) would otherwise get `unknown`.
+function sign(
+  e: Record<string, unknown>,
+  secretHex: string = SECRET_HEX,
+): IngestEvent & { sig: string } {
   const { sig: _drop, ...rest } = e;
   const full = { ...rest, sig: "" };
   return {
@@ -44,7 +50,7 @@ function sign(e: Record<string, unknown>, secretHex: string = SECRET_HEX): Inges
     sig: createHmac("sha256", Buffer.from(secretHex, "hex"))
       .update(eventSigningPayload(full as any))
       .digest("hex"),
-  } as IngestEvent;
+  } as unknown as IngestEvent & { sig: string };
 }
 
 // ---- In-memory store + durable queue + station cursor -------------------

@@ -8,6 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "test": "jest --watchAll",
+    "test:ci": "jest --ci",
+    "typecheck": "tsc --noEmit",
     "_pinned-versions-note": "react-native-reanimated and @react-native-async-storage/async-storage are EXACT-pinned (no ~ or ^). Drift between JS and native binary causes silent runtime breakage (see April 2026 incident). If you bump either, do a full `npx expo prebuild --clean && npx expo run:ios` to rebuild the native side in lockstep.",
     "verify-native-versions": "node -e \"const p=require('./package.json').dependencies;const exact=k=>!/^[~^]/.test(p[k]);['react-native-reanimated','react-native-worklets','@react-native-async-storage/async-storage'].forEach(k=>{if(!exact(k))throw new Error(k+' must be exact-pinned, got '+p[k])});console.log('native deps OK')\""
   },
@@ -82,6 +84,8 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@expo/config-plugins": "~57.0.2",
+    "@react-native/jest-preset": "^0.86.0",
+    "@types/jest": "^29.5.14",
     "@types/node": "^25.9.4",
     "@types/react": "~19.2.4",
     "jest": "^29.2.1",
