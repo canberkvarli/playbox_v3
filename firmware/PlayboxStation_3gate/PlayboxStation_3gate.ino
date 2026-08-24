@@ -168,11 +168,19 @@ static const bool REED_WIRED[NUM_GATES]    = { true, true, true };
 #define DEFAULT_DURATION_MIN 30
 #define REED_DEBOUNCE_MS    50
 
-// Dev unit only: honor the UNSIGNED `sim_close` command (the app's "KAPAT (sim)"
-// button / bench), a stand-in for the reed door-closed edge so the full
-// rent→close→return→close cycle runs before reeds are wired. Set to 0 for
-// production firmware so a phone can never fake a door-closed.
+// Bench convenience: honor the UNSIGNED `sim_close` command (the app's
+// "KAPAT (sim)" button), a stand-in for the reed door-closed edge so the full
+// rent→close→return→close cycle can be driven from the phone without walking
+// over and shutting the door by hand.
+//
+// KEPT ON DELIBERATELY — it is genuinely useful on the bench. Production
+// firmware must set this to 0: the command is unsigned, so on a deployed locker
+// it would let any phone in range end a stranger's rental and mark their gear
+// returned. As a second line of defence the handler also refuses unless
+// STATION_ID matches DEV_SIM_CLOSE_STATION, so forgetting this flag is not by
+// itself enough to expose a real station.
 #define DEV_SIM_CLOSE 1
+#define DEV_SIM_CLOSE_STATION "DEV-001"
 
 // ---- BLE UUIDs (must match lib/ble/protocol.ts) ----------------------------
 //   SERVICE ...def0, UNLOCK ...def1, EVENTS ...def2, INFO ...def3, BUFFER ...def4
@@ -1023,12 +1031,26 @@ class UnlockCallbacks : public NimBLECharacteristicCallbacks {
     }
 
 #if DEV_SIM_CLOSE
-    // UNSIGNED, DEV ONLY: stand-in for the reed/door-closed edge so the full
+    // UNSIGNED, BENCH ONLY: stand-in for the reed/door-closed edge, so the full
     // unlock→close→return→close cycle can be driven from the app's "KAPAT (sim)"
-    // button (or bench) before reeds are wired. Same effect as a real reed close
-    // on that gate (UNLOCKED→IN_USE, or RETURN_UNLOCKED→LOCKED + gate_closed).
-    // A production build (DEV_SIM_CLOSE 0) ignores it entirely.
+    // button without walking over to the tower and shutting the door by hand.
+    // Same effect as a real reed close (UNLOCKED→IN_USE, or RETURN_UNLOCKED→
+    // LOCKED + gate_closed).
+    //
+    // This command carries NO SIGNATURE — it is handled above the verify below,
+    // so anyone in BLE range can send it. On a deployed locker that means ending
+    // a stranger's rental and marking their gear returned while they walk off
+    // with it. Setting DEV_SIM_CLOSE to 0 is therefore mandatory for production
+    // firmware, but "someone remembers to flip a #define" is not a control.
+    //
+    // So it is ALSO pinned to the bench unit at runtime. Leaving the flag on by
+    // accident is then not enough to expose a real station: the build has to be
+    // wrong AND be running on DEV-001's identity.
     if (cmd == "sim_close") {
+      if (strcmp(STATION_ID, DEV_SIM_CLOSE_STATION) != 0) {
+        Serial.println("[SIM] sim_close IGNORED — not the bench station");
+        return;
+      }
       int simGate = doc["gate"] | 1;
       if (simGate >= 1 && simGate <= NUM_GATES) {
         Serial.printf("[SIM] sim_close gate %d\n", simGate);
@@ -1117,6 +1139,13 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.printf("\n=== Playbox 3-gate firmware (%s) ===\n", FW_VERSION);
+#if DEV_SIM_CLOSE
+  // Loud on purpose. An unsigned door-close command must never reach a real
+  // locker unnoticed, so make it impossible to read a boot log and miss it.
+  Serial.println("[WARN] ***** BENCH BUILD: unsigned sim_close is ENABLED *****");
+  Serial.println("[WARN] Accepted only on station " DEV_SIM_CLOSE_STATION
+                 ". Set DEV_SIM_CLOSE 0 before shipping.");
+#endif
 
   pinMode(LED_PIN, OUTPUT);
 
