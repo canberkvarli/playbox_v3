@@ -77,20 +77,22 @@ export function unlockGateId(
 export const STATIONS: Station[] = [
   // ---- The one physical unit (matches firmware station_id "DEV-001") -------
   //
-  // ⚠️ BEFORE RESUBMITTING TO APP REVIEW: this row is the ENTIRE public map now
-  // that generated fixtures are dev-only, so its name and coordinates are a
-  // claim about a locker a stranger can walk up to. Today the hardware sits at
-  // home, and the name below is a placeholder for the site being arranged with
-  // Bakırköy Belediyesi — it does not yet describe a real public installation.
+  // ⚠️ COORDINATES ARE STILL WRONG — DO NOT SHIP THIS ROW YET.
   //
-  // Set name/lat/lng to the actual field the unit is mounted at, on the day it
-  // is mounted. Do not ship this row pointing at a venue that has no locker on
-  // its wall: a reviewer (or a user) who walks to the pin and finds nothing is
-  // the Guideline 2.2 "not a complete experience" rejection all over again.
+  // The name now says Sanatçılar Parkı (Ataköy 3. Kısım, Bakırköy) but lat/lng
+  // below are still the old workshop location. Shipping as-is puts a pin
+  // labelled "Sanatçılar Parkı" somewhere that is not Sanatçılar Parkı, which is
+  // worse than the placeholder it replaced.
   //
-  // Coordinates: open Google Maps, right-click the spot, click the numbers at
-  // the top — they copy as "lat, lng".
-  { id: 'DEV-001',          name: 'Ataköy Sahil Spor Alanı',    city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
+  // This row is the ENTIRE public map now that generated fixtures are dev-only,
+  // so its name and coordinates are a claim that a stranger can walk to that
+  // spot and rent a ball. A reviewer or user who walks to the pin and finds
+  // nothing is the Guideline 2.2 "not a complete experience" rejection again.
+  //
+  // TO FIX: stand where the box is mounted, open Google Maps, long-press your
+  // position, copy the "lat, lng" it shows, and paste both numbers below. Do it
+  // on the day the unit goes up, not before.
+  { id: 'DEV-001',          name: 'Sanatçılar Parkı Spor Sahası', city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
   // { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'dalyan', lat: 36.8336737, lng: 28.64972, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
 
   // İstanbul (16)
