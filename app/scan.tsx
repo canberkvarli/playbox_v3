@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { useT } from '@/hooks/useT';
 import { hx } from '@/lib/haptics';
 import { palette } from '@/constants/theme';
-import { STATIONS } from '@/data/stations.seed';
+import { STATIONS, findRealStation } from '@/data/stations.seed';
 import { useMapStore } from '@/stores/mapStore';
 import { useSessionStore } from '@/stores/sessionStore';
 import { useReservationsApi } from '@/lib/reservations';
@@ -58,7 +58,7 @@ export default function Scan() {
       );
       return;
     }
-    const station = STATIONS.find((s) => s.id === id);
+    const station = findRealStation(id);
     if (!station) {
       Alert.alert(t('scan.not_found'));
       setScanned(false);

@@ -12,14 +12,44 @@ export type Station = {
 };
 
 /**
- * REAL (production) stations — the ones with a physical locker in the field.
- * The rest of STATIONS are demo/dummy fixtures shown only in Demo Mode (App
- * Store review) and dev builds. In real prod the map shows ONLY these. Add a
- * station's id here the day its hardware goes live; empty this set for a fully
- * empty prod map. DEV-001 is the workshop unit.
+ * REAL stations — the ones with a physical locker bolted up somewhere a stranger
+ * can walk to. In production the map shows ONLY these, and nothing else in the
+ * app resolves to anything else (see findRealStation).
+ *
+ * Every other row in STATIONS is a DEVELOPMENT FIXTURE: invented name, invented
+ * coordinates, no hardware. They exist so the map can be worked on without
+ * driving to a court. They are not inventory, not a roadmap, and must never
+ * reach a user or an App Store reviewer — showing a reviewer a dozen invented
+ * stations is what earned the Guideline 2.2 rejection on build 45.
+ *
+ * Add an id here the day its hardware goes live, and remove it the day the unit
+ * comes off the wall. Emptying this set gives a truthfully empty production map,
+ * which is the correct state when nothing is installed.
  */
 export const REAL_STATION_IDS = new Set<string>(['DEV-001']);
 export const isRealStation = (id: string) => REAL_STATION_IDS.has(id);
+
+/**
+ * Resolve a station id that came from OUTSIDE the app — today that means a
+ * scanned QR code, the one place an arbitrary id can be injected.
+ *
+ * In production this only ever resolves a station with a locker physically
+ * installed. The other ~30 rows below are development fixtures, and a user who
+ * scanned a crafted code should get "station not found" rather than be walked
+ * into a reservation flow for a park that has no Playbox in it.
+ *
+ * In dev it resolves the whole fixture set, so bench testing is unaffected.
+ *
+ * Ids that originate INSIDE the app (a pin the user tapped on the map) are
+ * already constrained to real stations by the map itself, so those lookups do
+ * not need this.
+ */
+export function findRealStation(id: string): Station | null {
+  const s = STATIONS.find((x) => x.id === id);
+  if (!s) return null;
+  if (!__DEV__ && !REAL_STATION_IDS.has(s.id)) return null;
+  return s;
+}
 
 export type Gate = {
   /** Stable, globally unique identifier — used as reservations.gate_id. */
@@ -77,22 +107,15 @@ export function unlockGateId(
 export const STATIONS: Station[] = [
   // ---- The one physical unit (matches firmware station_id "DEV-001") -------
   //
-  // ⚠️ COORDINATES ARE STILL WRONG — DO NOT SHIP THIS ROW YET.
+  // The one physical unit: Sanatçılar Parkı Spor Sahası, Ataköy 3. Kısım,
+  // Bakırköy. Coordinates measured at the mounting point itself.
   //
-  // The name now says Sanatçılar Parkı (Ataköy 3. Kısım, Bakırköy) but lat/lng
-  // below are still the old workshop location. Shipping as-is puts a pin
-  // labelled "Sanatçılar Parkı" somewhere that is not Sanatçılar Parkı, which is
-  // worse than the placeholder it replaced.
-  //
-  // This row is the ENTIRE public map now that generated fixtures are dev-only,
-  // so its name and coordinates are a claim that a stranger can walk to that
-  // spot and rent a ball. A reviewer or user who walks to the pin and finds
-  // nothing is the Guideline 2.2 "not a complete experience" rejection again.
-  //
-  // TO FIX: stand where the box is mounted, open Google Maps, long-press your
-  // position, copy the "lat, lng" it shows, and paste both numbers below. Do it
-  // on the day the unit goes up, not before.
-  { id: 'DEV-001',          name: 'Sanatçılar Parkı Spor Sahası', city: 'istanbul', lat: 40.9838, lng: 28.8645, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
+  // This row is the ENTIRE public map (generated fixtures are dev-only), so its
+  // name and coordinates are a claim that a stranger can walk to that spot and
+  // rent a ball. Keep it true: if the unit moves or comes off the wall, change
+  // this row or drop DEV-001 from REAL_STATION_IDS the same day. A user who
+  // walks to the pin and finds nothing is the Guideline 2.2 rejection again.
+  { id: 'DEV-001',          name: 'Sanatçılar Parkı Spor Sahası', city: 'istanbul', lat: 40.980174, lng: 28.863615, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
   // { id: 'DEV-001',          name: 'Playbox Dev Workshop',       city: 'dalyan', lat: 36.8336737, lng: 28.64972, sports: ['football', 'basketball', 'volleyball'], stock: { football: 1, basketball: 1, volleyball: 1 }, availableNow: true  },
 
   // İstanbul (16)
